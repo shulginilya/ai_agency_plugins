@@ -1,0 +1,95 @@
+{
+  "id": "gemini-cli",
+  "name": "Gemini CLI",
+  "docs": "https://geminicli.com/docs/cli/skills/",
+  "bundle": "loose",
+  "placeholders": {
+    "plugin_root": "{{SOURCE}}"
+  },
+  "components": {
+    "skills": {
+      "support": "native",
+      "verified": true,
+      "path": "skills/{name}",
+      "format": "skill-dir",
+      "frontmatter_allow": [
+        "name",
+        "description",
+        "license",
+        "compatibility",
+        "metadata",
+        "allowed-tools"
+      ]
+    },
+    "commands": {
+      "support": "native",
+      "verified": false,
+      "path": "commands/{name}.toml",
+      "format": "toml-command",
+      "placeholders": {
+        "args": "{{args}}",
+        "arg1": "{{args}}",
+        "arg2": "{{args}}"
+      }
+    },
+    "agents": {
+      "support": "emulated",
+      "verified": true,
+      "strategy": "as-skill",
+      "path": "skills/{name}",
+      "format": "skill-dir"
+    },
+    "hooks": {
+      "support": "unsupported",
+      "note": "No lifecycle hook equivalent; use CI."
+    },
+    "mcp": {
+      "support": "native",
+      "verified": false,
+      "path": "settings.json",
+      "format": "mcp-servers-json"
+    }
+  },
+  "install": {
+    "user": [
+      {
+        "component": "skills",
+        "dest": "~/.gemini/skills",
+        "mode": "children"
+      },
+      {
+        "component": "commands",
+        "dest": "~/.gemini/commands",
+        "mode": "children"
+      },
+      {
+        "component": "mcp",
+        "dest": "~/.gemini/settings.json",
+        "mode": "merge-json",
+        "merge_key": "mcpServers"
+      }
+    ],
+    "project": [
+      {
+        "component": "skills",
+        "dest": ".gemini/skills",
+        "mode": "children"
+      },
+      {
+        "component": "commands",
+        "dest": ".gemini/commands",
+        "mode": "children"
+      },
+      {
+        "component": "mcp",
+        "dest": ".gemini/settings.json",
+        "mode": "merge-json",
+        "merge_key": "mcpServers"
+      }
+    ]
+  },
+  "notes": [
+    "Gemini CLI reads .agents/skills as an alias for .gemini/skills and gives the alias higher precedence within each tier.",
+    "Gemini custom commands are TOML with `description` and `prompt` keys; arguments interpolate as {{args}}."
+  ]
+}

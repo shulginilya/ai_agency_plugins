@@ -1,0 +1,65 @@
+{
+  "id": "agents",
+  "name": "Generic Agent Skills (.agents/skills)",
+  "docs": "https://agentskills.io/specification",
+  "bundle": "loose",
+  "placeholders": {
+    "plugin_root": "{{SOURCE}}"
+  },
+  "components": {
+    "skills": {
+      "support": "native",
+      "verified": true,
+      "path": "skills/{name}",
+      "format": "skill-dir",
+      "frontmatter_allow": [
+        "name",
+        "description",
+        "license",
+        "compatibility",
+        "metadata",
+        "allowed-tools"
+      ]
+    },
+    "agents": {
+      "support": "emulated",
+      "verified": true,
+      "strategy": "as-skill",
+      "path": "skills/{name}",
+      "format": "skill-dir"
+    },
+    "commands": {
+      "support": "unsupported",
+      "note": "The open standard covers skills only. Commands are per-harness; use a specific target."
+    },
+    "hooks": {
+      "support": "unsupported"
+    },
+    "mcp": {
+      "support": "manual",
+      "verified": true,
+      "path": "mcp/servers.json",
+      "format": "mcp-servers-json",
+      "note": "Emitted for reference; every harness stores MCP config in its own file."
+    }
+  },
+  "install": {
+    "user": [
+      {
+        "component": "skills",
+        "dest": "~/.agents/skills",
+        "mode": "children"
+      }
+    ],
+    "project": [
+      {
+        "component": "skills",
+        "dest": ".agents/skills",
+        "mode": "children"
+      }
+    ]
+  },
+  "notes": [
+    "The lowest common denominator, and the highest-leverage target: Codex CLI, Cursor, Gemini CLI and OpenCode all read .agents/skills. One install, four harnesses."
+  ]
+}

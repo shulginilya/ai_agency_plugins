@@ -1,0 +1,91 @@
+{
+  "id": "cursor",
+  "name": "Cursor",
+  "docs": "https://cursor.com/docs/context/skills",
+  "bundle": "loose",
+  "placeholders": {
+    "plugin_root": "{{SOURCE}}"
+  },
+  "components": {
+    "skills": {
+      "support": "native",
+      "verified": true,
+      "path": "skills/{name}",
+      "format": "skill-dir",
+      "frontmatter_allow": [
+        "name",
+        "description",
+        "license",
+        "compatibility",
+        "metadata",
+        "allowed-tools"
+      ]
+    },
+    "commands": {
+      "support": "native",
+      "verified": false,
+      "path": "commands/{name}.md",
+      "format": "markdown-frontmatter",
+      "frontmatter_map": {
+        "description": "description"
+      },
+      "placeholders": {
+        "args": "$ARGUMENTS",
+        "arg1": "$1",
+        "arg2": "$2"
+      }
+    },
+    "agents": {
+      "support": "emulated",
+      "verified": true,
+      "strategy": "as-skill",
+      "path": "skills/{name}",
+      "format": "skill-dir"
+    },
+    "hooks": {
+      "support": "unsupported",
+      "note": "No lifecycle hook equivalent at this fidelity. Use Cursor rules or CI."
+    },
+    "mcp": {
+      "support": "native",
+      "verified": true,
+      "path": "mcp.json",
+      "format": "mcp-servers-json"
+    }
+  },
+  "install": {
+    "user": [
+      {
+        "component": "skills",
+        "dest": "~/.cursor/skills",
+        "mode": "children"
+      },
+      {
+        "component": "commands",
+        "dest": "~/.cursor/commands",
+        "mode": "children"
+      }
+    ],
+    "project": [
+      {
+        "component": "skills",
+        "dest": ".cursor/skills",
+        "mode": "children"
+      },
+      {
+        "component": "commands",
+        "dest": ".cursor/commands",
+        "mode": "children"
+      },
+      {
+        "component": "mcp",
+        "dest": ".cursor/mcp.json",
+        "mode": "merge-json",
+        "merge_key": "mcpServers"
+      }
+    ]
+  },
+  "notes": [
+    "Cursor also reads .agents/skills, .claude/skills and .codex/skills, so the generic `agents` target covers it too \u2014 installing both duplicates the skill."
+  ]
+}

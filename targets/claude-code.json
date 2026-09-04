@@ -1,0 +1,103 @@
+{
+  "id": "claude-code",
+  "name": "Claude Code",
+  "docs": "https://code.claude.com/docs/en/plugins-reference",
+  "bundle": "plugin",
+  "placeholders": {
+    "plugin_root": "${CLAUDE_PLUGIN_ROOT}"
+  },
+  "components": {
+    "manifest": {
+      "support": "native",
+      "verified": true,
+      "path": ".claude-plugin/plugin.json",
+      "format": "claude-plugin-manifest"
+    },
+    "skills": {
+      "support": "native",
+      "verified": true,
+      "path": "skills/{name}",
+      "format": "skill-dir",
+      "frontmatter_allow": [
+        "name",
+        "description",
+        "license",
+        "compatibility",
+        "metadata",
+        "allowed-tools"
+      ]
+    },
+    "commands": {
+      "support": "native",
+      "verified": true,
+      "path": "commands/{name}.md",
+      "format": "markdown-frontmatter",
+      "frontmatter_map": {
+        "description": "description",
+        "argument_hint": "argument-hint",
+        "model": "model",
+        "allowed_tools": "allowed-tools"
+      },
+      "placeholders": {
+        "args": "$ARGUMENTS",
+        "arg1": "$1",
+        "arg2": "$2"
+      }
+    },
+    "agents": {
+      "support": "native",
+      "verified": true,
+      "path": "agents/{name}.md",
+      "format": "markdown-frontmatter",
+      "frontmatter_map": {
+        "name": "name",
+        "description": "description",
+        "model": "model",
+        "tools": "tools",
+        "disallowed_tools": "disallowedTools"
+      }
+    },
+    "hooks": {
+      "support": "native",
+      "verified": true,
+      "path": "hooks/hooks.json",
+      "format": "claude-hooks"
+    },
+    "mcp": {
+      "support": "native",
+      "verified": true,
+      "path": ".mcp.json",
+      "format": "mcp-servers-json"
+    }
+  },
+  "install": {
+    "user": [
+      {
+        "component": "__bundle__",
+        "dest": "~/.claude/skills/{plugin}",
+        "mode": "bundle"
+      }
+    ],
+    "project": [
+      {
+        "component": "skills",
+        "dest": ".claude/skills",
+        "mode": "children"
+      },
+      {
+        "component": "commands",
+        "dest": ".claude/commands",
+        "mode": "children"
+      },
+      {
+        "component": "agents",
+        "dest": ".claude/agents",
+        "mode": "children"
+      }
+    ]
+  },
+  "notes": [
+    "User scope drops the whole bundle into ~/.claude/skills/<plugin>/, which Claude Code loads as a personal-scope plugin (`<plugin>@skills-dir`) with no marketplace step.",
+    "For team distribution, publish this repo as a marketplace instead: `apkit marketplace` regenerates .claude-plugin/marketplace.json."
+  ]
+}

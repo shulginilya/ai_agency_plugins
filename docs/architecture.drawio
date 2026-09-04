@@ -1,0 +1,452 @@
+<mxfile host="app.diagrams.net" modified="2026-09-04T00:00:00.000Z" agent="apkit-docs" version="24.7.7" type="device">
+  <diagram name="1 · How it works">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1850" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p1title" value="ai_agency_plugins — how it all works" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" vertex="1" parent="1">
+          <mxGeometry x="40" y="24" width="900" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p1sub" value="One portable source per plugin → declarative per-harness adapters → generated bundles → installed where each agent actually looks. Flow is one-way: nothing downstream ever writes back upstream." style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="1180" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="src" value="1 · SOURCE   plugins/&amp;lt;name&amp;gt;/   (the only source of truth)" style="swimlane;html=1;startSize=36;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;rounded=1;arcSize=4;fillColor=#eef4ff;strokeColor=#5b7fbd;fontColor=#1f3864;swimlaneFillColor=#fbfcff;" vertex="1" parent="1">
+          <mxGeometry x="40" y="130" width="300" height="332" as="geometry" />
+        </mxCell>
+        <mxCell id="src_r0" value="plugin.json — name, version, author, target overrides" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="src">
+          <mxGeometry x="12" y="48" width="276" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="src_r1" value="skills/&amp;lt;s&amp;gt;/SKILL.md  (+ references/, scripts/)" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="src">
+          <mxGeometry x="12" y="88" width="276" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="src_r2" value="commands/&amp;lt;c&amp;gt;.md   {{ARGS}} {{ARG1}} {{ARG2}}" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="src">
+          <mxGeometry x="12" y="128" width="276" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="src_r3" value="agents/&amp;lt;a&amp;gt;.md   frontmatter + prose" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="src">
+          <mxGeometry x="12" y="168" width="276" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="src_r4" value="hooks/hooks.json   (Claude Code schema)" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="src">
+          <mxGeometry x="12" y="208" width="276" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="src_r5" value="mcp/servers.json   {{PLUGIN_ROOT}}" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="src">
+          <mxGeometry x="12" y="248" width="276" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="src_r6" value="scripts/ · tests/ · README.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="src">
+          <mxGeometry x="12" y="288" width="276" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="srcnote" value="Skills are already written to the Agent Skills spec — no translation at all.&lt;br&gt;Everything else is written once in a neutral dialect and translated on the way out." style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="478" width="300" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt" value="2 · ADAPTERS   targets/*.json   (data, not code)" style="swimlane;html=1;startSize=36;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;rounded=1;arcSize=4;fillColor=#fff6e0;strokeColor=#c99a1e;fontColor=#7a5b00;swimlaneFillColor=#fffdf7;" vertex="1" parent="1">
+          <mxGeometry x="380" y="130" width="260" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt_r0" value="claude-code.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="tgt">
+          <mxGeometry x="12" y="48" width="236" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt_r1" value="codex.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="tgt">
+          <mxGeometry x="12" y="86" width="236" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt_r2" value="cursor.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="tgt">
+          <mxGeometry x="12" y="124" width="236" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt_r3" value="opencode.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="tgt">
+          <mxGeometry x="12" y="162" width="236" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt_r4" value="gemini-cli.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="tgt">
+          <mxGeometry x="12" y="200" width="236" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt_r5" value="agents.json  — generic .agents/skills" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="tgt">
+          <mxGeometry x="12" y="238" width="236" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="tgtnote" value="Each manifest declares, per component:&lt;br&gt;• support: native | emulated | manual | unsupported&lt;br&gt;• path + format (dialect)&lt;br&gt;• placeholder spellings ($ARGUMENTS, {{args}}, …)&lt;br&gt;• install placements (scope + mode)&lt;br&gt;• verified: true|false — checked against the&lt;br&gt;   harness&apos;s own docs, or inferred" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="380" y="426" width="260" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="kit" value="3 · BUILD   tools/apkit   (Python 3.9+, stdlib only, zero deps)" style="swimlane;html=1;startSize=36;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;rounded=1;arcSize=4;fillColor=#e7f5ea;strokeColor=#3f8f52;fontColor=#1d5228;swimlaneFillColor=#fbfefb;" vertex="1" parent="1">
+          <mxGeometry x="680" y="130" width="300" height="356" as="geometry" />
+        </mxCell>
+        <mxCell id="kit_r0" value="model.py — discover() plugin sources" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="kit">
+          <mxGeometry x="12" y="48" width="276" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="kit_r1" value="validate.py — lint against the spec" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="kit">
+          <mxGeometry x="12" y="86" width="276" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="kit_r2" value="targets.py — load target manifests" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="kit">
+          <mxGeometry x="12" y="124" width="276" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="kit_r3" value="build.py — project source onto a target" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontStyle=1;" vertex="1" parent="kit">
+          <mxGeometry x="12" y="162" width="276" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="kit_r4" value="render.py — 5 format renderers only" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontStyle=1;" vertex="1" parent="kit">
+          <mxGeometry x="12" y="200" width="276" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="kit_r5" value="install.py — plan · apply · ledger" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="kit">
+          <mxGeometry x="12" y="238" width="276" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="kit_r6" value="marketplace.py — marketplace.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="kit">
+          <mxGeometry x="12" y="276" width="276" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="kit_r7" value="cli.py — the apkit command surface" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="kit">
+          <mxGeometry x="12" y="314" width="276" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="kitnote" value="Python appears only where an output FORMAT differs:&lt;br&gt;Gemini TOML commands · OpenCode MCP shape · Codex config.toml snippet.&lt;br&gt;A new harness usually needs none of it — just a new JSON manifest." style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="680" y="502" width="300" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="dist" value="4 · OUTPUT   dist/&amp;lt;target&amp;gt;/&amp;lt;plugin&amp;gt;/   (generated, gitignored)" style="swimlane;html=1;startSize=36;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;rounded=1;arcSize=4;fillColor=#f2e9fb;strokeColor=#7f56ab;fontColor=#452a63;swimlaneFillColor=#fdfbff;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="130" width="290" height="318" as="geometry" />
+        </mxCell>
+        <mxCell id="dist_r0" value="dist/claude-code/&amp;lt;plugin&amp;gt;/" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="dist">
+          <mxGeometry x="12" y="48" width="266" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dist_r1" value="dist/codex/&amp;lt;plugin&amp;gt;/" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="dist">
+          <mxGeometry x="12" y="86" width="266" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dist_r2" value="dist/cursor/&amp;lt;plugin&amp;gt;/" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="dist">
+          <mxGeometry x="12" y="124" width="266" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dist_r3" value="dist/opencode/&amp;lt;plugin&amp;gt;/" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="dist">
+          <mxGeometry x="12" y="162" width="266" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dist_r4" value="dist/gemini-cli/&amp;lt;plugin&amp;gt;/" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="dist">
+          <mxGeometry x="12" y="200" width="266" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dist_r5" value="dist/agents/&amp;lt;plugin&amp;gt;/" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="dist">
+          <mxGeometry x="12" y="238" width="266" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dist_r6" value="INSTALL.md — degradation report" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontStyle=1;" vertex="1" parent="dist">
+          <mxGeometry x="12" y="276" width="266" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="distnote" value="Every dropped or downgraded component is printed at build time&lt;br&gt;and written into INSTALL.md, with the reason." style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="464" width="290" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="harn" value="5 · INSTALL   where each harness actually reads" style="swimlane;html=1;startSize=36;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;rounded=1;arcSize=4;fillColor=#fdeaea;strokeColor=#bd5757;fontColor=#7a2020;swimlaneFillColor=#fffbfb;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="130" width="440" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="harn_r0" value="Claude Code — ~/.claude/skills/&amp;lt;plugin&amp;gt;/ (whole bundle = plugin)  ·  .claude/{skills,commands,agents}" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="harn">
+          <mxGeometry x="12" y="48" width="416" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="harn_r1" value="Codex CLI — ~/.agents/skills  ·  ~/.codex/prompts/&amp;lt;c&amp;gt;.md  ·  ~/.codex/config.toml (by hand)" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="harn">
+          <mxGeometry x="12" y="96" width="416" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="harn_r2" value="Cursor — .cursor/{skills,commands}  ·  .cursor/mcp.json  ·  .agents/skills" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="harn">
+          <mxGeometry x="12" y="144" width="416" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="harn_r3" value="OpenCode — .opencode/{skills,command}  ·  opencode.json (merged)" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="harn">
+          <mxGeometry x="12" y="192" width="416" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="harn_r4" value="Gemini CLI — .gemini/{skills, commands/&amp;lt;c&amp;gt;.toml, settings.json}" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="harn">
+          <mxGeometry x="12" y="240" width="416" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="harn_r5" value="GENERIC  .agents/skills  →  read by Codex + Cursor + Gemini CLI + OpenCode" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontStyle=1;" vertex="1" parent="harn">
+          <mxGeometry x="12" y="288" width="416" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="harnnote" value="Placement modes: bundle (whole dir) · children (each entry placed on its own) · merge-json (merged under one key, previous file kept as *.apkit.bak, invalid JSON refused).&lt;br&gt;Scopes: user (home dir) · project (--into, default cwd)." style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="486" width="440" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="source" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="src" target="kit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="manifest" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="tgt" target="kit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="apkit build" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="kit" target="dist">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="apkit install" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="dist" target="harn">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fatebox" value="The four fates — declared by the manifest, never guessed" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="610" width="940" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="f1" value="native&lt;br&gt;&lt;br&gt;the harness has this concept —&lt;br&gt;rendered in its own dialect" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="fatebox">
+          <mxGeometry x="20" y="46" width="210" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="f2" value="emulated&lt;br&gt;&lt;br&gt;close equivalent exists — a subagent&lt;br&gt;becomes a skill, with a preamble&lt;br&gt;explaining the substitution" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#fde9c9;strokeColor=#d79b00;fontColor=#7a4d00;" vertex="1" parent="fatebox">
+          <mxGeometry x="245" y="46" width="210" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="f3" value="manual&lt;br&gt;&lt;br&gt;config lives in a file apkit refuses&lt;br&gt;to rewrite (Codex config.toml) —&lt;br&gt;a snippet is emitted instead" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f3864;" vertex="1" parent="fatebox">
+          <mxGeometry x="470" y="46" width="210" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="f4" value="unsupported&lt;br&gt;&lt;br&gt;nothing sensible exists — dropped,&lt;br&gt;reason printed and written&lt;br&gt;into INSTALL.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#ededed;strokeColor=#999999;fontColor=#666666;" vertex="1" parent="fatebox">
+          <mxGeometry x="695" y="46" width="210" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="fatewhy" value="Why this matters: a cross-harness build that quietly drops your hooks is worse than no build at all — you find out only when the thing you thought was enforced wasn&apos;t. Silent drops are treated as bugs." style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=2;fontColor=#444444;" vertex="1" parent="fatebox">
+          <mxGeometry x="20" y="148" width="900" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="ledger" value="install ledger  .apkit.local.json  (gitignored)&lt;br&gt;&lt;br&gt;Every install records exactly what it wrote, so apkit uninstall can undo precisely that.&lt;br&gt;Merged config entries are reported, not removed — unpicking a hand-edited config is not&lt;br&gt;something a tool should do unasked." style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="610" width="480" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="verif" value="verified flag&lt;br&gt;&lt;br&gt;Each component mapping carries verified: true|false. true = checked against that harness&apos;s own docs.&lt;br&gt;apkit targets and apkit doctor surface the unverified ones; the build writes them into INSTALL.md." style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1520" y="610" width="270" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;dashed=1;strokeColor=#999999;endArrow=open;strokeWidth=1;exitX=0.5;exitY=1;" edge="1" parent="1" source="kit" target="ledger">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="2 · Support matrix">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1850" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p2title" value="Support matrix — what survives the trip to each harness" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" vertex="1" parent="1">
+          <mxGeometry x="40" y="24" width="900" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p2sub" value="Live version: python -m tools.apkit targets   ·   on-machine paths: python -m tools.apkit doctor" style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="900" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="h0" value="target" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#3c3c3c;strokeColor=#3c3c3c;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="130" width="220" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h1" value="skills" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#3c3c3c;strokeColor=#3c3c3c;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="260" y="130" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h2" value="commands" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#3c3c3c;strokeColor=#3c3c3c;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="470" y="130" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h3" value="agents" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#3c3c3c;strokeColor=#3c3c3c;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="680" y="130" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h4" value="hooks" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#3c3c3c;strokeColor=#3c3c3c;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="890" y="130" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h5" value="mcp" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#3c3c3c;strokeColor=#3c3c3c;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="130" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="n0" value="Claude Code&lt;br&gt;claude-code.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="178" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c0_0" value="native&lt;br&gt;SKILL.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="260" y="178" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c0_1" value="native&lt;br&gt;commands/*.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="470" y="178" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c0_2" value="native&lt;br&gt;agents/*.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="680" y="178" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c0_3" value="native&lt;br&gt;hooks.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="890" y="178" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c0_4" value="native&lt;br&gt;.mcp.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="178" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="n1" value="OpenCode&lt;br&gt;opencode.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="248" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_0" value="native&lt;br&gt;SKILL.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="260" y="248" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_1" value="native&lt;br&gt;.opencode/command" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="470" y="248" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_2" value="native&lt;br&gt;.opencode/agent" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="680" y="248" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_3" value="—&lt;br&gt;—" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#ededed;strokeColor=#999999;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="890" y="248" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_4" value="native&lt;br&gt;opencode.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="248" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="Cursor&lt;br&gt;cursor.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="318" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_0" value="native&lt;br&gt;SKILL.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="260" y="318" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_1" value="native&lt;br&gt;.cursor/commands" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="470" y="318" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_2" value="emulated&lt;br&gt;as skill" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#fde9c9;strokeColor=#d79b00;fontColor=#7a4d00;" vertex="1" parent="1">
+          <mxGeometry x="680" y="318" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_3" value="—&lt;br&gt;—" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#ededed;strokeColor=#999999;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="890" y="318" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_4" value="native&lt;br&gt;.cursor/mcp.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="318" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="Codex CLI&lt;br&gt;codex.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="388" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c3_0" value="native&lt;br&gt;SKILL.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="260" y="388" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c3_1" value="native&lt;br&gt;~/.codex/prompts" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="470" y="388" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c3_2" value="emulated&lt;br&gt;as skill" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#fde9c9;strokeColor=#d79b00;fontColor=#7a4d00;" vertex="1" parent="1">
+          <mxGeometry x="680" y="388" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c3_3" value="—&lt;br&gt;—" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#ededed;strokeColor=#999999;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="890" y="388" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c3_4" value="manual&lt;br&gt;config.toml snippet" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="388" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="Gemini CLI&lt;br&gt;gemini-cli.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="458" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c4_0" value="native&lt;br&gt;SKILL.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="260" y="458" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c4_1" value="native&lt;br&gt;*.toml {{args}}" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="470" y="458" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c4_2" value="emulated&lt;br&gt;as skill" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#fde9c9;strokeColor=#d79b00;fontColor=#7a4d00;" vertex="1" parent="1">
+          <mxGeometry x="680" y="458" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c4_3" value="—&lt;br&gt;—" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#ededed;strokeColor=#999999;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="890" y="458" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c4_4" value="native&lt;br&gt;.gemini/settings.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="458" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="Generic .agents&lt;br&gt;agents.json" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;align=left;spacingLeft=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="528" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c5_0" value="native&lt;br&gt;SKILL.md" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;" vertex="1" parent="1">
+          <mxGeometry x="260" y="528" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c5_1" value="—&lt;br&gt;—" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#ededed;strokeColor=#999999;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="470" y="528" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c5_2" value="emulated&lt;br&gt;as skill" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#fde9c9;strokeColor=#d79b00;fontColor=#7a4d00;" vertex="1" parent="1">
+          <mxGeometry x="680" y="528" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c5_3" value="—&lt;br&gt;—" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#ededed;strokeColor=#999999;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="890" y="528" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="c5_4" value="manual&lt;br&gt;reference only" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="528" width="210" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="leverage" value=".agents/skills is the leverage point&lt;br&gt;&lt;br&gt;Codex CLI, Cursor, Gemini CLI and OpenCode all read it.&lt;br&gt;apkit install &amp;lt;plugin&amp;gt; --target agents covers four harnesses in one step.&lt;br&gt;The per-harness targets exist for what .agents/skills does not carry:&lt;br&gt;commands, subagents, hooks, MCP config.&lt;br&gt;&lt;br&gt;Installing both the generic and a specific target puts the same skill in two&lt;br&gt;discovered locations — harnesses resolve that by precedence rather than erroring,&lt;br&gt;but you then have two copies to keep in step. Pick one." style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="620" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="unverif" value="Still inferred, not verified against docs&lt;br&gt;&lt;br&gt;codex.commands · cursor.commands · opencode.commands · gemini-cli.commands&lt;br&gt;opencode.agents · opencode.mcp · gemini-cli.mcp&lt;br&gt;&lt;br&gt;Skill discovery paths are verified for all six targets.&lt;br&gt;Confirm one against a live harness → flip &quot;verified&quot;: true in the manifest&lt;br&gt;and update docs/harness-matrix.md. That flag is the repo&apos;s memory of&lt;br&gt;what has actually been checked." style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="690" y="620" width="620" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="legend" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="620" width="250" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="lg0" value="native — harness&apos;s own concept" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;align=left;spacingLeft=8;" vertex="1" parent="legend">
+          <mxGeometry x="14" y="44" width="222" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="lg1" value="emulated — closest equivalent" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#fde9c9;strokeColor=#d79b00;fontColor=#7a4d00;align=left;spacingLeft=8;" vertex="1" parent="legend">
+          <mxGeometry x="14" y="78" width="222" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2" value="manual — snippet to merge by hand" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f3864;align=left;spacingLeft=8;" vertex="1" parent="legend">
+          <mxGeometry x="14" y="112" width="222" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="lg3" value="unsupported — dropped, reason reported" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#ededed;strokeColor=#999999;fontColor=#666666;align=left;spacingLeft=8;" vertex="1" parent="legend">
+          <mxGeometry x="14" y="146" width="222" height="28" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="3 · apkit lifecycle">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1850" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p3title" value="The apkit lifecycle" style="text;html=1;align=left;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" vertex="1" parent="1">
+          <mxGeometry x="40" y="24" width="700" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="p3sub" value="python -m tools.apkit &amp;lt;command&amp;gt;   (or pip install -e . and just: apkit)" style="text;html=1;align=left;verticalAlign=top;fontSize=12;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="900" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="s1h" value="apkit new NAME" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="130" width="420" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" value="Copies plugins/_template into plugins/NAME and rewrites plugin.json.&lt;br&gt;Next: edit the manifest, write SKILL.md." style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;align=left;spacingLeft=12;spacingTop=6;verticalAlign=top;fontSize=11;fillColor=#ffffff;strokeColor=#5b7fbd;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="156" width="560" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="s2h" value="apkit validate" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="252" width="420" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="Lints every plugin against the Agent Skills spec.&lt;br&gt;--strict turns warnings into failures. Errors also block build." style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;align=left;spacingLeft=12;spacingTop=6;verticalAlign=top;fontSize=11;fillColor=#ffffff;strokeColor=#5b7fbd;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="278" width="560" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="s3h" value="apkit build" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="374" width="420" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="Reads targets/*.json, renders dist/&amp;lt;target&amp;gt;/&amp;lt;plugin&amp;gt;/.&lt;br&gt;--target / --plugin / --clean / --dist-dir / --skip-validate.&lt;br&gt;Prints every skip with its reason; writes INSTALL.md." style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;align=left;spacingLeft=12;spacingTop=6;verticalAlign=top;fontSize=11;fillColor=#ffffff;strokeColor=#5b7fbd;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="400" width="560" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="s4h" value="apkit install NAME --target T" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="496" width="420" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="--scope user|project · --into DIR · --link (symlink) · --dry-run.&lt;br&gt;plan() → apply() → record() into .apkit.local.json." style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;align=left;spacingLeft=12;spacingTop=6;verticalAlign=top;fontSize=11;fillColor=#ffffff;strokeColor=#5b7fbd;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="522" width="560" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="s5h" value="apkit doctor" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="618" width="420" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" value="Which harness paths exist on THIS machine, which mappings are&lt;br&gt;unverified, and what the ledger says is installed where." style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;align=left;spacingLeft=12;spacingTop=6;verticalAlign=top;fontSize=11;fillColor=#ffffff;strokeColor=#5b7fbd;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="644" width="560" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="s6h" value="apkit uninstall NAME" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="740" width="420" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="s6" value="Reverses exactly what the ledger recorded. Merged JSON entries&lt;br&gt;are reported, never silently stripped out." style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;align=left;spacingLeft=12;spacingTop=6;verticalAlign=top;fontSize=11;fillColor=#ffffff;strokeColor=#5b7fbd;fontColor=#1f3864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="766" width="560" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s1_s2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="s1" target="s2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s2_s3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="s2" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s3_s4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="s3" target="s4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s4_s5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="s4" target="s5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_s5_s6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=2;strokeColor=#4d4d4d;endArrow=blockThin;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="s5" target="s6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="side1" value="Alongside the main path" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="660" y="130" width="470" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="sd1" value="apkit targets — support summary per harness (+native ~emulated !manual -unsupported)" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="side1">
+          <mxGeometry x="16" y="46" width="438" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="sd2" value="apkit test — runs tests/test_*.py at repo root and inside each plugin" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="side1">
+          <mxGeometry x="16" y="96" width="438" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="sd3" value="apkit marketplace — regenerates .claude-plugin/marketplace.json from dist/claude-code" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="side1">
+          <mxGeometry x="16" y="146" width="438" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="sd4" value="CI: .github/workflows/ci.yml runs validate + build + test" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="side1">
+          <mxGeometry x="16" y="206" width="438" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="side2" value="Install placement modes" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="660" y="400" width="470" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="sm1" value="bundle — the whole built directory becomes one installed plugin (~/.claude/skills/&amp;lt;plugin&amp;gt;/)" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#d5efd9;strokeColor=#3f8f52;fontColor=#1d5228;align=left;spacingLeft=10;" vertex="1" parent="side2">
+          <mxGeometry x="16" y="46" width="438" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="sm2" value="children — each child of a component dir is placed individually (how skills reach .agents/skills)" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#1f3864;align=left;spacingLeft=10;" vertex="1" parent="side2">
+          <mxGeometry x="16" y="100" width="438" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="sm3" value="merge-json — merged into an existing config under one key; previous file kept as *.apkit.bak; a file that is not valid JSON is refused, not overwritten" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=center;fontSize=11;fillColor=#fde9c9;strokeColor=#d79b00;fontColor=#7a4d00;align=left;spacingLeft=10;" vertex="1" parent="side2">
+          <mxGeometry x="16" y="154" width="438" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="side3" value="Placeholders resolved at build time" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=10;spacingTop=4;verticalAlign=top;fontSize=11;fillColor=#f7f7f7;strokeColor=#b3b3b3;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="660" y="640" width="470" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="sp1" value="{{ARGS}} → $ARGUMENTS (Claude Code, Codex, Cursor, OpenCode) · {{args}} (Gemini TOML)" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="side3">
+          <mxGeometry x="16" y="46" width="438" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="sp2" value="{{ARG1}} / {{ARG2}} → $1 / $2 where the harness supports positional args" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;" vertex="1" parent="side3">
+          <mxGeometry x="16" y="96" width="438" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="sp3" value="{{PLUGIN_ROOT}} → ${CLAUDE_PLUGIN_ROOT} for Claude Code; the plugin&apos;s absolute source path everywhere else — loose installs scatter skills into harness dirs, and nothing there knows where the plugin came from" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=11;fillColor=#ffffff;strokeColor=#c2c2c2;verticalAlign=middle;verticalAlign=top;spacingTop=4;" vertex="1" parent="side3">
+          <mxGeometry x="16" y="146" width="438" height="44" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

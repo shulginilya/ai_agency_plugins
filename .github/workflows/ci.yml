@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Validate plugin sources
+        run: python -m tools.apkit validate --strict
+
+      - name: Build every target
+        run: python -m tools.apkit build --clean
+
+      - name: Run tests
+        run: python -m tools.apkit test
+
+      - name: Marketplace index is up to date
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        run: |
+          python -m tools.apkit marketplace
+          git diff --exit-code .claude-plugin/marketplace.json
+
+      - name: Upload built bundles
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-bundles
+          path: dist/
+          retention-days: 14

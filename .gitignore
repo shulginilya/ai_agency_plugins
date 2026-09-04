@@ -1,0 +1,23 @@
+# Build output
+/dist/
+/.apkit-cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# Local, machine-specific installs
+/.apkit.local.json

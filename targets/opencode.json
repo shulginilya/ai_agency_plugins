@@ -1,0 +1,107 @@
+{
+  "id": "opencode",
+  "name": "OpenCode",
+  "docs": "https://opencode.ai/docs/skills/",
+  "bundle": "loose",
+  "placeholders": {
+    "plugin_root": "{{SOURCE}}"
+  },
+  "components": {
+    "skills": {
+      "support": "native",
+      "verified": true,
+      "path": "skills/{name}",
+      "format": "skill-dir",
+      "frontmatter_allow": [
+        "name",
+        "description",
+        "license",
+        "compatibility",
+        "metadata",
+        "allowed-tools"
+      ]
+    },
+    "commands": {
+      "support": "native",
+      "verified": false,
+      "path": "command/{name}.md",
+      "format": "markdown-frontmatter",
+      "frontmatter_map": {
+        "description": "description",
+        "model": "model",
+        "agent": "agent"
+      },
+      "placeholders": {
+        "args": "$ARGUMENTS",
+        "arg1": "$1",
+        "arg2": "$2"
+      }
+    },
+    "agents": {
+      "support": "native",
+      "verified": false,
+      "path": "agent/{name}.md",
+      "format": "markdown-frontmatter",
+      "frontmatter_map": {
+        "description": "description",
+        "model": "model",
+        "tools": "tools"
+      }
+    },
+    "hooks": {
+      "support": "unsupported",
+      "note": "Use OpenCode plugins/CI for equivalent enforcement."
+    },
+    "mcp": {
+      "support": "native",
+      "verified": false,
+      "path": "opencode.json",
+      "format": "mcp-opencode-json"
+    }
+  },
+  "install": {
+    "user": [
+      {
+        "component": "skills",
+        "dest": "~/.config/opencode/skills",
+        "mode": "children"
+      },
+      {
+        "component": "commands",
+        "dest": "~/.config/opencode/command",
+        "mode": "children"
+      },
+      {
+        "component": "agents",
+        "dest": "~/.config/opencode/agent",
+        "mode": "children"
+      }
+    ],
+    "project": [
+      {
+        "component": "skills",
+        "dest": ".opencode/skills",
+        "mode": "children"
+      },
+      {
+        "component": "commands",
+        "dest": ".opencode/command",
+        "mode": "children"
+      },
+      {
+        "component": "agents",
+        "dest": ".opencode/agent",
+        "mode": "children"
+      },
+      {
+        "component": "mcp",
+        "dest": "opencode.json",
+        "mode": "merge-json",
+        "merge_key": "mcp"
+      }
+    ]
+  },
+  "notes": [
+    "OpenCode reads .opencode/skills, ~/.config/opencode/skills, and \u2014 for compatibility \u2014 .claude/skills and .agents/skills."
+  ]
+}

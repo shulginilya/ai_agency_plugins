@@ -1,0 +1,29 @@
+{
+  "name": "ai-agency",
+  "owner": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "metadata": {
+    "description": "Harness-agnostic agent plugins."
+  },
+  "plugins": [
+    {
+      "name": "code-review",
+      "source": "./dist/claude-code/code-review",
+      "description": "Structured code review and repository audit. Reviews a diff, branch or pull request against correctness, security, performance and accessibility, and reports findings ranked by severity with a concrete failure scenario for each. Use when asked to review code, audit a PR, or check quality before merging.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "code-review",
+        "pull-request",
+        "audit",
+        "security",
+        "quality"
+      ]
+    }
+  ]
+}

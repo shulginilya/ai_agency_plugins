@@ -1,0 +1,17 @@
+{
+  "name": "_template",
+  "displayName": "Template",
+  "version": "0.1.0",
+  "description": "Starting point for a new plugin. Replace this description with what the plugin does and when someone would reach for it — the words here end up in front of the model. Use when scaffolding a new plugin.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "keywords": [],
+  "targets": {
+    "exclude": [],
+    "overrides": {}
+  }
+}

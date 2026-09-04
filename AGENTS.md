@@ -1,0 +1,72 @@
+# Working in this repo
+
+This repo builds **harness-agnostic agent plugins**. Read this before changing
+anything.
+
+## The one rule
+
+`plugins/<name>/` is the **only** source of truth. Everything under `dist/` is
+generated and gitignored. Never hand-edit build output; fix the source or fix
+the adapter.
+
+## Where things live
+
+| Path | What it is | Hand-edited? |
+| --- | --- | --- |
+| `plugins/<name>/` | Portable plugin source | ✅ yes |
+| `targets/*.json` | Declarative harness manifests | ✅ yes |
+| `tools/apkit/` | The build/validate/install CLI | ✅ yes |
+| `dist/` | Per-target build output | ❌ generated |
+| `.claude-plugin/marketplace.json` | Claude Code marketplace index | ❌ generated (`apkit marketplace`) |
+
+## Invariants
+
+1. **Skills stay spec-pure.** A `SKILL.md` must validate against the
+   [Agent Skills spec](https://agentskills.io/specification): `name` matches the
+   parent directory, lowercase-hyphen, ≤64 chars; `description` ≤1024 chars and
+   says *what it does and when to use it*. Anything harness-specific goes in
+   `plugin.json` or a `targets/` adapter — never in the skill body.
+2. **Adapters are data first.** If a harness change can be expressed as a path
+   or a placeholder, it belongs in `targets/*.json`. Only reach for Python when
+   the output format genuinely differs (e.g. Gemini's TOML commands).
+3. **Degradation is explicit.** When a target can't express a component
+   (subagents on Codex, hooks on Cursor), the adapter declares
+   `"unsupported"` and the build reports it. Silent drops are bugs.
+4. **No runtime dependencies.** `tools/apkit` is standard-library Python 3.9+.
+   Plugins may ship their own scripts with their own declared deps.
+5. **Every plugin gets a smoke test.** `plugins/<name>/tests/` runs under
+   `python -m tools.apkit test`.
+
+## Before you commit
+
+```bash
+python -m tools.apkit validate --strict
+python -m tools.apkit build
+python -m tools.apkit test
+```
+
+CI runs exactly these three.
+
+## Adding a plugin
+
+```bash
+cp -r plugins/_template plugins/my-plugin
+# edit plugins/my-plugin/plugin.json (name, description, version)
+python -m tools.apkit validate --plugin my-plugin
+```
+
+## Adding a harness target
+
+Copy an existing `targets/*.json`, adjust the paths and dialects, then run
+`python -m tools.apkit build --target <new>` and inspect `dist/<new>/`. Only add
+Python if a renderer for that dialect doesn't already exist in
+`tools/apkit/render.py`.
+
+## Style
+
+- Skill bodies: imperative, concrete, under 500 lines. Push detail into
+  `references/` — agents load those on demand.
+- Descriptions: include the words a user would actually type. "Use when the
+  user asks to review a PR, audit a diff, or check code quality" beats
+  "Helps with code review."
+- Commit messages: conventional commits (`feat:`, `fix:`, `docs:`, `chore:`).

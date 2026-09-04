@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apkit"
+version = "0.1.0"
+description = "Build harness-agnostic agent plugins: author once, project onto every harness."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Ilya Shulgin", email = "ishulgin8@gmail.com" }]
+keywords = ["agent-skills", "plugins", "claude-code", "codex", "cursor", "opencode", "gemini-cli"]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/shulginilya/ai_agency_plugins"
+
+[project.scripts]
+apkit = "tools.apkit.cli:main"
+
+[tool.setuptools]
+packages = ["tools", "tools.apkit"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
