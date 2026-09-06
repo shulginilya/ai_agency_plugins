@@ -54,7 +54,7 @@ ref invalidates the whole run.
 ```bash
 git log --oneline --first-parent -30
 git tag --sort=-creatordate | head
-python scripts/bisect.py --good v1.4.0 --cmd "npm test -- cart.total"
+python scripts/git_bisect.py --good v1.4.0 --cmd "npm test -- cart.total"
 ```
 
 Run it without `--run` first. It prints the range, the commit count and the
@@ -64,7 +64,7 @@ already fails is the most common wasted bisect.
 ## 3. Bisect
 
 ```bash
-python scripts/bisect.py --good v1.4.0 --cmd "npm test -- cart.total" --run
+python scripts/git_bisect.py --good v1.4.0 --cmd "npm test -- cart.total" --run
 ```
 
 The script refuses to start on a dirty tree, always resets the bisect state

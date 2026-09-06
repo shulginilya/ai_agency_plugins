@@ -23,14 +23,14 @@ Follow the `regression-triage` skill.
    in range, a shallow clone or many merges each change the invocation:
 
    ```bash
-   python "{{PLUGIN_ROOT}}/skills/regression-triage/scripts/bisect.py" --good <ref> --cmd "<verdict>"
+   python "{{PLUGIN_ROOT}}/skills/regression-triage/scripts/git_bisect.py" --good <ref> --cmd "<verdict>"
    ```
 
 4. Then run it, adding `--setup` when dependencies changed in the range and
    `--times` when the verdict is not perfectly stable:
 
    ```bash
-   python "{{PLUGIN_ROOT}}/skills/regression-triage/scripts/bisect.py" --good <ref> --cmd "<verdict>" --run
+   python "{{PLUGIN_ROOT}}/skills/regression-triage/scripts/git_bisect.py" --good <ref> --cmd "<verdict>" --run
    ```
 
 5. Read the culprit commit and the file's history, then report in the skill's

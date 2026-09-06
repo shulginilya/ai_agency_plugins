@@ -19,12 +19,13 @@ RCA = PLUGIN / "skills" / "root-cause-analysis" / "scripts"
 TRIAGE = PLUGIN / "skills" / "regression-triage" / "scripts"
 REPRO = RCA / "repro.py"
 SUPPRESSION = RCA / "suppression.py"
-BISECT = TRIAGE / "bisect.py"
+BISECT = TRIAGE / "git_bisect.py"
 HISTORY = TRIAGE / "history.py"
 HOOK = PLUGIN / "scripts" / "symptom_suppression_check.py"
 MCP_SERVER = PLUGIN / "mcp" / "server.py"
 
 sys.path.insert(0, str(RCA))
+sys.path.insert(0, str(TRIAGE))
 
 
 def run(args, **kwargs):
@@ -214,6 +215,28 @@ class HistoryTest(unittest.TestCase):
             commit(repo, "first")
             result = run([sys.executable, str(HISTORY), "nope.txt", "--cwd", str(repo)])
             self.assertEqual(result.returncode, 2)
+
+
+class CulpritParsingTest(unittest.TestCase):
+    """git changed this line's wording: 2.34 says `is the first bad commit`, newer
+    versions quote it as `is the first 'bad' commit`. A literal substring match
+    passed on the 2.34 dev box and silently dropped the answer on CI's newer git,
+    so the parser is tested against both spellings rather than against whichever
+    git happens to be installed."""
+
+    OLD = "abc1234def5678 is the first bad commit\ncommit abc1234def5678\n"
+    NEW = "abc1234def5678 is the first 'bad' commit\ncommit abc1234def5678\n"
+
+    def test_accepts_both_git_spellings(self):
+        import git_bisect
+
+        self.assertEqual(git_bisect.parse_culprit(self.OLD), "abc1234def5678")
+        self.assertEqual(git_bisect.parse_culprit(self.NEW), "abc1234def5678")
+
+    def test_no_conclusion_is_an_empty_string(self):
+        import git_bisect
+
+        self.assertEqual(git_bisect.parse_culprit("Bisecting: 3 revisions left\n"), "")
 
 
 class BisectTest(unittest.TestCase):

@@ -35,10 +35,10 @@ python skills/root-cause-analysis/scripts/repro.py --discover
 python skills/root-cause-analysis/scripts/repro.py --cmd "npm test -- cart" --times 10
 
 # plan a bisect: range, steps, and the warnings that make bisects lie
-python skills/regression-triage/scripts/bisect.py --good v1.4.0 --cmd "npm test -- cart"
+python skills/regression-triage/scripts/git_bisect.py --good v1.4.0 --cmd "npm test -- cart"
 
 # ... then run it
-python skills/regression-triage/scripts/bisect.py --good v1.4.0 --cmd "npm test -- cart" --run
+python skills/regression-triage/scripts/git_bisect.py --good v1.4.0 --cmd "npm test -- cart" --run
 
 # who owns these lines, and what else landed in this file
 python skills/regression-triage/scripts/history.py src/cart/total.ts --lines 40-90
@@ -48,7 +48,7 @@ python skills/regression-triage/scripts/history.py src/cart/total.ts --lines 40-
 a deterministic failure and 3 for an intermittent one — four different answers
 that a single boolean would collapse.
 
-`bisect.py` prints a plan and changes nothing until `--run`. It refuses a dirty
+`git_bisect.py` prints a plan and changes nothing until `--run`. It refuses a dirty
 tree, always `git bisect reset`s in a `finally`, and runs the verdict by
 re-invoking itself, so a `--setup` failure becomes exit 125 (skip) rather than
 a commit wrongly marked bad — and so it works where `sh -c` is not on PATH.
@@ -91,4 +91,4 @@ and why.
   `investigator` agent is emitted as a skill, so the method survives but the
   delegation does not; no hooks.
 - **Generic `.agents/skills`** takes skills only — and the skills carry their
-  own `scripts/`, so `repro.py`, `bisect.py` and `history.py` travel with them.
+  own `scripts/`, so `repro.py`, `git_bisect.py` and `history.py` travel with them.

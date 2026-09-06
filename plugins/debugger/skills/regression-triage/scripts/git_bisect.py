@@ -3,13 +3,13 @@
 
 Usage:
     # plan only — no checkout, no repo state touched (the default)
-    python scripts/bisect.py --good v1.4.0 --cmd "npm test -- cart.total"
+    python scripts/git_bisect.py --good v1.4.0 --cmd "npm test -- cart.total"
 
     # actually bisect
-    python scripts/bisect.py --good v1.4.0 --cmd "npm test -- cart.total" --run
+    python scripts/git_bisect.py --good v1.4.0 --cmd "npm test -- cart.total" --run
 
     # repeat the verdict to survive a slightly flaky test, and reinstall per commit
-    python scripts/bisect.py --good abc123 --cmd "pytest -x -q tests/test_cart.py" \
+    python scripts/git_bisect.py --good abc123 --cmd "pytest -x -q tests/test_cart.py" \
         --setup "pip install -q -e ." --times 3 --run
 
 Bisecting rewrites the working tree, so this script refuses to start on a dirty
@@ -30,6 +30,7 @@ import argparse
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 from typing import Dict, List, Optional
@@ -59,6 +60,18 @@ def verdict(command: str, setup: Optional[str], times: int, cwd: str) -> int:
         if subprocess.run(command, shell=True, cwd=cwd, check=False).returncode != 0:
             return 1
     return 0
+
+
+# Git quotes the term in this line from 2.30-ish onward: "<sha> is the first 'bad'
+# commit". Accept both spellings; this is the fallback when refs/bisect/bad cannot
+# be read.
+CULPRIT_RE = re.compile(r"\b([0-9a-f]{7,40}) is the first ['\"]?bad['\"]? commit")
+
+
+def parse_culprit(output: str) -> str:
+    """The sha from git bisect's summary line, or '' when it did not conclude."""
+    match = CULPRIT_RE.search(output)
+    return match.group(1) if match else ""
 
 
 def plan(cwd: str, good: str, bad: str, command: str, setup: Optional[str], times: int) -> Dict[str, object]:
@@ -138,10 +151,15 @@ def run(cwd: str, good: str, bad: str, command: str, setup: Optional[str], times
         )
         output = (result.stdout or "") + (result.stderr or "")
         culprit = ""
-        for line in output.splitlines():
-            if "is the first bad commit" in line:
-                culprit = line.split()[0]
-                break
+        if result.returncode == 0:
+            # Ask git for the sha rather than scraping its summary line: the wording
+            # is "is the first 'bad' commit" on newer git and "is the first bad
+            # commit" on older, and it is translated under a non-English locale.
+            # refs/bisect/bad is none of those things, and it still exists here
+            # because the reset happens in the finally below.
+            culprit = git(["rev-parse", "--verify", "refs/bisect/bad"], cwd, check=False).strip()
+        if not culprit:
+            culprit = parse_culprit(output)
         report: Dict[str, object] = {"culprit": culprit, "log": output.strip()[-6000:]}
         if culprit:
             report["details"] = git(
