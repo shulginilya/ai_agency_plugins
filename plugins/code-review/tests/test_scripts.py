@@ -3,7 +3,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -20,9 +24,33 @@ def run(args, **kwargs):
     return subprocess.run(args, capture_output=True, text=True, check=False, **kwargs)
 
 
+def _clear_readonly(func, path, _info):
+    """rmtree error handler: git marks its object files read-only, and on Windows
+    a read-only file cannot be deleted at all. Clear the bit and retry."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+@contextlib.contextmanager
+def temp_dir():
+    """A temporary directory that also deletes cleanly when it holds a git repo.
+
+    tempfile.TemporaryDirectory cannot: its cleanup is a plain shutil.rmtree, which
+    raises PermissionError on Windows the moment it reaches .git/objects.
+    """
+    path = tempfile.mkdtemp()
+    try:
+        yield path
+    finally:
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_clear_readonly)
+        else:
+            shutil.rmtree(path, onerror=_clear_readonly)
+
+
 class ChangedFilesTest(unittest.TestCase):
     def test_reports_tracked_and_untracked_changes(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             repo = Path(tmp)
             run(["git", "init", "-q"], cwd=repo)
             run(["git", "config", "user.email", "t@example.com"], cwd=repo)
@@ -44,7 +72,7 @@ class ChangedFilesTest(unittest.TestCase):
             self.assertEqual(payload["a.txt"]["added"], 1)
 
     def test_clean_tree_is_not_an_error(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             repo = Path(tmp)
             run(["git", "init", "-q"], cwd=repo)
             run(["git", "config", "user.email", "t@example.com"], cwd=repo)
@@ -58,14 +86,14 @@ class ChangedFilesTest(unittest.TestCase):
             self.assertIn("no reviewable changes", result.stdout)
 
     def test_outside_a_repository_exits_two(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             result = run([sys.executable, str(CHANGED_FILES)], cwd=tmp)
             self.assertEqual(result.returncode, 2)
 
 
 class PostEditHookTest(unittest.TestCase):
     def _run_hook(self, filename: str, contents: str) -> str:
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             path = Path(tmp) / filename
             path.write_text(contents)
             event = json.dumps({"tool_input": {"file_path": str(path)}})

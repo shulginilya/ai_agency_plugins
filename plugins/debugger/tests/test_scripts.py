@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -28,6 +31,30 @@ def run(args, **kwargs):
     return subprocess.run(args, capture_output=True, text=True, check=False, **kwargs)
 
 
+def _clear_readonly(func, path, _info):
+    """rmtree error handler: git marks its object files read-only, and on Windows
+    a read-only file cannot be deleted at all. Clear the bit and retry."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+@contextlib.contextmanager
+def temp_dir():
+    """A temporary directory that also deletes cleanly when it holds a git repo.
+
+    tempfile.TemporaryDirectory cannot: its cleanup is a plain shutil.rmtree, which
+    raises PermissionError on Windows the moment it reaches .git/objects.
+    """
+    path = tempfile.mkdtemp()
+    try:
+        yield path
+    finally:
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=_clear_readonly)
+        else:
+            shutil.rmtree(path, onerror=_clear_readonly)
+
+
 def init_repo(path: Path) -> None:
     run(["git", "init", "-q"], cwd=path)
     run(["git", "config", "user.email", "t@example.com"], cwd=path)
@@ -44,9 +71,23 @@ def quoted(*parts: str) -> str:
     return " ".join('"%s"' % part for part in parts)
 
 
+class TempDirTest(unittest.TestCase):
+    def test_a_git_repo_cleans_up(self):
+        """git writes read-only object files; on Windows those block rmtree outright,
+        which failed every git-using test in this suite during teardown."""
+        with temp_dir() as tmp:
+            repo = Path(tmp)
+            init_repo(repo)
+            (repo / "a.txt").write_text("x\n", encoding="utf-8")
+            commit(repo, "first")
+            objects = list((repo / ".git" / "objects").rglob("*"))
+            self.assertTrue([p for p in objects if p.is_file()], "expected git objects to exist")
+        self.assertFalse(Path(tmp).exists(), "the temporary directory must be gone")
+
+
 class DiscoveryTest(unittest.TestCase):
     def test_reads_package_json_and_lockfile(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             root = Path(tmp)
             (root / "package.json").write_text(
                 json.dumps({"scripts": {"test": "vitest run", "lint": "eslint ."}}), encoding="utf-8"
@@ -61,7 +102,7 @@ class DiscoveryTest(unittest.TestCase):
             self.assertIn("pnpm run test", [c["command"] for c in found["commands"]])
 
     def test_single_test_command_uses_the_framework_selector(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             root = Path(tmp)
             (root / "pyproject.toml").write_text("[tool.pytest.ini_options]\n", encoding="utf-8")
             result = run(
@@ -71,7 +112,7 @@ class DiscoveryTest(unittest.TestCase):
             self.assertEqual(result.stdout.strip(), 'pytest -x -q -k "order total"')
 
     def test_no_declared_checks_is_exit_two_not_a_guess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             result = run([sys.executable, str(REPRO), "--cwd", tmp, "--discover"])
             self.assertEqual(result.returncode, 2)
             self.assertIn("no checks declared", result.stdout)
@@ -84,7 +125,7 @@ class ReproRunTest(unittest.TestCase):
         )
 
     def test_deterministic_pass_and_fail_have_different_exit_codes(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             ok = self._run_cmd(quoted(sys.executable, "-c", "pass"), 3, tmp)
             self.assertEqual(ok.returncode, 0)
             self.assertEqual(json.loads(ok.stdout)["verdict"], "deterministic-pass")
@@ -94,7 +135,7 @@ class ReproRunTest(unittest.TestCase):
             self.assertEqual(json.loads(bad.stdout)["verdict"], "deterministic-fail")
 
     def test_intermittent_failure_is_reported_as_its_own_verdict(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             counter = Path(tmp) / "count.txt"
             flaky = Path(tmp) / "flaky.py"
             flaky.write_text(
@@ -125,7 +166,7 @@ class SuppressionTest(unittest.TestCase):
 
 class HookTest(unittest.TestCase):
     def _hook(self, filename: str, contents: str) -> str:
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             path = Path(tmp) / filename
             path.write_text(contents, encoding="utf-8")
             event = json.dumps({"tool_input": {"file_path": str(path)}})
@@ -147,7 +188,7 @@ class HookTest(unittest.TestCase):
 
 class HistoryTest(unittest.TestCase):
     def test_reports_commits_and_blame_for_a_range(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             repo = Path(tmp)
             init_repo(repo)
             (repo / "total.py").write_text("a = 1\nb = 2\n", encoding="utf-8")
@@ -166,7 +207,7 @@ class HistoryTest(unittest.TestCase):
             self.assertTrue(any(c["added"] for c in report["commits"]), "numstat must attach to its own commit")
 
     def test_untracked_path_exits_two(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             repo = Path(tmp)
             init_repo(repo)
             (repo / "a.txt").write_text("x\n", encoding="utf-8")
@@ -200,7 +241,7 @@ class BisectTest(unittest.TestCase):
         return repo, good, quoted(sys.executable, str(verdict))
 
     def test_plan_does_not_touch_the_repository(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             repo, good, command = self._repo_with_a_regression(tmp)
             head_before = run(["git", "rev-parse", "HEAD"], cwd=repo).stdout
 
@@ -214,7 +255,7 @@ class BisectTest(unittest.TestCase):
             self.assertEqual(head_before, run(["git", "rev-parse", "HEAD"], cwd=repo).stdout)
 
     def test_finds_the_first_bad_commit_and_resets(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             repo, good, command = self._repo_with_a_regression(tmp)
             result = run(
                 [sys.executable, str(BISECT), "--cwd", str(repo), "--good", good,
@@ -230,7 +271,7 @@ class BisectTest(unittest.TestCase):
             )
 
     def test_refuses_a_dirty_tree(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             repo, good, command = self._repo_with_a_regression(tmp)
             (repo / "value.txt").write_text("dirty\n", encoding="utf-8")
             result = run(
@@ -277,7 +318,7 @@ class McpServerTest(unittest.TestCase):
         self.assertTrue(responses[0]["result"]["isError"])
 
     def test_git_failure_inside_a_tool_does_not_kill_the_server(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with temp_dir() as tmp:
             responses = self._rpc(
                 [
                     {"jsonrpc": "2.0", "id": 1, "method": "tools/call",

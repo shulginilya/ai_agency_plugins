@@ -78,7 +78,10 @@ def plan(cwd: str, good: str, bad: str, command: str, setup: Optional[str], time
         if git(["log", "--oneline", "%s..%s" % (good_sha, bad_sha), "--", name], cwd, check=False).strip()
     ]
     dirty = bool(git(["status", "--porcelain"], cwd).strip())
-    shallow = os.path.isfile(os.path.join(git(["rev-parse", "--git-dir"], cwd).strip(), "shallow"))
+    # --git-dir is relative to the repository, and isfile() would resolve it
+    # against this process's cwd instead. Ask for the absolute path.
+    git_dir = git(["rev-parse", "--absolute-git-dir"], cwd).strip()
+    shallow = os.path.isfile(os.path.join(git_dir, "shallow"))
 
     warnings: List[str] = []
     if not ancestor:
