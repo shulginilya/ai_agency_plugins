@@ -24,6 +24,23 @@
         "security",
         "quality"
       ]
+    },
+    {
+      "name": "developer",
+      "source": "./dist/claude-code/developer",
+      "description": "The feature development loop: orient in the code, write a change plan, implement it in verifiable slices, run the repository's own checks, and self-review before handoff. Also covers behaviour-preserving refactors. Use when asked to implement a feature, build or add functionality, work a ticket, refactor existing code, or check that a change is finished.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "development",
+        "implementation",
+        "refactoring",
+        "testing",
+        "verification"
+      ]
     }
   ]
 }
