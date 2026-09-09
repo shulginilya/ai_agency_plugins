@@ -1,0 +1,18 @@
+{
+  "name": "developer",
+  "displayName": "Developer",
+  "version": "0.1.0",
+  "description": "The feature development loop: orient in the code, write a change plan, implement it in verifiable slices, run the repository's own checks, and self-review before handoff. Also covers behaviour-preserving refactors. Use when asked to implement a feature, build or add functionality, work a ticket, refactor existing code, or check that a change is finished.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/shulginilya/ai_agency_plugins",
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "keywords": ["development", "implementation", "refactoring", "testing", "verification"],
+  "targets": {
+    "exclude": [],
+    "overrides": {}
+  }
+}

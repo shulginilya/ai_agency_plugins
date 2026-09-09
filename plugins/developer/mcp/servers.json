@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "developer": {
+      "command": "python",
+      "args": ["{{PLUGIN_ROOT}}/mcp/server.py"],
+      "env": {}
+    }
+  }
+}
