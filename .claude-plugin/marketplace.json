@@ -26,21 +26,21 @@
       ]
     },
     {
-      "name": "scrum-master",
-      "source": "./dist/claude-code/scrum-master",
-      "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, and builds a sprint plan with one goal and a capacity number that survives contact with reality. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, or plan the next sprint.",
+      "name": "job-hunter",
+      "source": "./dist/claude-code/job-hunter",
+      "description": "Runs a job or contract search as a pipeline instead of a pile of tabs. Scores a posting against a declared profile and says pursue or skip with the reason, tailors the application to that one posting, and tracks every opportunity through its stages with follow-ups that come due. Use when reviewing a job ad, gig or RFP, deciding whether to apply or bid, writing a proposal, cover letter or CV variant, or asking what needs chasing in the search.",
       "version": "0.1.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
       },
       "keywords": [
-        "scrum",
-        "agile",
-        "backlog",
-        "sprint-planning",
-        "user-stories",
-        "github-issues"
+        "job-search",
+        "freelance",
+        "proposal",
+        "pipeline",
+        "hiring",
+        "contract"
       ]
     }
   ]
