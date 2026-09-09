@@ -1,0 +1,26 @@
+---
+description: Refine a backlog item into a ready story — value, acceptance criteria, size, and a split if it is too big.
+argument_hint: "[issue number, URL, or a plain description of the work]"
+model: sonnet
+allowed_tools: Bash(gh:*) Bash(python:*) Read Grep Glob
+---
+
+Refine: {{ARGS}}
+
+If that is empty, run `python scripts/backlog.py --not-ready` and refine the
+lowest-numbered issue it reports — do not ask which one.
+
+Follow the `backlog-refinement` skill:
+
+1. Read the item whole, including comments (`gh issue view <n> --comments`).
+2. Check it against the Definition of Ready. `ready.py` catches the mechanical
+   gaps; the judgement calls are yours.
+3. If it is too big, split it first and propose the slices — do not estimate an
+   item you already know you will split.
+4. Produce the rewritten body in the skill's template, including the
+   `## Out of scope` section.
+5. Show the proposed body and the `gh issue edit` command that would apply it.
+   Do not write to GitHub until the user says to.
+
+If the item is missing something only a person can supply — a decision, a
+design, a priority — say exactly what you would ask and stop. Do not invent it.
