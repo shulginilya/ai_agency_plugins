@@ -26,20 +26,21 @@
       ]
     },
     {
-      "name": "developer",
-      "source": "./dist/claude-code/developer",
-      "description": "The feature development loop: orient in the code, write a change plan, implement it in verifiable slices, run the repository's own checks, and self-review before handoff. Also covers behaviour-preserving refactors. Use when asked to implement a feature, build or add functionality, work a ticket, refactor existing code, or check that a change is finished.",
+      "name": "job-hunter",
+      "source": "./dist/claude-code/job-hunter",
+      "description": "Runs a job or contract search as a pipeline instead of a pile of tabs. Scores a posting against a declared profile and says pursue or skip with the reason, tailors the application to that one posting, and tracks every opportunity through its stages with follow-ups that come due. Use when reviewing a job ad, gig or RFP, deciding whether to apply or bid, writing a proposal, cover letter or CV variant, or asking what needs chasing in the search.",
       "version": "0.1.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
       },
       "keywords": [
-        "development",
-        "implementation",
-        "refactoring",
-        "testing",
-        "verification"
+        "job-search",
+        "freelance",
+        "proposal",
+        "pipeline",
+        "hiring",
+        "contract"
       ]
     }
   ]
