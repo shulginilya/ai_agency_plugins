@@ -26,21 +26,21 @@
       ]
     },
     {
-      "name": "debugger",
-      "source": "./dist/claude-code/debugger",
-      "description": "Diagnoses failures down to their mechanism before changing any code. Reproduces the fault deterministically, narrows it to the smallest failing case, bisects regressions to the commit that introduced them, and proves the fix with a test that fails without it. Use when something is broken, a test fails or is flaky, behaviour regressed after a change, or a crash, stack trace or incident needs a root cause.",
+      "name": "job-hunter",
+      "source": "./dist/claude-code/job-hunter",
+      "description": "Runs a job or contract search as a pipeline instead of a pile of tabs. Scores a posting against a declared profile and says pursue or skip with the reason, tailors the application to that one posting, and tracks every opportunity through its stages with follow-ups that come due. Use when reviewing a job ad, gig or RFP, deciding whether to apply or bid, writing a proposal, cover letter or CV variant, or asking what needs chasing in the search.",
       "version": "0.1.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
       },
       "keywords": [
-        "debugging",
-        "root-cause",
-        "bug-fix",
-        "regression",
-        "bisect",
-        "triage"
+        "job-search",
+        "freelance",
+        "proposal",
+        "pipeline",
+        "hiring",
+        "contract"
       ]
     }
   ]
