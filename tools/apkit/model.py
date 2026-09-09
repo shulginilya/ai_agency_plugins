@@ -151,15 +151,76 @@ def load_plugin(root: Path) -> Plugin:
     return plugin
 
 
-def discover(plugins_root: Path, only: Optional[List[str]] = None) -> List[Plugin]:
-    """Load every plugin under plugins/, skipping _-prefixed template dirs."""
-    plugins: List[Plugin] = []
+# Directories and files that say nothing about whether a plugin lives here.
+# Switching branches leaves every other plugin's __pycache__ behind, so plugins/
+# fills up with directories that hold caches and nothing else.
+CACHE_DIR_NAMES = {
+    "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", ".ipynb_checkpoints",
+}
+CACHE_FILE_NAMES = {".DS_Store", "Thumbs.db", ".gitkeep"}
+CACHE_SUFFIXES = (".pyc", ".pyo")
+
+
+def _holds_only_caches(directory: Path) -> bool:
+    """True when a directory contains nothing a plugin author put there.
+
+    Used to tell a branch-switch leftover (skip it silently) apart from a real
+    plugin directory whose plugin.json is missing (say so loudly).
+    """
+    for child in directory.rglob("*"):
+        if child.is_dir():
+            continue
+        relative = child.relative_to(directory)
+        if any(part in CACHE_DIR_NAMES for part in relative.parts[:-1]):
+            continue
+        if child.name in CACHE_FILE_NAMES or child.suffix in CACHE_SUFFIXES:
+            continue
+        return False
+    return True
+
+
+def _candidate_dirs(plugins_root: Path, only: Optional[List[str]]) -> List[Path]:
     if not plugins_root.is_dir():
-        return plugins
+        return []
+    chosen = []
     for entry in sorted(p for p in plugins_root.iterdir() if p.is_dir()):
         if entry.name.startswith("_") and not (only and entry.name in only):
             continue
         if only and entry.name not in only:
             continue
+        chosen.append(entry)
+    return chosen
+
+
+def discover(plugins_root: Path, only: Optional[List[str]] = None) -> List[Plugin]:
+    """Load every plugin under plugins/, skipping _-prefixed template dirs.
+
+    A directory with no manifest is skipped rather than raised on: erroring
+    here made a stale cache directory break every unscoped command, which
+    pushed callers towards --plugin scoping — and scoping the marketplace index
+    silently writes a partial file. Discovery is lenient; `validate` is the
+    command whose job is to complain. Use unmanifested() to find the ones that
+    look like a plugin somebody forgot to finish.
+    """
+    plugins: List[Plugin] = []
+    for entry in _candidate_dirs(plugins_root, only):
+        if not (entry / MANIFEST_NAME).is_file():
+            continue
         plugins.append(load_plugin(entry))
     return plugins
+
+
+def unmanifested(plugins_root: Path, only: Optional[List[str]] = None) -> List[Path]:
+    """Directories under plugins/ that have real content but no manifest.
+
+    Cache-only leftovers are excluded: those are branch-switch residue, not a
+    mistake anyone needs to hear about.
+    """
+    strays = []
+    for entry in _candidate_dirs(plugins_root, only):
+        if (entry / MANIFEST_NAME).is_file():
+            continue
+        if _holds_only_caches(entry):
+            continue
+        strays.append(entry)
+    return strays

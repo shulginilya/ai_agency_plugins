@@ -12,7 +12,7 @@ from typing import List, Optional
 from . import install as installer
 from . import marketplace as marketplace_mod
 from .build import build_all
-from .model import Plugin, SourceError, discover
+from .model import Plugin, SourceError, discover, unmanifested
 from .targets import TargetError, load_targets
 from .validate import validate_plugin
 
@@ -49,8 +49,24 @@ def _load(root: Path, plugin_names: Optional[List[str]]) -> List[Plugin]:
     plugins = discover(root / PLUGINS_DIR, only=plugin_names)
     if not plugins:
         which = ", ".join(plugin_names) if plugin_names else "any"
-        raise SourceError("no plugins found (looking for: %s)" % which)
+        message = "no plugins found (looking for: %s)" % which
+        strays = unmanifested(root / PLUGINS_DIR, only=plugin_names)
+        if strays:
+            message += "; these have content but no %s: %s" % (
+                "plugin.json",
+                ", ".join(_relative(p, root) for p in strays),
+            )
+        raise SourceError(message)
     return plugins
+
+
+def _warn_unmanifested(root: Path, plugin_names: Optional[List[str]]) -> None:
+    tty = sys.stdout.isatty()
+    for stray in unmanifested(root / PLUGINS_DIR, only=plugin_names):
+        print(
+            "%swarn%s %s has content but no plugin.json — it is not being built"
+            % (_color(tty, YELLOW), _color(tty, RESET), _relative(stray, root))
+        )
 
 
 # --------------------------------------------------------------------- commands
@@ -59,6 +75,7 @@ def _load(root: Path, plugin_names: Optional[List[str]]) -> List[Plugin]:
 def cmd_validate(args) -> int:
     root = project_root(args.root)
     plugins = _load(root, args.plugin)
+    _warn_unmanifested(root, args.plugin)
     tty = sys.stdout.isatty()
     failed = False
     for plugin in plugins:
@@ -262,7 +279,16 @@ def cmd_test(args) -> int:
 
 def cmd_marketplace(args) -> int:
     root = project_root(args.root)
-    plugins = _load(root, args.plugin)
+    if getattr(args, "plugin", None):
+        raise SourceError(
+            "marketplace takes no --plugin. The index is generated from the whole "
+            "tree and overwritten in full, so naming a subset writes a file that "
+            "silently omits every other plugin. If you reached for it because an "
+            "unscoped command failed, run `apkit validate` to see which directory "
+            "is the problem."
+        )
+    plugins = _load(root, None)
+    _warn_unmanifested(root, None)
     index = marketplace_mod.build_index(
         plugins,
         owner={"name": args.owner, "email": args.email} if args.owner else {"name": "unknown"},
@@ -345,7 +371,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_test)
 
     p = sub.add_parser("marketplace", help="regenerate .claude-plugin/marketplace.json")
-    p.add_argument("--plugin", action="append")
+    # Accepted only so the rejection in cmd_marketplace can explain itself;
+    # argparse's "unrecognized arguments" would not.
+    p.add_argument("--plugin", action="append", help=argparse.SUPPRESS)
     p.add_argument("--name", default="ai-agency")
     p.add_argument("--description", default="Harness-agnostic agent plugins.")
     p.add_argument("--owner", default="Ilya Shulgin")
