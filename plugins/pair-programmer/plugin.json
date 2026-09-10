@@ -1,0 +1,18 @@
+{
+  "name": "pair-programmer",
+  "displayName": "Pair Programmer",
+  "version": "0.1.0",
+  "description": "Pairs on code instead of taking it over. Navigates while you drive — holding the goal, questioning decisions before they are typed, and catching the change spreading past its declared scope — or plays TDD ping-pong where the suite, not either partner, decides when a turn is over. Keeps a session journal of decisions, rejected alternatives, open questions and the next step, so the work can be paused, resumed or handed over. Use when the user wants to pair, wants a second pair of eyes while they code, asks for ping-pong or test-first pairing, or asks whether the change is still on track.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/shulginilya/ai_agency_plugins",
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "keywords": ["pair-programming", "navigator", "tdd", "ping-pong", "handoff", "session"],
+  "targets": {
+    "exclude": [],
+    "overrides": {}
+  }
+}
