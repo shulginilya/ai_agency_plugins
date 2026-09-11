@@ -79,6 +79,24 @@
       ]
     },
     {
+      "name": "pair-programmer",
+      "source": "./dist/claude-code/pair-programmer",
+      "description": "Pairs on code instead of taking it over. Navigates while you drive \u2014 holding the goal, questioning decisions before they are typed, and catching the change spreading past its declared scope \u2014 or plays TDD ping-pong where the suite, not either partner, decides when a turn is over. Keeps a session journal of decisions, rejected alternatives, open questions and the next step, so the work can be paused, resumed or handed over. Use when the user wants to pair, wants a second pair of eyes while they code, asks for ping-pong or test-first pairing, or asks whether the change is still on track.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "pair-programming",
+        "navigator",
+        "tdd",
+        "ping-pong",
+        "handoff",
+        "session"
+      ]
+    },
+    {
       "name": "scrum-master",
       "source": "./dist/claude-code/scrum-master",
       "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, and builds a sprint plan with one goal and a capacity number that survives contact with reality. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, or plan the next sprint.",

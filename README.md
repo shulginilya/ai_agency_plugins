@@ -47,6 +47,7 @@ python -m tools.apkit build               # → dist/<target>/<plugin>/
 python -m tools.apkit build --target codex --plugin code-review
 python -m tools.apkit install code-review --target cursor --scope user
 python -m tools.apkit doctor              # what's installed where, on this machine
+python -m tools.apkit marketplace # regenerate marketplace file
 ```
 
 No third-party dependencies. Python 3.9+, standard library only.
