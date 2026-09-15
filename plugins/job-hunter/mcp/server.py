@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """A minimal MCP server for the job-hunter plugin.
 
-Speaks JSON-RPC 2.0 over stdio (newline-delimited) and exposes three tools:
+Speaks JSON-RPC 2.0 over stdio (newline-delimited) and exposes four tools:
 
     pipeline_status — what the search needs today: overdue, stale, undated
     score_fit       — score a posting against the declared profile
-    hunt_playbook   — the posting-signals, cadence and channel references
+    project_facts   — the verifiable facts about a project, for a portfolio entry
+    hunt_playbook   — the triage, cadence, channel and portfolio references
 
 No logic lives here. Each tool imports the script that already owns the rule
 from the skill that ships it, so the server cannot drift from the advice the
@@ -23,15 +24,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 SERVER_NAME = "job-hunter"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0"
 DEFAULT_PROTOCOL = "2025-06-18"
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 SKILLS = PLUGIN_ROOT / "skills"
 TRIAGE_SCRIPTS = SKILLS / "opportunity-triage" / "scripts"
 PIPELINE_SCRIPTS = SKILLS / "application-pipeline" / "scripts"
+PORTFOLIO_SCRIPTS = SKILLS / "portfolio-case-study" / "scripts"
 
-for directory in (TRIAGE_SCRIPTS, PIPELINE_SCRIPTS):
+for directory in (TRIAGE_SCRIPTS, PIPELINE_SCRIPTS, PORTFOLIO_SCRIPTS):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
@@ -39,6 +41,8 @@ PLAYBOOKS = {
     "posting-signals": SKILLS / "opportunity-triage" / "references" / "posting-signals.md",
     "cadence": SKILLS / "application-pipeline" / "references" / "cadence.md",
     "channels": SKILLS / "application-tailoring" / "references" / "channels.md",
+    "case-study-format": SKILLS / "portfolio-case-study" / "references" / "case-study-format.md",
+    "evidence-sources": SKILLS / "portfolio-case-study" / "references" / "evidence-sources.md",
 }
 
 TOOLS: List[Dict[str, Any]] = [
@@ -76,12 +80,31 @@ TOOLS: List[Dict[str, Any]] = [
         },
     },
     {
+        "name": "project_facts",
+        "description": (
+            "Collect the verifiable facts about one project before writing a portfolio "
+            "entry: name and self-description, languages, technologies with the manifest "
+            "that proves each, infrastructure, CI, tests, and git history including the "
+            "user's share of commits. Or, with 'page', framework hints from a saved HTML "
+            "page of a live app. Reads only; describes nothing."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Project directory (local checkout or clone)."},
+                "author": {"type": "string", "description": "Name or email fragment matching the user's commits."},
+                "page": {"type": "string", "description": "Saved HTML file of a live app, instead of path."},
+            },
+        },
+    },
+    {
         "name": "hunt_playbook",
         "description": (
             "Return one reference: 'posting-signals' (what to read in an ad that a "
             "keyword scan cannot see), 'cadence' (when a follow-up is due), or "
             "'channels' (how a platform bid, cover letter, cold email and CV variant "
-            "differ)."
+            "differ), 'case-study-format' (the portfolio entry template) or "
+            "'evidence-sources' (what a codebase, git history or live app can prove)."
         ),
         "inputSchema": {
             "type": "object",
@@ -119,6 +142,22 @@ def tool_score_fit(arguments: Dict[str, Any]) -> str:
     return json.dumps(fit.assess(posting, profile), indent=2)
 
 
+def tool_project_facts(arguments: Dict[str, Any]) -> str:
+    import project_facts
+
+    if arguments.get("page"):
+        page = Path(str(arguments["page"]))
+        if not page.is_file():
+            raise RuntimeError("no such page file: %s" % page)
+        report = project_facts.assess_page(page.read_text(encoding="utf-8", errors="replace"))
+    else:
+        root = Path(str(arguments.get("path") or "")).resolve()
+        if not arguments.get("path") or not root.is_dir():
+            raise RuntimeError("give 'path' (a project directory) or 'page' (a saved HTML file)")
+        report = project_facts.assess_repo(root, arguments.get("author"))
+    return json.dumps(report, indent=2)
+
+
 def tool_hunt_playbook(arguments: Dict[str, Any]) -> str:
     topic = str(arguments.get("topic", "")).strip()
     path = PLAYBOOKS.get(topic)
@@ -134,6 +173,7 @@ def tool_hunt_playbook(arguments: Dict[str, Any]) -> str:
 HANDLERS = {
     "pipeline_status": tool_pipeline_status,
     "score_fit": tool_score_fit,
+    "project_facts": tool_project_facts,
     "hunt_playbook": tool_hunt_playbook,
 }
 

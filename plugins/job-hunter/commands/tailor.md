@@ -13,7 +13,8 @@ Follow the `application-tailoring` skill.
    for a posting nobody scored is how a bad fit gets a good proposal.
 2. Gather what the draft needs: the full posting, `.jobhunt/profile.json`, the
    user's own template if they have one, and concrete evidence — projects,
-   systems, numbers. **Ask for evidence you do not have. Never invent it, and
+   systems, numbers. Start from `.jobhunt/portfolio/*.md`; if a project the
+   posting needs has no entry, suggest `/portfolio` for it. **Ask for evidence you do not have. Never invent it, and
    never leave a placeholder in a draft.**
 3. Identify the channel (platform bid, cover letter, cold email, CV variant)
    and load `references/channels.md` for that one.

@@ -1,22 +1,26 @@
 # job-hunter
 
 A job or contract search run as a pipeline instead of a pile of open tabs. The
-plugin exists to make three things cheap: killing a posting that was never going
-to work, writing the one that was, and never losing an application to silence.
+plugin exists to make four things cheap: killing a posting that was never going
+to work, showing the projects that prove you can do the one that was, writing
+that application, and never losing it to silence.
 
 ## What it does
 
 | Component | Name | Purpose |
 | --- | --- | --- |
 | Skill | `opportunity-triage` | Score a posting against the profile; pursue, skip or unclear, with the reason |
+| Skill | `portfolio-case-study` | Describe one project for a portfolio, CV or platform profile from its codebase or live app — facts only |
 | Skill | `application-tailoring` | Write the bid, cover letter or CV variant for one specific posting |
 | Skill | `application-pipeline` | Track every opportunity through its stages; say what is due |
 | Command | `/triage` | Score a posting and record it if it survives |
+| Command | `/portfolio` | Write a portfolio entry from a repo path, git URL or web app URL |
 | Command | `/tailor` | Draft the application for one posting |
 | Command | `/pipeline` | What needs chasing today; record stage changes |
 | Agent | `screener` | Judges one posting in a fresh context, so a shortlist does not get progressively more agreeable |
+| Agent | `project-analyst` | Reads a large codebase or a live app in a fresh context and returns a sourced facts sheet |
 | Hook | `SessionStart` | Says what is overdue — and stays silent when nothing is |
-| MCP | `job-hunter` | Dependency-free stdio server: `pipeline_status`, `score_fit`, `hunt_playbook` |
+| MCP | `job-hunter` | Dependency-free stdio server: `pipeline_status`, `score_fit`, `project_facts`, `hunt_playbook` |
 
 ## Setup
 
@@ -56,6 +60,19 @@ question, not a score.
 parse. Dates are ISO and only ever come from the user; "next week" is not a due
 date this script will invent.
 
+```bash
+# facts about a project before writing it up: 0 usable, 3 thin, 2 unusable
+python skills/portfolio-case-study/scripts/project_facts.py ~/code/my-app --author "Ilya"
+python skills/portfolio-case-study/scripts/project_facts.py --page saved_home.html --json
+```
+
+`project_facts.py` never describes a project. It reports what the manifests,
+files and git history prove — each technology with the file it came from — and
+lists what only the user can supply: role, outcomes, confidentiality. *Thin*
+means something decisive is missing (nothing says what the project is, or none
+of the commits are the user's). Entries land in `.jobhunt/portfolio/`, where
+`/tailor` picks them up as evidence.
+
 ## Where the rules live
 
 `due_report` in `pipeline.py` decides what "overdue", "stale" and "needs a next
@@ -65,6 +82,7 @@ than each deciding for themselves, so the hook can never disagree with `/pipelin
 ## What it will not do
 
 - **Send anything.** Drafts go to the user; the user sends them.
+- **Publish anything.** Portfolio entries are files; the user posts them.
 - **Invent evidence.** A tailored application with a plausible metric nobody
   verified is the worst thing this plugin could produce, so the tailoring skill
   asks instead of filling in.
@@ -92,7 +110,9 @@ python -m tools.apkit install job-hunter --target agents --scope project --into 
 
 - **Claude Code** takes everything.
 - **OpenCode** takes skills, commands and agents; no hooks.
-- **Codex CLI, Cursor, Gemini CLI** take skills and commands; `screener` is
-  emitted as a skill, so the method survives but the delegation does not.
-- **Generic `.agents/skills`** takes skills only — and both scripts live under
-  their skills, so `fit.py` and `pipeline.py` travel with them.
+- **Codex CLI, Cursor, Gemini CLI** take skills and commands; `screener` and
+  `project-analyst` are emitted as skills, so the method survives but the
+  delegation does not.
+- **Generic `.agents/skills`** takes skills only — and all three scripts live
+  under their skills, so `fit.py`, `pipeline.py` and `project_facts.py` travel
+  with them.

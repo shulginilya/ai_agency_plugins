@@ -25,7 +25,9 @@ writing enthusiastically about a role that is a bad fit.
 3. **The user's own template**, if they have one. Reuse it; do not replace their
    voice with a generic one. Ask for it once and remember it exists.
 4. **Evidence**: specific projects, numbers, systems the user has actually
-   built. If you do not have these, ask. This is the one thing you cannot infer,
+   built. Look in `.jobhunt/portfolio/` first — entries written by the
+   `portfolio-case-study` skill are already sourced and confirmed. If a project
+   the posting needs is not there, write its entry with that skill or ask. This is the one thing you cannot infer,
    and it is the entire value of the document.
 
 If evidence is missing, ask for it rather than writing a placeholder. A draft
