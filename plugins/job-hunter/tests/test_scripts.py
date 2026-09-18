@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -13,8 +14,10 @@ from pathlib import Path
 PLUGIN = Path(__file__).resolve().parent.parent
 TRIAGE = PLUGIN / "skills" / "opportunity-triage" / "scripts"
 PIPELINE_DIR = PLUGIN / "skills" / "application-pipeline" / "scripts"
+PORTFOLIO_DIR = PLUGIN / "skills" / "portfolio-case-study" / "scripts"
 FIT = TRIAGE / "fit.py"
 PIPELINE = PIPELINE_DIR / "pipeline.py"
+FACTS = PORTFOLIO_DIR / "project_facts.py"
 HOOK = PLUGIN / "scripts" / "pipeline_status.py"
 MCP_SERVER = PLUGIN / "mcp" / "server.py"
 
@@ -198,6 +201,115 @@ class HookTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
 
 
+def make_project(root: Path, readme: bool = True) -> Path:
+    project = root / "shop"
+    (project / "src").mkdir(parents=True)
+    (project / "node_modules" / "junk").mkdir(parents=True)
+    (project / "node_modules" / "junk" / "index.js").write_text("x\n" * 50, encoding="utf-8")
+    (project / "package.json").write_text(json.dumps({
+        "name": "shop", "description": "Booking app for clinics",
+        "dependencies": {"next": "14", "react": "18", "stripe": "1", "@aws-sdk/client-s3": "3"},
+        "devDependencies": {"vitest": "1"},
+    }), encoding="utf-8")
+    (project / "src" / "app.tsx").write_text("export const a = 1\n", encoding="utf-8")
+    (project / "src" / "app.test.ts").write_text("test('a', () => {})\n", encoding="utf-8")
+    (project / "Dockerfile").write_text("FROM node\n", encoding="utf-8")
+    (project / ".github" / "workflows").mkdir(parents=True)
+    (project / ".github" / "workflows" / "ci.yml").write_text("on: push\n", encoding="utf-8")
+    if readme:
+        (project / "README.md").write_text(
+            "# Shop\n\n![badge](https://img.shields.io/x.svg)\n\nPatients book physio sessions online.\n\n"
+            "Live at https://shop.example.com.\n", encoding="utf-8")
+    return project
+
+
+def git_commit(project: Path, name: str) -> bool:
+    if shutil.which("git") is None:
+        return False
+    env = {"GIT_AUTHOR_NAME": name, "GIT_AUTHOR_EMAIL": "%s@example.com" % name.lower(),
+           "GIT_COMMITTER_NAME": name, "GIT_COMMITTER_EMAIL": "c@example.com"}
+    import os
+    full = dict(os.environ, **env)
+    for args in (["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "init"]):
+        if run(["git"] + args, cwd=project, env=full).returncode != 0:
+            return False
+    return True
+
+
+class ProjectFactsTest(unittest.TestCase):
+    def _facts(self, *args, cwd=None):
+        result = run([sys.executable, str(FACTS)] + [str(a) for a in args] + ["--json"], cwd=cwd)
+        return result.returncode, json.loads(result.stdout) if result.stdout.strip() else {}, result.stderr
+
+    def test_technologies_carry_their_source_and_vendored_code_is_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_project(Path(tmp))
+            code, report, _ = self._facts(project)
+            self.assertEqual((code, report["verdict"]), (0, "usable"))
+            tech = report["manifest"]["technologies"]
+            for label in ("Next.js", "React", "Stripe", "AWS SDK", "Vitest"):
+                self.assertEqual(tech.get(label), ["package.json"], label)
+            self.assertEqual(report["manifest"]["description"], "Booking app for clinics")
+            self.assertIn("Docker", report["tree"]["infrastructure"])
+            self.assertEqual(report["tree"]["ci"], ["GitHub Actions"])
+            self.assertEqual(report["tree"]["tests"]["files"], 1)
+            langs = {l["language"]: l["files"] for l in report["tree"]["languages"]}
+            self.assertNotIn("JavaScript", langs, "node_modules must not be counted")
+            self.assertEqual(report["readme"]["first_paragraph"], "Patients book physio sessions online.")
+            self.assertIn("https://shop.example.com", report["readme"]["links"])
+            self.assertFalse(any("shields.io" in u for u in report["readme"]["links"]))
+
+    def test_outcomes_are_always_left_for_the_user(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, report, _ = self._facts(make_project(Path(tmp)))
+            self.assertTrue(any("outcomes" in q for q in report["ask_the_user"]))
+
+    def test_nothing_saying_what_it_is_is_thin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "bare"
+            project.mkdir()
+            (project / "main.py").write_text("print(1)\n", encoding="utf-8")
+            code, report, _ = self._facts(project)
+            self.assertEqual((code, report["verdict"]), (3, "thin"))
+
+    def test_the_users_share_comes_from_history_and_a_stranger_is_thin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_project(Path(tmp))
+            if not git_commit(project, "Ilya"):
+                self.skipTest("git unavailable")
+            code, report, _ = self._facts(project, "--author", "ilya")
+            self.assertEqual(code, 0)
+            self.assertEqual(report["git"]["mine"]["commits"], 1)
+            self.assertEqual(report["git"]["mine"]["share"], 1.0)
+
+            code, report, _ = self._facts(project, "--author", "someone-else")
+            self.assertEqual((code, report["verdict"]), (3, "thin"),
+                             "no commits by the user means the role cannot be read from history")
+
+    def test_a_page_gives_hints_not_facts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            page = Path(tmp) / "home.html"
+            page.write_text('<html><head><title>Shop</title><meta name="description" content="Book physio">'
+                            '</head><body><script src="/_next/static/x.js"></script>'
+                            '<script src="https://js.stripe.com/v3"></script></body></html>', encoding="utf-8")
+            code, report, _ = self._facts("--page", page)
+            self.assertEqual(code, 0)
+            self.assertEqual(report["title"], "Shop")
+            self.assertIn("Next.js", report["stack_hints"])
+            self.assertIn("Stripe", report["stack_hints"])
+            self.assertIn("confirm", report["note"])
+
+    def test_a_missing_directory_or_empty_page_is_unusable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, _, err = self._facts(Path(tmp) / "nope")
+            self.assertEqual(code, 2)
+            self.assertIn("not a directory", err)
+            empty = Path(tmp) / "empty.html"
+            empty.write_text("  ", encoding="utf-8")
+            code, _, _ = self._facts("--page", empty)
+            self.assertEqual(code, 2)
+
+
 class McpServerTest(unittest.TestCase):
     def _rpc(self, messages, cwd=None):
         payload = "\n".join(json.dumps(m) for m in messages) + "\n"
@@ -214,7 +326,7 @@ class McpServerTest(unittest.TestCase):
         self.assertEqual(len(responses), 2, "notifications must not get a response")
         self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "job-hunter")
         names = {tool["name"] for tool in responses[1]["result"]["tools"]}
-        self.assertEqual(names, {"pipeline_status", "score_fit", "hunt_playbook"})
+        self.assertEqual(names, {"pipeline_status", "score_fit", "project_facts", "hunt_playbook"})
 
     def test_score_fit_uses_the_skills_rules(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -226,6 +338,20 @@ class McpServerTest(unittest.TestCase):
             result = responses[0]["result"]
             self.assertFalse(result["isError"])
             self.assertEqual(json.loads(result["content"][0]["text"])["verdict"], "skip")
+
+    def test_project_facts_uses_the_skills_rules(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_project(Path(tmp))
+            responses = self._rpc([
+                {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                 "params": {"name": "project_facts", "arguments": {"path": str(project)}}},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                 "params": {"name": "project_facts", "arguments": {}}},
+            ])
+            first = responses[0]["result"]
+            self.assertFalse(first["isError"])
+            self.assertIn("Next.js", json.loads(first["content"][0]["text"])["manifest"]["technologies"])
+            self.assertTrue(responses[1]["result"]["isError"])
 
     def test_playbook_returns_a_reference(self):
         responses = self._rpc([{
