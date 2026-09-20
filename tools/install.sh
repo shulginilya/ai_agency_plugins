@@ -93,18 +93,38 @@ Other
   -h, --help               this
 
 Environment
-  PYTHON                   interpreter to use (default: python3, then python)
+  PYTHON                   interpreter to use (default: first working
+                           Python 3.9+ of python3, python, py)
 USAGE
 }
 
 # ------------------------------------------------------------ interpreter --
 
+# A name on PATH is not proof of an interpreter. On Windows, `python3` and
+# `python` are usually App Execution Alias stubs that `command -v` finds but
+# that print "Python was not found" and exit nonzero; elsewhere `python` may
+# still be Python 2. So probe by running the candidate, and require the 3.9+
+# that tools/apkit targets -- otherwise the failure surfaces much later as an
+# unexplained "validation failed".
+python_ok() {  # python_ok <command>
+  "$1" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)' \
+    >/dev/null 2>&1
+}
+
 pick_python() {
-  if [ -n "${PYTHON:-}" ]; then printf '%s' "$PYTHON"; return; fi
+  local candidate
+  if [ -n "${PYTHON:-}" ]; then
+    python_ok "$PYTHON" || die "PYTHON=$PYTHON is not a working Python 3.9+ interpreter"
+    printf '%s' "$PYTHON"
+    return
+  fi
   for candidate in python3 python py; do
-    if command -v "$candidate" >/dev/null 2>&1; then printf '%s' "$candidate"; return; fi
+    command -v "$candidate" >/dev/null 2>&1 || continue
+    if python_ok "$candidate"; then printf '%s' "$candidate"; return; fi
+    # stdout is captured by PY=$(pick_python), so this note goes to stderr.
+    info "skipping $candidate: not a working Python 3.9+ interpreter" >&2
   done
-  die "no python found on PATH; set PYTHON=/path/to/python"
+  die "no working Python 3.9+ on PATH (tried python3, python, py); set PYTHON=/path/to/python"
 }
 
 # --------------------------------------------------------------- discovery --
@@ -182,7 +202,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-PY=$(pick_python)
+PY=$(pick_python) || exit $?
 
 # Portable stand-ins for `mapfile`, which bash 3.2 (still shipped by macOS) lacks.
 ALL_PLUGIN_NAMES=()
