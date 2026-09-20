@@ -289,12 +289,21 @@ def cmd_marketplace(args) -> int:
         )
     plugins = _load(root, None)
     _warn_unmanifested(root, None)
+    if args.publish == "git-subdir" and not args.repo:
+        raise SourceError(
+            "--publish git-subdir needs --repo (owner/name, or a git URL): the index "
+            "lives on main while the bundles live on the published branch, so every "
+            "entry has to say which repository to fetch them from."
+        )
     index = marketplace_mod.build_index(
         plugins,
         owner={"name": args.owner, "email": args.email} if args.owner else {"name": "unknown"},
         name=args.name,
         description=args.description,
         source_root=args.source_root,
+        publish=args.publish,
+        repo=args.repo,
+        ref=args.ref,
     )
     path = marketplace_mod.write_index(root, index)
     print("wrote %s (%d plugin(s))" % (path.relative_to(root), len(plugins)))
@@ -379,9 +388,34 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--owner", default="Ilya Shulgin")
     p.add_argument("--email", default="ishulgin8@gmail.com")
     p.add_argument(
+        "--publish",
+        choices=marketplace_mod.PUBLISH_MODES,
+        default="git-subdir",
+        help=(
+            "how entries point at their bundle: git-subdir fetches it from the "
+            "published branch (default, the only form that works off this machine), "
+            "path names a local directory under dist/"
+        ),
+    )
+    p.add_argument(
+        "--repo",
+        default="https://github.com/shulginilya/ai_agency_plugins.git",
+        help="repository holding the published bundles (git-subdir only)",
+    )
+    p.add_argument(
+        "--ref",
+        default=marketplace_mod.DEFAULT_REF,
+        help="branch or tag the bundles are published on (git-subdir only, default: %s)"
+        % marketplace_mod.DEFAULT_REF,
+    )
+    p.add_argument(
         "--source-root",
-        default="./dist/claude-code",
-        help="where the built Claude Code bundles live (default: ./dist/claude-code)",
+        default=None,
+        help=(
+            "directory the bundles sit in -- relative to the marketplace root with "
+            "--publish path (default: ./dist/claude-code), or to the branch root with "
+            "--publish git-subdir (default: claude-code)"
+        ),
     )
     p.set_defaults(func=cmd_marketplace)
 

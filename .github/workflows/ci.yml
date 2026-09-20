@@ -36,3 +36,70 @@ jobs:
           name: plugin-bundles
           path: dist/
           retention-days: 14
+
+  # The index is generated from every plugin.json, so it conflicts by
+  # construction if branches edit it. Regenerate it once, here, after the merge.
+  marketplace:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate the marketplace index
+        run: python -m tools.apkit marketplace
+
+      - name: Commit it if it changed
+        run: |
+          if git diff --quiet -- .claude-plugin/marketplace.json; then
+            echo "index already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .claude-plugin/marketplace.json
+          git commit -m "chore(marketplace): regenerate index [skip ci]"
+          git push
+
+  # marketplace.json entries are git-subdir sources pointing at this branch, so
+  # what CI pushes here is what `/plugin install` actually fetches. Single
+  # commit, force-pushed: it is build output, it has no history worth keeping.
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PUBLISH_BRANCH: dist
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build every target
+        run: python -m tools.apkit build --clean
+
+      - name: Force-push the bundles to ${{ env.PUBLISH_BRANCH }}
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          test -d claude-code || { echo "no claude-code bundles to publish"; exit 1; }
+          git init -q -b "$PUBLISH_BRANCH" .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "chore(dist): build of ${GITHUB_SHA} [skip ci]"
+          git push -qf \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "$PUBLISH_BRANCH"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
