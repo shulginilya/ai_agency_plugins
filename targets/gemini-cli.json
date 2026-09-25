@@ -3,6 +3,10 @@
   "name": "Gemini CLI",
   "docs": "https://geminicli.com/docs/cli/skills/",
   "bundle": "loose",
+  "archive": {
+    "suffix": ".zip",
+    "note": "Unzip into ~/.gemini/; merge mcp servers into settings.json by hand."
+  },
   "placeholders": {
     "plugin_root": "{{SOURCE}}"
   },

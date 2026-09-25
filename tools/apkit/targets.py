@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 COMPONENTS = ("manifest", "skills", "commands", "agents", "hooks", "mcp")
 SUPPORT_LEVELS = ("native", "emulated", "manual", "unsupported")
+DEFAULT_ARCHIVE_SUFFIX = ".zip"
 
 
 class TargetError(Exception):
@@ -58,6 +59,18 @@ class Target:
     install: Dict[str, List[Placement]]
     notes: List[str]
     placeholders: Dict[str, str]
+    # How `apkit pack` names the archive for this harness, and what it tells the
+    # user to do with it. Data, not code: a harness that wants a different
+    # extension is a one-line edit here, not a branch in pack.py.
+    archive: Dict[str, str] = field(default_factory=dict)
+
+    @property
+    def archive_suffix(self) -> str:
+        return self.archive.get("suffix", DEFAULT_ARCHIVE_SUFFIX)
+
+    @property
+    def archive_note(self) -> str:
+        return self.archive.get("note", "")
 
     def component(self, name: str) -> Component:
         return self.components.get(name) or Component(name=name, support="unsupported")
@@ -128,6 +141,7 @@ def load_target(path: Path) -> Target:
         install=install,
         notes=list(raw.get("notes") or []),
         placeholders=dict(raw.get("placeholders") or {}),
+        archive=dict(raw.get("archive") or {}),
     )
 
 

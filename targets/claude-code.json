@@ -3,6 +3,10 @@
   "name": "Claude Code",
   "docs": "https://code.claude.com/docs/en/plugins-reference",
   "bundle": "plugin",
+  "archive": {
+    "suffix": ".plugin",
+    "note": "Claude desktop app / Cowork: Customize -> Plugins -> upload a custom plugin file. The manifest must sit at the archive root, not under a wrapper directory."
+  },
   "placeholders": {
     "plugin_root": "${CLAUDE_PLUGIN_ROOT}"
   },

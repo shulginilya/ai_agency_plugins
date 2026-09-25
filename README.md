@@ -33,7 +33,9 @@ harness changes a path or a placeholder, you edit data, not code.
 │   ├── _template/            #   copy this to start a new plugin
 │   └── code-review/          #   the demo plugin (see below)
 ├── targets/                  # declarative harness manifests (paths, dialects)
-├── tools/apkit/              # the CLI: validate · build · install · doctor
+├── tools/apkit/              # the CLI: validate · build · pack · install · doctor
+├── tools/install.sh          # install many plugins into many harnesses
+├── tools/pack.sh             # pack plugins into archives to hand over
 ├── dist/                     # build output, gitignored, one dir per target
 ├── docs/                     # architecture, authoring guide, harness matrix
 └── .claude-plugin/           # generated Claude Code marketplace manifest
@@ -46,8 +48,18 @@ python -m tools.apkit validate            # lint every plugin against the spec
 python -m tools.apkit build               # → dist/<target>/<plugin>/
 python -m tools.apkit build --target codex --plugin code-review
 python -m tools.apkit install code-review --target cursor --scope user
+python -m tools.apkit pack --plugin code-review --target claude-code
 python -m tools.apkit doctor              # what's installed where, on this machine
-python -m tools.apkit marketplace # regenerate marketplace file
+python -m tools.apkit marketplace         # regenerate the marketplace index
+```
+
+Two wrappers do the batch versions of that, since one plugin into one harness
+per command is rarely what you want:
+
+```bash
+tools/install.sh --all                    # build and install everything locally
+tools/pack.sh --all -T                    # one archive per plugin per harness
+tools/pack.sh job-hunter -o ~/Desktop     # a .plugin file to upload by hand
 ```
 
 No third-party dependencies. Python 3.9+, standard library only.

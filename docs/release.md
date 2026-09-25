@@ -28,25 +28,85 @@ git push --follow-tags
 ```
 
 CI runs the same first three commands on Linux and Windows, on Python 3.9 and
-3.12, and fails if `marketplace.json` is stale.
+3.12. It does **not** check `marketplace.json` on pull requests: the index is
+generated from every `plugin.json`, so enforcing it per-branch makes every
+plugin PR edit the same array and conflict by construction. It is regenerated
+once, on `main`, after the merge.
 
 ## Distributing to Claude Code
 
-`.claude-plugin/marketplace.json` points at `./dist/claude-code/<plugin>`, and
-`dist/` is gitignored on `main` — built output does not belong in source
-history. So a marketplace consumer needs the built bundles published somewhere.
-Two ways, pick one:
+Built output does not belong in source history, so `dist/` stays gitignored and
+the index cannot point at it -- a consumer cloning `main` would get paths that
+are not there. Instead each entry in `.claude-plugin/marketplace.json` is a
+`git-subdir` source naming this repository, the directory inside it, and the
+branch the bundles are published on:
 
-**A release branch.** CI builds and force-pushes `dist/` to a `release` branch;
-consumers add that branch as the marketplace:
+```json
+{
+  "name": "code-review",
+  "source": {
+    "source": "git-subdir",
+    "url": "https://github.com/shulginilya/ai_agency_plugins.git",
+    "path": "claude-code/code-review",
+    "ref": "dist"
+  }
+}
+```
+
+The `dist` branch is build output: CI's `publish` job rebuilds it on every push
+to `main` and force-pushes a single commit mirroring `dist/`. Never work on that
+branch -- the next green build overwrites it.
+
+That keeps the index on the default branch, which is what consumers sync:
 
 ```bash
-/plugin marketplace add shulginilya/ai_agency_plugins@release
+/plugin marketplace add shulginilya/ai_agency_plugins
 /plugin install code-review@ai-agency
 ```
 
-**A release tarball.** CI attaches `dist/` to a GitHub release; consumers
-download and add the local path. Simpler to reason about, worse to keep current.
+In the Claude desktop app and Cowork it is Customize -> Plugins -> Personal
+plugins -> + -> Add marketplace -> from a repository, then Install per plugin.
+There is no branch picker there, which is exactly why the index lives on `main`
+and reaches across to `dist` rather than living on a release branch itself.
+
+To pin consumers to an exact build, regenerate with a commit instead of a
+branch -- `sha` wins over `ref`:
+
+```bash
+python -m tools.apkit marketplace --ref "$(git rev-parse origin/dist)"
+```
+
+For local work, generate the path form instead. It resolves against your own
+`dist/`, and is the one form that must never be committed:
+
+```bash
+python -m tools.apkit build
+python -m tools.apkit marketplace --publish path
+/plugin marketplace add .
+```
+
+### Handing over one file
+
+A marketplace is for consumers who will keep getting updates. For a one-off --
+the Claude desktop app, a colleague, a machine with no git -- pack the built
+bundle into a single archive instead:
+
+```bash
+tools/pack.sh job-hunter                  # dist/pack/claude-code/job-hunter-0.2.0.plugin
+tools/pack.sh --all -T                    # every plugin, every harness
+tools/pack.sh job-hunter -o ~/Desktop
+```
+
+`claude-code` archives come out as `.plugin` files, which the Claude desktop app
+and Cowork accept under Customize -> Plugins -> upload a custom plugin file;
+every other harness gets a `.zip` to unpack where its `INSTALL.md` says. The
+extension and the note are declared per target in `targets/*.json` under
+`archive`, not decided in code.
+
+The archive's contents sit at its root. A wrapper directory is the difference
+between a plugin that installs and one the host app ignores without a word,
+which is why `apkit pack` refuses a bundle whose manifest is missing rather
+than writing an archive that will fail quietly.
 
 For a single machine, skip the marketplace entirely:
 
@@ -55,7 +115,9 @@ python -m tools.apkit install code-review --target claude-code --scope user
 ```
 
 That drops the bundle into `~/.claude/skills/code-review/`, which Claude Code
-loads as a personal-scope plugin with no marketplace and no install step.
+loads as a personal-scope plugin (`code-review@skills-dir`) with no marketplace
+and no install step. Personal skills do not sync to Cowork or cloud sessions,
+so the marketplace above is the route for anything but your own terminal.
 
 ## Distributing to everything else
 
