@@ -101,5 +101,41 @@ class SkillRulesTest(unittest.TestCase):
         self.assertTrue(any("trigger clause" in f.message for f in report.warnings))
 
 
+class ManifestDescriptionTest(unittest.TestCase):
+    """The desktop app refuses an over-long manifest description at upload."""
+
+    def _report(self, description: str):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "demo-plugin"
+            (root / "skills" / "demo-skill").mkdir(parents=True)
+            (root / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "demo-plugin",
+                        "version": "0.1.0",
+                        "license": "MIT",
+                        "description": description,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (root / "skills" / "demo-skill" / "SKILL.md").write_text(
+                "---\nname: demo-skill\ndescription: Does a demo thing. Use when "
+                "demonstrating the validator against a manifest.\n---\n\nBody.\n",
+                encoding="utf-8",
+            )
+            return validate_plugin(load_plugin(root), strict=False)
+
+    def test_description_over_500_chars_is_an_error(self):
+        report = self._report("Use when demonstrating. " + "x" * 500)
+        self.assertTrue(any("capped at 500" in f.message for f in report.errors))
+
+    def test_description_at_the_limit_passes(self):
+        text = "Use when demonstrating the validator. " + "x" * (500 - 38)
+        self.assertEqual(len(text), 500)
+        report = self._report(text)
+        self.assertFalse([f for f in report.errors if "capped at" in f.message])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

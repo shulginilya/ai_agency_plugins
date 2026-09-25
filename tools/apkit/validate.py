@@ -16,6 +16,11 @@ SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-]+)?$")
 
 NAME_MAX = 64
 DESCRIPTION_MAX = 1024
+# A plugin.json description longer than this is refused at upload by the Claude
+# desktop app ("Plugin description must be at most 500 characters"), which is
+# far too late to find out. The Agent Skills spec allows 1024 for a SKILL.md
+# description; the manifest is the stricter one, so hold plugins to it here.
+MANIFEST_DESCRIPTION_MAX = 500
 COMPATIBILITY_MAX = 500
 BODY_SOFT_LIMIT_LINES = 500
 
@@ -188,6 +193,15 @@ def validate_plugin(plugin: Plugin, strict: bool = False) -> Report:
 
     _check_name(report, where, manifest.get("name"), expected=plugin.root.name)
     _check_description(report, where, manifest.get("description"))
+
+    description = str(manifest.get("description") or "")
+    if len(description) > MANIFEST_DESCRIPTION_MAX:
+        report.error(
+            where,
+            "description is %d chars; a plugin manifest is capped at %d and the "
+            "Claude desktop app rejects the upload above it"
+            % (len(description), MANIFEST_DESCRIPTION_MAX),
+        )
 
     version = manifest.get("version")
     if not version:

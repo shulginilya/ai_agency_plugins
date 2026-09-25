@@ -3,6 +3,10 @@
   "name": "Cursor",
   "docs": "https://cursor.com/docs/context/skills",
   "bundle": "loose",
+  "archive": {
+    "suffix": ".zip",
+    "note": "Unzip into ~/.cursor/ -- the archive mirrors the layout Cursor expects."
+  },
   "placeholders": {
     "plugin_root": "{{SOURCE}}"
   },

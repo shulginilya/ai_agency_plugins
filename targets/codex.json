@@ -3,6 +3,10 @@
   "name": "Codex CLI",
   "docs": "https://developers.openai.com/codex/skills/",
   "bundle": "loose",
+  "archive": {
+    "suffix": ".zip",
+    "note": "Unzip beside ~/.agents/skills and ~/.codex/prompts as INSTALL.md describes."
+  },
   "placeholders": {
     "plugin_root": "{{SOURCE}}"
   },

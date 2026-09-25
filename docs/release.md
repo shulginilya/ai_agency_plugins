@@ -85,6 +85,29 @@ python -m tools.apkit marketplace --publish path
 /plugin marketplace add .
 ```
 
+### Handing over one file
+
+A marketplace is for consumers who will keep getting updates. For a one-off --
+the Claude desktop app, a colleague, a machine with no git -- pack the built
+bundle into a single archive instead:
+
+```bash
+tools/pack.sh job-hunter                  # dist/pack/claude-code/job-hunter-0.2.0.plugin
+tools/pack.sh --all -T                    # every plugin, every harness
+tools/pack.sh job-hunter -o ~/Desktop
+```
+
+`claude-code` archives come out as `.plugin` files, which the Claude desktop app
+and Cowork accept under Customize -> Plugins -> upload a custom plugin file;
+every other harness gets a `.zip` to unpack where its `INSTALL.md` says. The
+extension and the note are declared per target in `targets/*.json` under
+`archive`, not decided in code.
+
+The archive's contents sit at its root. A wrapper directory is the difference
+between a plugin that installs and one the host app ignores without a word,
+which is why `apkit pack` refuses a bundle whose manifest is missing rather
+than writing an archive that will fail quietly.
+
 For a single machine, skip the marketplace entirely:
 
 ```bash

@@ -3,6 +3,10 @@
   "name": "OpenCode",
   "docs": "https://opencode.ai/docs/skills/",
   "bundle": "loose",
+  "archive": {
+    "suffix": ".zip",
+    "note": "Unzip into ~/.config/opencode/."
+  },
   "placeholders": {
     "plugin_root": "{{SOURCE}}"
   },

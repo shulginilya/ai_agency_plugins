@@ -1,8 +1,8 @@
 {
   "name": "interview-prep",
   "displayName": "Interview Prep",
-  "version": "0.1.0",
-  "description": "Prepares an engineer for a full interview loop instead of for interviews in general. Reads a job description, Notion page or recruiter notes and maps the rounds it implies, ranks what to fix by risk, runs realistic mock rounds — recruiter screen, live coding, take-home review, system design, AI/LLM design, behavioral, hiring manager — and grades them against a rubric that is willing to say no. Keeps the STAR story bank, tracks every loop's dates and weak points, and captures what real rounds actually asked. Use when preparing for an interview, practising answers, running a mock, building behavioral stories, or debriefing a round that just happened.",
+  "version": "0.1.1",
+  "description": "Prepares an engineer for one specific interview loop, not interviews in general. Maps the rounds a job description implies, ranks what to fix by risk, and runs graded mock rounds -- recruiter screen, live coding, take-home review, system design, behavioral, hiring manager -- against a rubric willing to say no. Keeps the STAR story bank and what real rounds asked. Use when preparing for an interview, practising answers, running a mock, building behavioral stories, or debriefing a round.",
   "author": {
     "name": "Ilya Shulgin",
     "email": "ishulgin8@gmail.com"
@@ -10,7 +10,16 @@
   "license": "MIT",
   "homepage": "https://github.com/shulginilya/ai_agency_plugins",
   "repository": "https://github.com/shulginilya/ai_agency_plugins",
-  "keywords": ["interview", "hiring", "mock-interview", "system-design", "behavioral", "star", "career", "preparation"],
+  "keywords": [
+    "interview",
+    "hiring",
+    "mock-interview",
+    "system-design",
+    "behavioral",
+    "star",
+    "career",
+    "preparation"
+  ],
   "targets": {
     "exclude": [],
     "overrides": {}

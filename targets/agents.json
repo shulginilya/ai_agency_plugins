@@ -3,6 +3,10 @@
   "name": "Generic Agent Skills (.agents/skills)",
   "docs": "https://agentskills.io/specification",
   "bundle": "loose",
+  "archive": {
+    "suffix": ".zip",
+    "note": "Unzip into any .agents/skills directory, or commit it to the repo people already work in."
+  },
   "placeholders": {
     "plugin_root": "{{SOURCE}}"
   },

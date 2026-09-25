@@ -83,8 +83,8 @@
         "path": "claude-code/interview-prep",
         "ref": "dist"
       },
-      "description": "Prepares an engineer for a full interview loop instead of for interviews in general. Reads a job description, Notion page or recruiter notes and maps the rounds it implies, ranks what to fix by risk, runs realistic mock rounds \u2014 recruiter screen, live coding, take-home review, system design, AI/LLM design, behavioral, hiring manager \u2014 and grades them against a rubric that is willing to say no. Keeps the STAR story bank, tracks every loop's dates and weak points, and captures what real rounds actually asked. Use when preparing for an interview, practising answers, running a mock, building behavioral stories, or debriefing a round that just happened.",
-      "version": "0.1.0",
+      "description": "Prepares an engineer for one specific interview loop, not interviews in general. Maps the rounds a job description implies, ranks what to fix by risk, and runs graded mock rounds -- recruiter screen, live coding, take-home review, system design, behavioral, hiring manager -- against a rubric willing to say no. Keeps the STAR story bank and what real rounds asked. Use when preparing for an interview, practising answers, running a mock, building behavioral stories, or debriefing a round.",
+      "version": "0.1.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -108,8 +108,8 @@
         "path": "claude-code/job-hunter",
         "ref": "dist"
       },
-      "description": "Runs a job or contract search as a pipeline instead of a pile of tabs. Scores a posting against a declared profile and says pursue or skip with the reason, writes portfolio case studies from a project's codebase or live web app, tailors the application to one posting, and tracks every opportunity through its stages with follow-ups that come due. Use when reviewing a job ad, gig or RFP, deciding whether to apply or bid, describing a project for a portfolio or CV, writing a proposal, cover letter or CV variant, or asking what needs chasing.",
-      "version": "0.2.0",
+      "description": "Runs a job or contract search as a pipeline instead of a pile of tabs. Scores a posting against a declared profile and says pursue or skip with the reason, writes portfolio case studies from a codebase or live app, tailors the application to one posting, and tracks every opportunity with follow-ups that come due. Use when reviewing a job ad, gig or RFP, deciding whether to apply or bid, writing a proposal, cover letter or CV variant, or asking what needs chasing.",
+      "version": "0.2.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -133,8 +133,8 @@
         "path": "claude-code/pair-programmer",
         "ref": "dist"
       },
-      "description": "Pairs on code instead of taking it over. Navigates while you drive \u2014 holding the goal, questioning decisions before they are typed, and catching the change spreading past its declared scope \u2014 or plays TDD ping-pong where the suite, not either partner, decides when a turn is over. Keeps a session journal of decisions, rejected alternatives, open questions and the next step, so the work can be paused, resumed or handed over. Use when the user wants to pair, wants a second pair of eyes while they code, asks for ping-pong or test-first pairing, or asks whether the change is still on track.",
-      "version": "0.1.0",
+      "description": "Pairs on code instead of taking it over. Navigates while you drive -- holding the goal, questioning decisions before they are typed, catching a change spreading past its scope -- or plays TDD ping-pong where the suite decides when a turn ends. Keeps a journal of decisions, rejected alternatives and next steps, so work can be handed over. Use when the user wants to pair, asks for a second pair of eyes while coding, asks for ping-pong or test-first pairing, or asks whether a change is on track.",
+      "version": "0.1.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"

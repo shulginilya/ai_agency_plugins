@@ -1,4 +1,4 @@
-"""Command line entry point: validate · build · install · doctor · test."""
+"""Command line entry point: validate · build · pack · install · doctor · test."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from . import install as installer
 from . import marketplace as marketplace_mod
+from . import pack as pack_mod
 from .build import build_all
 from .model import Plugin, SourceError, discover, unmanifested
 from .targets import TargetError, load_targets
@@ -277,6 +278,46 @@ def cmd_test(args) -> int:
     return 1 if failures else 0
 
 
+def cmd_pack(args) -> int:
+    """Turn built bundles into one archive per (plugin, target)."""
+    root = project_root(args.root)
+    plugins = _load(root, args.plugin)
+    targets = load_targets(root / TARGETS_DIR, only=args.target)
+    tty = sys.stdout.isatty()
+
+    dist_root = Path(args.dist_dir).resolve() if args.dist_dir else root / DIST_DIR
+    out_root = Path(args.out).resolve() if args.out else dist_root / pack_mod.PACK_DIR
+
+    failures = 0
+    for target in targets:
+        for plugin in plugins:
+            bundle = dist_root / target.id / plugin.name
+            try:
+                result = pack_mod.pack_bundle(
+                    bundle, target, plugin.name, plugin.version, out_root / target.id
+                )
+            except pack_mod.PackError as exc:
+                print("%serror%s %s" % (_color(tty, RED), _color(tty, RESET), exc))
+                failures += 1
+                continue
+            print(
+                "%spacked%s %s  (%d files, %.1f KiB)"
+                % (
+                    _color(tty, GREEN),
+                    _color(tty, RESET),
+                    _relative(result.path, root),
+                    result.file_count,
+                    result.size_bytes / 1024.0,
+                )
+            )
+            if args.verbose and target.archive_note:
+                print("       %s%s%s" % (_color(tty, DIM), target.archive_note, _color(tty, RESET)))
+
+    if failures:
+        print("\n%d archive(s) not written" % failures)
+    return 1 if failures else 0
+
+
 def cmd_marketplace(args) -> int:
     root = project_root(args.root)
     if getattr(args, "plugin", None):
@@ -378,6 +419,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("test", help="run plugin and repo test scripts")
     p.add_argument("--plugin", action="append")
     p.set_defaults(func=cmd_test)
+
+    p = sub.add_parser("pack", help="zip built bundles into per-harness archives")
+    p.add_argument("--plugin", action="append")
+    p.add_argument("--target", action="append")
+    p.add_argument("--dist-dir", help="where the built bundles are (default: dist/)")
+    p.add_argument("--out", help="where to write archives (default: <dist>/pack/<target>/)")
+    p.add_argument(
+        "-v", "--verbose", action="store_true", help="print each target's install note"
+    )
+    p.set_defaults(func=cmd_pack)
 
     p = sub.add_parser("marketplace", help="regenerate .claude-plugin/marketplace.json")
     # Accepted only so the rejection in cmd_marketplace can explain itself;
