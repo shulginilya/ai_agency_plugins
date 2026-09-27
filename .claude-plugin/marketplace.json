@@ -149,6 +149,31 @@
       ]
     },
     {
+      "name": "recruiter-inbox",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
+        "path": "claude-code/recruiter-inbox",
+        "ref": "dist"
+      },
+      "description": "An actor agent for recruiter conversations on LinkedIn and email. Sweeps LinkedIn messages and InMails in your signed-in Chrome and recruiter email in Gmail, triages each one, drafts the reply that moves it toward a first call, and sends only the text you approved word for word; a hook stops anything else. Tracks who owes whom a reply. Use when answering recruiters, LinkedIn job offer messages, salary questions or follow-ups.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "linkedin",
+        "recruiter",
+        "inbox",
+        "job-search",
+        "outreach",
+        "negotiation",
+        "gmail",
+        "interview"
+      ]
+    },
+    {
       "name": "scrum-master",
       "source": {
         "source": "git-subdir",
