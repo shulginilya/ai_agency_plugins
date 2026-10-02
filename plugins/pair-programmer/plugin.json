@@ -1,7 +1,7 @@
 {
   "name": "pair-programmer",
   "displayName": "Pair Programmer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pairs on code instead of taking it over. Navigates while you drive -- holding the goal, questioning decisions before they are typed, catching a change spreading past its scope -- or plays TDD ping-pong where the suite decides when a turn ends. Keeps a journal of decisions, rejected alternatives and next steps, so work can be handed over. Use when the user wants to pair, asks for a second pair of eyes while coding, asks for ping-pong or test-first pairing, or asks whether a change is on track.",
   "author": {
     "name": "Ilya Shulgin",

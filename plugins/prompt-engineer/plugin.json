@@ -1,7 +1,7 @@
 {
   "name": "prompt-engineer",
   "displayName": "Prompt Engineer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Turns raw text — a task, rough notes, an example or an underperforming prompt — into a prompt tailored to the task, the target model and where it will live: a chat message, a system prompt, a pipeline template, an agent file or an image prompt. Asks only what it cannot work without, states every assumption, lints the result and tests it cold. Use when the user asks to write, improve or test a prompt, a system prompt or instructions for an LLM, agent or image model.",
   "author": {
     "name": "Ilya Shulgin",

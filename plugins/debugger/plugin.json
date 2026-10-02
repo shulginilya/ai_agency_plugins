@@ -1,7 +1,7 @@
 {
   "name": "debugger",
   "displayName": "Debugger",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Diagnoses failures down to their mechanism before changing any code. Reproduces the fault deterministically, narrows it to the smallest failing case, bisects regressions to the commit that introduced them, and proves the fix with a test that fails without it. Use when something is broken, a test fails or is flaky, behaviour regressed after a change, or a crash, stack trace or incident needs a root cause.",
   "author": {
     "name": "Ilya Shulgin",

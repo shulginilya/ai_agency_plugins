@@ -1,7 +1,7 @@
 {
   "name": "interview-prep",
   "displayName": "Interview Prep",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Prepares an engineer for one specific interview loop, not interviews in general. Maps the rounds a job description implies, ranks what to fix by risk, and runs graded mock rounds -- recruiter screen, live coding, take-home review, system design, behavioral, hiring manager -- against a rubric willing to say no. Keeps the STAR story bank and what real rounds asked. Use when preparing for an interview, practising answers, running a mock, building behavioral stories, or debriefing a round.",
   "author": {
     "name": "Ilya Shulgin",

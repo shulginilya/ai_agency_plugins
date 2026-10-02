@@ -1,7 +1,7 @@
 {
   "name": "code-review",
   "displayName": "Code Review",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Structured code review and repository audit. Reviews a diff, branch or pull request against correctness, security, performance and accessibility, and reports findings ranked by severity with a concrete failure scenario for each. Use when asked to review code, audit a PR, or check quality before merging.",
   "author": {
     "name": "Ilya Shulgin",
