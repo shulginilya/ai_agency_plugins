@@ -25,6 +25,9 @@ integrations/firstmate/deploy.sh                  # after editing a file here
 - Files are copied, never symlinked: firstmate refuses a `brief-include.md` that is
   not a readable regular file.
 - A deployed file you edited by hand is backed up to `<name>.bak` before it is replaced.
+- If the firstmate clone does not gitignore `config/`, the script hides the deployed
+  files from `git status` without editing any tracked file: untracked ones go into the
+  clone-local `.git/info/exclude`, tracked ones get `git update-index --skip-worktree`.
 - `crew-dispatch.json` is deployed too once it exists here (checked with `jq` if installed).
 - New briefs pick up the change on the next dispatch; running crewmates keep their brief.
 

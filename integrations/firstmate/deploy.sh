@@ -52,6 +52,31 @@ for f in "${files[@]}"; do
   echo "deployed   $dst"
 done
 
+# Keep deployed files out of the firstmate clone's git status. Upstream firstmate
+# gitignores config/, but some clones and copies do not: hide an untracked file
+# through the clone-local .git/info/exclude, and a tracked one with
+# skip-worktree. Neither edits a tracked firstmate file, so updates stay clean.
+if git -C "$fm_home" rev-parse --git-dir >/dev/null 2>&1; then
+  exclude="$(git -C "$fm_home" rev-parse --git-path info/exclude)"
+  case "$exclude" in /*) ;; *) exclude="$fm_home/$exclude" ;; esac
+  for f in "${files[@]}"; do
+    rel="config/$f"
+    [ -f "$fm_home/$rel" ] || continue
+    if git -C "$fm_home" ls-files --error-unmatch "$rel" >/dev/null 2>&1; then
+      git -C "$fm_home" update-index --skip-worktree "$rel"
+      echo "git: $rel is tracked in this firstmate clone; marked skip-worktree"
+    elif ! git -C "$fm_home" check-ignore -q "$rel"; then
+      mkdir -p "$(dirname "$exclude")"
+      grep -qxF "/$rel" "$exclude" 2>/dev/null || echo "/$rel" >> "$exclude"
+      echo "git: $rel was not ignored; added to .git/info/exclude"
+    fi
+  done
+  # Backups this script writes must not show up either.
+  if ! git -C "$fm_home" check-ignore -q "config/x.bak"; then
+    grep -qxF "/config/*.bak" "$exclude" 2>/dev/null || echo "/config/*.bak" >> "$exclude"
+  fi
+fi
+
 if [ "$with_plugins" -eq 1 ]; then
   py="$(command -v python3 || command -v python || true)"
   [ -n "$py" ] || { echo "python not found" >&2; exit 1; }
