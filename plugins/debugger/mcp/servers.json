@@ -1,8 +1,13 @@
 {
   "mcpServers": {
     "debugger": {
-      "command": "python",
-      "args": ["{{PLUGIN_ROOT}}/mcp/server.py"],
+      "command": "sh",
+      "args": [
+        "-c",
+        "exec \"$(command -v python3 || command -v python)\" \"$@\"",
+        "sh",
+        "{{PLUGIN_ROOT}}/mcp/server.py"
+      ],
       "env": {}
     }
   }

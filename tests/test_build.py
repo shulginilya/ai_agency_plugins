@@ -93,7 +93,7 @@ class ClaudeCodeTest(BuildTestCase):
         out = self.out("claude-code")
         config = json.loads((out / ".mcp.json").read_text())
         args = config["mcpServers"]["code-review"]["args"]
-        self.assertIn("${CLAUDE_PLUGIN_ROOT}", args[0])
+        self.assertIn("${CLAUDE_PLUGIN_ROOT}", args[-1])
         self.assertTrue(
             (out / "mcp" / "server.py").is_file(),
             "the bundle declares an MCP server, so it must contain one",
@@ -148,7 +148,7 @@ class McpDialectTest(BuildTestCase):
 
     def test_loose_targets_point_at_a_server_that_exists(self):
         config = json.loads((self.out("cursor") / "mcp.json").read_text())
-        server = Path(config["mcpServers"]["code-review"]["args"][0])
+        server = Path(config["mcpServers"]["code-review"]["args"][-1])
         self.assertTrue(server.is_file(), "loose targets must reference the real source path")
 
 
