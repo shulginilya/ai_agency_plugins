@@ -80,6 +80,10 @@ fi
 if [ "$with_plugins" -eq 1 ]; then
   py="$(command -v python3 || command -v python || true)"
   [ -n "$py" ] || { echo "python not found" >&2; exit 1; }
+  # install copies from dist/, which is gitignored and goes stale; rebuild first.
+  build_args=()
+  for p in "${plugins[@]}"; do build_args+=(--plugin "$p"); done
+  (cd "$repo" && "$py" -m tools.apkit build --target claude-code "${build_args[@]}")
   for p in "${plugins[@]}"; do
     (cd "$repo" && "$py" -m tools.apkit install "$p" --target claude-code --scope user)
   done

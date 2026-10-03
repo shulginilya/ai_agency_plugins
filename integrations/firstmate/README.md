@@ -21,7 +21,8 @@ integrations/firstmate/deploy.sh                  # after editing a file here
 - The firstmate home defaults to `$FM_HOME`, then `~/firstmate`; pass a path to override.
 - `--with-plugins` installs `developer`, `debugger`, `code-review` and `scrum-master`
   into `~/.claude` at user scope. Claude crewmates use the normal `~/.claude`, so that
-  is what makes the plugins available to them.
+  is what makes the plugins available to them. It rebuilds their `claude-code` bundles
+  first, so rerun it after any plugin change.
 - Files are copied, never symlinked: firstmate refuses a `brief-include.md` that is
   not a readable regular file.
 - A deployed file you edited by hand is backed up to `<name>.bak` before it is replaced.
