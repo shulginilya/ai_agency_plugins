@@ -1,7 +1,8 @@
 ---
 description: Audit a pull request or branch as a whole — scope, blast radius, reversibility, deploy ordering — and give a ship / ship-with-changes / hold verdict.
 argument_hint: "[PR number or branch name]"
-model: sonnet
+model: claude-opus-5-5
+effort: medium
 allowed_tools: Bash(git:*) Bash(gh:*) Read Grep Glob
 ---
 

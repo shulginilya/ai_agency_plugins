@@ -1,7 +1,8 @@
 ---
 description: Review the current diff and report defects ranked by severity, each with a concrete failure scenario.
 argument_hint: "[base branch, path, or nothing for the working tree]"
-model: sonnet
+model: claude-opus-5-5
+effort: medium
 allowed_tools: Bash(git:*) Read Grep Glob
 ---
 

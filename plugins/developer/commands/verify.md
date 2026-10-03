@@ -1,7 +1,8 @@
 ---
 description: Run the checks this repository actually declares — types, lint, tests, build — and report what failed and why.
 argument_hint: "[optional: a kind such as test or typecheck, or a subdirectory]"
-model: sonnet
+model: claude-opus-5-5
+effort: medium
 allowed_tools: Bash(git:*) Bash(python:*) Read Grep Glob
 ---
 

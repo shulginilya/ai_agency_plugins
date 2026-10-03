@@ -1,7 +1,8 @@
 ---
 name: reviewer
 description: Runs one focused review pass over a set of changed files and returns findings as a structured list. Use when a diff is large enough that correctness, security, performance and accessibility should each be reviewed in a fresh context rather than all in one.
-model: sonnet
+model: claude-opus-5-5
+effort: medium
 tools: Read, Grep, Glob, Bash
 ---
 

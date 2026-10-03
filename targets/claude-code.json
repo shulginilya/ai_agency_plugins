@@ -40,6 +40,7 @@
         "description": "description",
         "argument_hint": "argument-hint",
         "model": "model",
+        "effort": "effort",
         "allowed_tools": "allowed-tools"
       },
       "placeholders": {
@@ -57,6 +58,7 @@
         "name": "name",
         "description": "description",
         "model": "model",
+        "effort": "effort",
         "tools": "tools",
         "disallowed_tools": "disallowedTools"
       }

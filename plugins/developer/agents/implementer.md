@@ -1,7 +1,8 @@
 ---
 name: implementer
 description: Implements one agreed slice of a change plan in a fresh context and returns a report of what it changed and how it verified it. Use when a feature is large enough that the main context should hold the plan rather than every hunk, and each slice has a stated acceptance test.
-model: sonnet
+model: claude-opus-5-5
+effort: medium
 tools: Read, Edit, Write, Grep, Glob, Bash
 ---
 
