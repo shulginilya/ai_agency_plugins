@@ -108,8 +108,8 @@
         "path": "claude-code/job-hunter",
         "ref": "dist"
       },
-      "description": "Runs a job or contract search as a pipeline instead of a pile of tabs. Scores a posting against a declared profile and says pursue or skip with the reason, writes portfolio case studies from a codebase or live app, tailors the application to one posting, and tracks every opportunity with follow-ups that come due. Use when reviewing a job ad, gig or RFP, deciding whether to apply or bid, writing a proposal, cover letter or CV variant, or asking what needs chasing.",
-      "version": "0.2.2",
+      "description": "Runs a job or contract search as a pipeline. Searches Upwork, Arc and Contra against a declared profile, scores a posting as pursue or skip with the reason, writes portfolio case studies, tailors the application to one posting, and tracks follow-ups. Use when searching a platform for gigs, reviewing a job ad or RFP, deciding whether to bid, writing a proposal, cover letter or CV variant, or asking what needs chasing.",
+      "version": "0.3.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -122,7 +122,9 @@
         "hiring",
         "contract",
         "portfolio",
-        "case-study"
+        "case-study",
+        "upwork",
+        "search"
       ]
     },
     {
