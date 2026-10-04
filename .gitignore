@@ -21,6 +21,3 @@ Thumbs.db
 
 # Local, machine-specific installs
 /.apkit.local.json
-
-# Personal job-search data (profile, pipeline, drafts)
-/.jobhunt/

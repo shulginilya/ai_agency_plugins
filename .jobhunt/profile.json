@@ -1,0 +1,62 @@
+{
+  "titles": [
+    "Senior Full-Stack Engineer",
+    "Senior AI Engineer",
+    "Senior Frontend Engineer"
+  ],
+  "must_have": [],
+  "nice_to_have": [
+    "typescript",
+    "react",
+    "node",
+    "python",
+    "next.js",
+    "vue"
+  ],
+  "markets": {
+    "onsite": [],
+    "remote": [
+      "eu",
+      "europe",
+      "global",
+      "worldwide",
+      "anywhere"
+    ]
+  },
+  "tracks": [
+    "contract"
+  ],
+  "rate_floor": {
+    "currency": "USD",
+    "per": "hour",
+    "amount": 45
+  },
+  "rate_target": {
+    "currency": "USD",
+    "per": "hour",
+    "low": 45,
+    "high": 70
+  },
+  "availability": {
+    "type": "part-time",
+    "max_hours_per_week": 30,
+    "preferred_billing": "hourly"
+  },
+  "deal_breakers": [
+    "relocation required",
+    "unpaid",
+    "equity only",
+    "on-site only"
+  ],
+  "min_must_have_ratio": 0.0,
+  "search": {
+    "platforms": [
+      "upwork",
+      "arc",
+      "contra"
+    ],
+    "results_per_run": 10,
+    "mode": "draft",
+    "_mode_values": "draft = write proposals only, never submit; submit = submit only after the user approves each proposal word for word"
+  }
+}
