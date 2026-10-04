@@ -18,6 +18,7 @@ PORTFOLIO_DIR = PLUGIN / "skills" / "portfolio-case-study" / "scripts"
 FIT = TRIAGE / "fit.py"
 PIPELINE = PIPELINE_DIR / "pipeline.py"
 FACTS = PORTFOLIO_DIR / "project_facts.py"
+SEARCH_LOG = PLUGIN / "skills" / "platform-search" / "scripts" / "search_log.py"
 HOOK = PLUGIN / "scripts" / "pipeline_status.py"
 MCP_SERVER = PLUGIN / "mcp" / "server.py"
 
@@ -310,6 +311,112 @@ class ProjectFactsTest(unittest.TestCase):
             self.assertEqual(code, 2)
 
 
+SEARCH_PROFILE = dict(
+    PROFILE,
+    titles=["Senior Full-Stack Engineer", "Senior AI Engineer"],
+    rate_floor={"currency": "USD", "per": "hour", "amount": 45},
+    search={"platforms": ["upwork", "arc"], "results_per_run": 5, "mode": "draft"},
+)
+
+
+def hourly(job_id, title, low, high, client=None, **extra):
+    posting = {"id": job_id, "title": title, "client": client,
+               "rate": {"min": low, "max": high, "currency": "USD", "per": "hour"}}
+    posting.update(extra)
+    return posting
+
+
+class SearchLogTest(unittest.TestCase):
+    def _root(self, tmp):
+        root = Path(tmp)
+        (root / ".jobhunt").mkdir()
+        (root / ".jobhunt" / "profile.json").write_text(json.dumps(SEARCH_PROFILE), encoding="utf-8")
+        return root
+
+    def _run(self, root, *args, stdin=None):
+        return run([sys.executable, str(SEARCH_LOG)] + list(args), cwd=root, input=stdin)
+
+    def test_plan_builds_role_queries_from_titles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._run(self._root(tmp), "plan", "upwork")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            plan = json.loads(result.stdout)
+            self.assertEqual(plan["queries"][:2], ["Full-Stack Engineer", "Full-Stack Developer"])
+            self.assertIn("AI Developer", plan["queries"])
+            self.assertEqual((plan["limit"], plan["mode"], plan["rate_floor"]["amount"]), (5, "draft", 45.0))
+
+    def test_plan_without_profile_or_with_unknown_platform_is_unusable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(self._run(Path(tmp), "plan", "upwork").returncode, 2)
+            self.assertEqual(self._run(self._root(tmp), "plan", "fiverr").returncode, 2)
+
+    def test_filter_applies_the_real_floor_and_collapses_reposts(self):
+        found = [
+            hourly("1", "AI Developer", 40, 75, client="c1"),
+            hourly("2", "Full-Stack Developer", 25, 40, client="c2"),       # max under floor
+            hourly("3", "Senior Engineer", 65, 120, client="c3"),
+            hourly("4", "Senior  engineer!", 65, 120, client="c3"),         # same client, same job
+            hourly("5", "Frontend Developer", None, None),                  # no rate: kept, flagged
+            hourly("6", "AI Engineer", 50, 90, applied=True),
+            hourly("7", "Node Developer", 60, 90, summary="Relocation required to Dubai"),
+            {"id": "8", "title": "Fixed build", "rate": {"min": 3000, "per": "fixed"}},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp)
+            result = self._run(root, "filter", "upwork", "-", stdin=json.dumps(found))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            out = json.loads(result.stdout)
+            self.assertEqual([p["id"] for p in out["kept"]], ["1", "3", "5", "8"])
+            reasons = {p["id"]: p["note"] for p in out["dropped"]}
+            self.assertIn("below floor", reasons["2"])
+            self.assertIn("re-posted", reasons["4"])
+            self.assertEqual(reasons["6"], "already applied")
+            self.assertIn("deal-breaker", reasons["7"])
+            flags = {p["id"]: " ".join(p["flags"]) for p in out["kept"]}
+            self.assertIn("no rate stated", flags["5"])
+            self.assertIn("fixed-price", flags["8"])
+            self.assertIn("1 more time", flags["3"])
+
+    def test_record_marks_seen_so_the_next_run_only_shows_new_postings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp)
+            first = [hourly("1", "AI Developer", 40, 75, verdict="pursue", note="best fit", url="https://x/1"),
+                     hourly("2", "Full-Stack Developer", 25, 40)]
+            filtered = self._run(root, "filter", "upwork", "-", stdin=json.dumps(first))
+            (root / "filtered.json").write_text(filtered.stdout, encoding="utf-8")
+            recorded = self._run(root, "record", "upwork", "filtered.json", "--date", "2026-10-04")
+            self.assertEqual(recorded.returncode, 0, recorded.stderr)
+            self.assertEqual(json.loads(recorded.stdout)["newly_seen"], 2)
+            report = (root / ".jobhunt" / "searches" / "2026-10-04-upwork.md").read_text(encoding="utf-8")
+            self.assertIn("[AI Developer](https://x/1)", report)
+            self.assertIn("PURSUE", report)
+            self.assertIn("below floor", report)
+
+            again = self._run(root, "filter", "upwork", "-",
+                              stdin=json.dumps(first + [hourly("9", "AI Engineer", 50, 90)]))
+            self.assertEqual([p["id"] for p in json.loads(again.stdout)["kept"]], ["9"])
+            # seen is per platform: the same id on another platform is new
+            other = self._run(root, "filter", "arc", "-", stdin=json.dumps(first[:1]))
+            self.assertEqual(other.returncode, 0)
+
+    def test_nothing_new_exits_1_and_a_corrupt_seen_file_is_never_overwritten(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp)
+            low = [hourly("2", "Full-Stack Developer", 25, 40)]
+            self.assertEqual(self._run(root, "filter", "upwork", "-", stdin=json.dumps(low)).returncode, 1)
+            seen = root / ".jobhunt" / "searches" / "seen.json"
+            seen.parent.mkdir(parents=True)
+            seen.write_text("not json", encoding="utf-8")
+            result = self._run(root, "record", "upwork", "-", stdin=json.dumps(low))
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(seen.read_text(encoding="utf-8"), "not json")
+
+    def test_postings_without_id_or_title_are_unusable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._run(self._root(tmp), "filter", "upwork", "-", stdin='[{"title": "x"}]')
+            self.assertEqual(result.returncode, 2)
+
+
 class McpServerTest(unittest.TestCase):
     def _rpc(self, messages, cwd=None):
         payload = "\n".join(json.dumps(m) for m in messages) + "\n"
@@ -359,6 +466,13 @@ class McpServerTest(unittest.TestCase):
             "params": {"name": "hunt_playbook", "arguments": {"topic": "cadence"}},
         }])
         self.assertIn("Follow-up cadence", responses[0]["result"]["content"][0]["text"])
+
+    def test_playbook_serves_the_platform_references(self):
+        responses = self._rpc([{
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "hunt_playbook", "arguments": {"topic": "platform-upwork"}},
+        }])
+        self.assertIn("range overlap", responses[0]["result"]["content"][0]["text"])
 
     def test_a_bad_file_is_a_tool_error_and_the_server_survives(self):
         with tempfile.TemporaryDirectory() as tmp:

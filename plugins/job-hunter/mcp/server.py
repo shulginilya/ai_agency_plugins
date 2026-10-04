@@ -6,7 +6,7 @@ Speaks JSON-RPC 2.0 over stdio (newline-delimited) and exposes four tools:
     pipeline_status — what the search needs today: overdue, stale, undated
     score_fit       — score a posting against the declared profile
     project_facts   — the verifiable facts about a project, for a portfolio entry
-    hunt_playbook   — the triage, cadence, channel and portfolio references
+    hunt_playbook   — the triage, cadence, channel, portfolio and platform references
 
 No logic lives here. Each tool imports the script that already owns the rule
 from the skill that ships it, so the server cannot drift from the advice the
@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 SERVER_NAME = "job-hunter"
-SERVER_VERSION = "0.2.0"
+SERVER_VERSION = "0.3.0"
 DEFAULT_PROTOCOL = "2025-06-18"
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
@@ -43,6 +43,9 @@ PLAYBOOKS = {
     "channels": SKILLS / "application-tailoring" / "references" / "channels.md",
     "case-study-format": SKILLS / "portfolio-case-study" / "references" / "case-study-format.md",
     "evidence-sources": SKILLS / "portfolio-case-study" / "references" / "evidence-sources.md",
+    "platform-upwork": SKILLS / "platform-search" / "references" / "upwork.md",
+    "platform-arc": SKILLS / "platform-search" / "references" / "arc.md",
+    "platform-contra": SKILLS / "platform-search" / "references" / "contra.md",
 }
 
 TOOLS: List[Dict[str, Any]] = [
@@ -104,7 +107,8 @@ TOOLS: List[Dict[str, Any]] = [
             "keyword scan cannot see), 'cadence' (when a follow-up is due), or "
             "'channels' (how a platform bid, cover letter, cold email and CV variant "
             "differ), 'case-study-format' (the portfolio entry template) or "
-            "'evidence-sources' (what a codebase, git history or live app can prove)."
+            "'evidence-sources' (what a codebase, git history or live app can prove), or "
+            "'platform-upwork' / 'platform-arc' / 'platform-contra' (how to search that platform)."
         ),
         "inputSchema": {
             "type": "object",

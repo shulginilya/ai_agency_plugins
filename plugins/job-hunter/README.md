@@ -9,10 +9,12 @@ that application, and never losing it to silence.
 
 | Component | Name | Purpose |
 | --- | --- | --- |
+| Skill | `platform-search` | Search Upwork, Arc or Contra from the profile; drop seen, below-floor and re-posted jobs; return a screened shortlist |
 | Skill | `opportunity-triage` | Score a posting against the profile; pursue, skip or unclear, with the reason |
 | Skill | `portfolio-case-study` | Describe one project for a portfolio, CV or platform profile from its codebase or live app — facts only |
 | Skill | `application-tailoring` | Write the bid, cover letter or CV variant for one specific posting |
 | Skill | `application-pipeline` | Track every opportunity through its stages; say what is due |
+| Command | `/search` | Search one platform (or all) and list the best — never applies |
 | Command | `/triage` | Score a posting and record it if it survives |
 | Command | `/portfolio` | Write a portfolio entry from a repo path, git URL or web app URL |
 | Command | `/tailor` | Draft the application for one posting |
@@ -20,7 +22,7 @@ that application, and never losing it to silence.
 | Agent | `screener` | Judges one posting in a fresh context, so a shortlist does not get progressively more agreeable |
 | Agent | `project-analyst` | Reads a large codebase or a live app in a fresh context and returns a sourced facts sheet |
 | Hook | `SessionStart` | Says what is overdue — and stays silent when nothing is |
-| MCP | `job-hunter` | Dependency-free stdio server: `pipeline_status`, `score_fit`, `project_facts`, `hunt_playbook` |
+| MCP | `job-hunter` | Dependency-free stdio server: `pipeline_status`, `score_fit`, `project_facts`, `hunt_playbook` (incl. platform references) |
 
 ## Setup
 
@@ -73,6 +75,22 @@ means something decisive is missing (nothing says what the project is, or none
 of the commits are the user's). Entries land in `.jobhunt/portfolio/`, where
 `/tailor` picks them up as evidence.
 
+```bash
+# search a platform: plan from the profile, filter what was found, record the run
+python skills/platform-search/scripts/search_log.py plan upwork
+python skills/platform-search/scripts/search_log.py filter upwork found.json > filtered.json  # 0 kept, 1 none, 2 unusable
+python skills/platform-search/scripts/search_log.py record upwork filtered.json
+```
+
+`search_log.py` does not search — the model does, through the platform's
+connector, alert emails, public board or a signed-in browser, as
+`references/<name>.md` describes. The script owns what must not
+depend on judgement: the queries built from the profile, the real rate floor
+(Upwork's own filter only checks that ranges overlap), postings already seen in
+an earlier run, and a client re-posting the same job. Runs are written to
+`.jobhunt/searches/<date>-<platform>.md`; `seen.json` beside them is backed up
+before every write and never overwritten when it cannot be parsed.
+
 ## Where the rules live
 
 `due_report` in `pipeline.py` decides what "overdue", "stale" and "needs a next
@@ -81,7 +99,8 @@ than each deciding for themselves, so the hook can never disagree with `/pipelin
 
 ## What it will not do
 
-- **Send anything.** Drafts go to the user; the user sends them.
+- **Send anything.** Drafts go to the user; the user sends them. A search
+  reads only — it never applies, bids, saves or messages.
 - **Publish anything.** Portfolio entries are files; the user posts them.
 - **Invent evidence.** A tailored application with a plausible metric nobody
   verified is the worst thing this plugin could produce, so the tailoring skill
@@ -113,6 +132,6 @@ python -m tools.apkit install job-hunter --target agents --scope project --into 
 - **Codex CLI, Cursor, Gemini CLI** take skills and commands; `screener` and
   `project-analyst` are emitted as skills, so the method survives but the
   delegation does not.
-- **Generic `.agents/skills`** takes skills only — and all three scripts live
-  under their skills, so `fit.py`, `pipeline.py` and `project_facts.py` travel
-  with them.
+- **Generic `.agents/skills`** takes skills only — and all four scripts live
+  under their skills, so `fit.py`, `pipeline.py`, `project_facts.py` and
+  `search_log.py` travel with them.
