@@ -16,7 +16,7 @@ that application, and never losing it to silence.
 | Skill | `application-pipeline` | Track every opportunity through its stages; say what is due |
 | Command | `/search` | Search one platform (or all) and list the best — never applies |
 | Command | `/triage` | Score a posting and record it if it survives |
-| Command | `/portfolio` | Write a portfolio entry from a repo path, git URL or web app URL |
+| Command | `/portfolio` | Write a portfolio entry from a local project folder, git URL or web app URL — or a URL plus `--path <folder>` |
 | Command | `/tailor` | Draft the application for one posting |
 | Command | `/pipeline` | What needs chasing today; record stage changes |
 | Agent | `screener` | Judges one posting in a fresh context, so a shortlist does not get progressively more agreeable |

@@ -1,7 +1,7 @@
 {
   "name": "job-hunter",
   "displayName": "Job Hunter",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Runs a job or contract search as a pipeline. Searches Upwork, Arc and Contra against a declared profile, scores a posting as pursue or skip with the reason, writes portfolio case studies, tailors the application to one posting, and tracks follow-ups. Use when searching a platform for gigs, reviewing a job ad or RFP, deciding whether to bid, writing a proposal, cover letter or CV variant, or asking what needs chasing.",
   "author": {
     "name": "Ilya Shulgin",

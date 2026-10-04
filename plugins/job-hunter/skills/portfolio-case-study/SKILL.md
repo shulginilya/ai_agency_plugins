@@ -1,10 +1,10 @@
 ---
 name: portfolio-case-study
-description: Writes a portfolio entry for one project — a case study for a portfolio site plus a CV bullet and a freelance-platform blurb — from the project's codebase or its live web app, using only facts read from the source or confirmed by the user. Use when the user gives a repo path, a GitHub link or a web app URL and asks to describe, showcase or write up a project for their portfolio, CV, LinkedIn, Upwork or Malt profile.
+description: Writes a portfolio entry for one project — a case study for a portfolio site plus a CV bullet and a freelance-platform blurb — from the project's codebase or its live web app, using only facts read from the source or confirmed by the user. Use when the user gives a local project folder, a GitHub link or a web app URL and asks to describe, showcase or write up a project for their portfolio, CV, LinkedIn, Upwork or Malt profile.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Portfolio case study
@@ -22,8 +22,12 @@ ends up in a CV, and the user gets asked about it in an interview.
 
 Work out which input you have, then gather facts from it — not impressions.
 
-**A codebase** (a local path, or a git URL you clone read-only into a temp
-directory):
+**A codebase** — a local project folder, or a git URL you clone read-only
+into a temp directory. A local folder is read in place: never copy, move or
+change it, and never delete it afterwards. If the path does not exist where you
+are running — the folder is on the user's computer and you are not — use
+whatever access to the user's files the harness gives you, or ask the user to
+share that folder. Do not describe a folder you could not open.
 
 ```bash
 python scripts/project_facts.py <dir> --author "<the user's name or email>"
@@ -49,7 +53,13 @@ reading does not fill this context.
 visitor can see. Save the HTML and run `project_facts.py --page <file>` for
 stack hints — but a page cannot tell you the backend, the user's role or any
 outcome, and its framework fingerprints are unconfirmed. If the user can also
-give the repo, read that too; the two together make the best entry.
+give the local folder or repo, read that too; the two together make the best
+entry.
+
+**Both** — a live URL and a local folder in one request (`<url> --path
+<folder>`). Run the script on the folder and on the saved page, read both, and
+let the code settle any disagreement: the page says what a visitor sees, the
+folder says how it is built and who built it.
 
 What each source can and cannot prove is in
 [references/evidence-sources.md](references/evidence-sources.md). Load it on
