@@ -1,4 +1,4 @@
-"""Command line entry point: validate · build · pack · install · doctor · test."""
+"""Command line entry point: validate · build · pack · install · doctor · test · docs."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+from . import docs as docs_mod
 from . import install as installer
 from . import marketplace as marketplace_mod
 from . import pack as pack_mod
@@ -371,6 +372,40 @@ def cmd_new(args) -> int:
     return 0
 
 
+def cmd_docs(args) -> int:
+    root = project_root(args.root)
+    # Always every plugin: a scoped handbook would silently replace the full one.
+    plugins = _load(root, None)
+    _warn_unmanifested(root, None)
+    targets = load_targets(root / TARGETS_DIR)
+    html_path = Path(args.html).resolve() if args.html else root / DIST_DIR / "handbook.html"
+    pdf_path = Path(args.out).resolve() if args.out else root / "docs" / "handbook.pdf"
+
+    page = docs_mod.render_html(root, plugins, targets, build_parser())
+    html_path.parent.mkdir(parents=True, exist_ok=True)
+    html_path.write_text(page, encoding="utf-8")
+    print("wrote %s" % _relative(html_path, root))
+    if args.html_only:
+        return 0
+
+    browser = docs_mod.find_browser(args.browser)
+    if not browser:
+        print(
+            "error: no Chrome, Edge or Chromium found to print the PDF. Pass --browser PATH "
+            "or set %s; the HTML above is complete and can be printed by hand."
+            % docs_mod.BROWSER_ENV,
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        docs_mod.print_pdf(browser, html_path, pdf_path)
+    except docs_mod.DocsError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
+    print("wrote %s  (via %s)" % (_relative(pdf_path, root), browser))
+    return 0
+
+
 # ----------------------------------------------------------------------- parser
 
 
@@ -473,6 +508,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("new", help="scaffold a plugin from plugins/_template")
     p.add_argument("name")
     p.set_defaults(func=cmd_new)
+
+    p = sub.add_parser("docs", help="regenerate the PDF handbook (docs/handbook.pdf) from source")
+    p.add_argument("--out", help="PDF path (default: docs/handbook.pdf)")
+    p.add_argument("--html", help="also keep the HTML here (default: dist/handbook.html)")
+    p.add_argument("--html-only", action="store_true", help="write the HTML and stop")
+    p.add_argument("--browser", help="Chrome/Edge/Chromium executable (default: $APKIT_BROWSER, then auto-detect)")
+    p.set_defaults(func=cmd_docs)
 
     return parser
 

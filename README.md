@@ -51,6 +51,7 @@ python -m tools.apkit install code-review --target cursor --scope user
 python -m tools.apkit pack --plugin code-review --target claude-code
 python -m tools.apkit doctor              # what's installed where, on this machine
 python -m tools.apkit marketplace         # regenerate the marketplace index
+python -m tools.apkit docs                # rebuild docs/handbook.pdf from source
 ```
 
 Two wrappers do the batch versions of that, since one plugin into one harness
@@ -95,6 +96,10 @@ find dist -type f | sort
 
 ## Docs
 
+- [Handbook (PDF)](docs/handbook.pdf) — every slash command, plugin, agent,
+  skill, MCP tool, hook and integration, plus the harness matrix and CLI
+  reference. Generated: rebuild with `python -m tools.apkit docs` (needs
+  Chrome, Edge or Chromium; `--browser PATH` if it is not found)
 - [Architecture](docs/architecture.md) — how source → build → install works
   (diagram: [`docs/architecture.drawio`](docs/architecture.drawio))
 - [Authoring guide](docs/authoring-skills.md) — writing portable skills that
