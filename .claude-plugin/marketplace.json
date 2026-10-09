@@ -151,6 +151,30 @@
       ]
     },
     {
+      "name": "plugin-developer",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
+        "path": "claude-code/plugin-developer",
+        "ref": "dist"
+      },
+      "description": "Builds an agent plugin from a requirements prompt: splits it into testable requirements, maps each to the component that covers it (hooks, MCP servers and scripts only when needed), stops for approval, then scaffolds, tests and gates the plugin until it validates, loads and passes. Use when the user asks to build, plan or check a plugin or Claude Code extension from requirements.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "plugin",
+        "scaffold",
+        "requirements",
+        "traceability",
+        "claude-code",
+        "agent",
+        "generator"
+      ]
+    },
+    {
       "name": "prompt-engineer",
       "source": {
         "source": "git-subdir",
