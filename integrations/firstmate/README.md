@@ -19,15 +19,18 @@ integrations/firstmate/deploy.sh                  # after editing a file here
 ```
 
 - The firstmate home defaults to `$FM_HOME`, then `~/firstmate`; pass a path to override.
-- `--with-plugins` installs every plugin under `plugins/` (each `plugins/<name>/plugin.json`,
-  skipping `_`-prefixed dirs such as `_template`) into `~/.claude` at user scope, after
-  rebuilding their `claude-code` bundles. The list is found at run time, so a new plugin needs
-  no script change: just rerun it after adding or changing a plugin.
-  - Crew plugins: `developer`, `debugger`, `code-review` and `scrum-master`, listed in
-    `crew_plugins` in `deploy.sh`. Claude crewmates use the normal `~/.claude`, and
-    `brief-include.md` routes their work to these.
-  - Every other plugin is a Captain plugin, for your own sessions. Crewmates share `~/.claude`,
-    so they can see these too, and `brief-include.md` tells crewmates not to use them.
+- `--with-plugins` installs only the crew plugins, `developer`, `debugger`, `code-review` and
+  `scrum-master` (the `crew_plugins` list in `deploy.sh`), into `~/.claude` at user scope.
+  It rebuilds their `claude-code` bundles first, so rerun it after a crew plugin changes.
+  - Claude crewmates run from that same `~/.claude`, so nothing else is installed there: every
+    plugin there loads its hooks into every crew session. A new plugin stays out until it is
+    added to `crew_plugins` and routed in `brief-include.md`. Install Captain plugins for your
+    own sessions some other way (your synced plugins already cover them).
+  - **It refuses while any crewmate is live**, meaning any `state/<id>.meta` exists in the
+    firstmate home. The install deletes and recopies each plugin folder under running
+    crewmates, which breaks them. Let the crew finish or tear it down, then rerun. A refused
+    run changes nothing. The check covers this home only: if a secondmate home on this
+    machine runs Claude crewmates, check it too.
 - Files are copied, never symlinked: firstmate refuses a `brief-include.md` that is
   not a readable regular file.
 - A deployed file you edited by hand is backed up to `<name>.bak` before it is replaced.
