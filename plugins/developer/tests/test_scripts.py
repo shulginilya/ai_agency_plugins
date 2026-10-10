@@ -17,6 +17,7 @@ VERIFY = PLUGIN / "skills" / "feature-implementation" / "scripts" / "verify.py"
 CALLERS = PLUGIN / "skills" / "safe-refactoring" / "scripts" / "callers.py"
 DEV_CONTEXT = PLUGIN / "scripts" / "dev_context.py"
 MCP_SERVER = PLUGIN / "mcp" / "server.py"
+BOARD = PLUGIN / "skills" / "ship-change" / "scripts" / "board.py"
 
 
 def run(args, **kwargs):
@@ -206,6 +207,46 @@ class McpServerTest(unittest.TestCase):
     def test_unknown_method_returns_jsonrpc_error(self):
         responses = self._rpc([{"jsonrpc": "2.0", "id": 9, "method": "does/not/exist"}])
         self.assertEqual(responses[0]["error"]["code"], -32601)
+
+
+class BoardTest(unittest.TestCase):
+    OPTIONS = [{"id": "1", "name": "Backlog"}, {"id": "2", "name": "In progress"},
+               {"id": "3", "name": "In review"}, {"id": "4", "name": "Done"}]
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(BOARD.parent))
+        import board  # type: ignore
+        cls.board = board
+
+    def test_branch_name_from_a_conventional_title(self):
+        self.assertEqual(
+            self.board.branch_name(21, "feat(firstmate): install every plugin, keep the crew"),
+            "21-feat-firstmate-install-every-plugin",
+        )
+
+    def test_branch_name_without_a_type_prefix(self):
+        self.assertEqual(self.board.branch_name(7, "Login button is Broken!"), "7-login-button-is-broken")
+
+    def test_status_matches_case_insensitively_then_by_substring(self):
+        self.assertEqual(self.board.match_option(self.OPTIONS, "in REVIEW")["id"], "3")
+        self.assertEqual(self.board.match_option(self.OPTIONS, "review")["id"], "3")
+
+    def test_unknown_or_ambiguous_status_is_an_input_error(self):
+        with self.assertRaises(self.board.InputError):
+            self.board.match_option(self.OPTIONS, "qa")
+        with self.assertRaises(self.board.InputError):
+            self.board.match_option(self.OPTIONS, "o")  # Backlog, In progress, Done
+
+    def test_branch_with_explicit_title_needs_no_network(self):
+        result = run([sys.executable, str(BOARD), "branch", "--issue", "3", "--title", "fix: flaky login test"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["branch"], "3-fix-flaky-login-test")
+
+    def test_missing_gh_is_a_clean_failure(self):
+        result = run([sys.executable, str(BOARD), "boards"], env={**os.environ, "PATH": ""})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("gh is not installed", result.stderr)
 
 
 if __name__ == "__main__":
