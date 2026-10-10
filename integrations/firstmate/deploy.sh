@@ -3,7 +3,7 @@
 #
 # Usage: integrations/firstmate/deploy.sh [--with-plugins] [FM_HOME]
 #   FM_HOME         firstmate home; defaults to $FM_HOME, then ~/firstmate
-#   --with-plugins  also install the crew plugins at user scope for Claude Code
+#   --with-plugins  also install every plugin at user scope for Claude Code
 #
 # Copies (never symlinks) every deployable file below into <FM_HOME>/config/.
 # A file that already exists there with different content is backed up to
@@ -13,7 +13,19 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 files=(brief-include.md crew-dispatch.json)   # deployed when present
-plugins=(developer debugger code-review scrum-master)
+crew_plugins=(developer debugger code-review scrum-master)   # routed in brief-include.md
+# Every plugin is installed, found the way apkit finds them: plugins/<name>/plugin.json,
+# skipping _-prefixed dirs. Non-crew plugins are the Captain's; brief-include.md keeps
+# crewmates off them, so a new plugin needs no change here.
+plugins=()
+for manifest in "$repo"/plugins/*/plugin.json; do
+  name="$(basename "$(dirname "$manifest")")"
+  case "$name" in _*) continue ;; esac
+  plugins+=("$name")
+done
+for p in "${crew_plugins[@]}"; do
+  [ -f "$repo/plugins/$p/plugin.json" ] || { echo "crew plugin not found: plugins/$p" >&2; exit 1; }
+done
 
 with_plugins=0
 fm_home=""
