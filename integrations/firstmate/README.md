@@ -19,10 +19,15 @@ integrations/firstmate/deploy.sh                  # after editing a file here
 ```
 
 - The firstmate home defaults to `$FM_HOME`, then `~/firstmate`; pass a path to override.
-- `--with-plugins` installs `developer`, `debugger`, `code-review` and `scrum-master`
-  into `~/.claude` at user scope. Claude crewmates use the normal `~/.claude`, so that
-  is what makes the plugins available to them. It rebuilds their `claude-code` bundles
-  first, so rerun it after any plugin change.
+- `--with-plugins` installs every plugin under `plugins/` (each `plugins/<name>/plugin.json`,
+  skipping `_`-prefixed dirs such as `_template`) into `~/.claude` at user scope, after
+  rebuilding their `claude-code` bundles. The list is found at run time, so a new plugin needs
+  no script change: just rerun it after adding or changing a plugin.
+  - Crew plugins: `developer`, `debugger`, `code-review` and `scrum-master`, listed in
+    `crew_plugins` in `deploy.sh`. Claude crewmates use the normal `~/.claude`, and
+    `brief-include.md` routes their work to these.
+  - Every other plugin is a Captain plugin, for your own sessions. Crewmates share `~/.claude`,
+    so they can see these too, and `brief-include.md` tells crewmates not to use them.
 - Files are copied, never symlinked: firstmate refuses a `brief-include.md` that is
   not a readable regular file.
 - A deployed file you edited by hand is backed up to `<name>.bak` before it is replaced.
@@ -36,5 +41,7 @@ integrations/firstmate/deploy.sh                  # after editing a file here
 
 - Never include a `Delivery contract: mode=` line; firstmate refuses the brief.
 - It is not inherited by secondmate homes; deploy it into each home that needs it.
-- Keep it to the routing table and the unattended-crewmate rules. Task-specific
-  instructions belong in the brief firstmate writes, not here.
+- Keep it to the routing table, the captain-plugin exclusion and the unattended-crewmate rules.
+  Task-specific instructions belong in the brief firstmate writes, not here.
+- To add a plugin to the crew, add it to `crew_plugins` in `deploy.sh` and give it routing
+  lines and a place in the crew-plugin sentence here.

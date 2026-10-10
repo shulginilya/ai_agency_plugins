@@ -12,6 +12,10 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
 - Scout (read-only) tasks: use `/debugger:diagnose` or `/code-review:review-pr` without
   changing code, and put the findings in the report this brief names.
 - Backlog or issue grooming: `/scrum-master:refine`; propose GitHub writes in the report.
+- Only the developer, debugger, code-review and scrum-master plugins are for crew work.
+  Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, pair-programmer,
+  prompt-engineer or recruiter-inbox) belongs to the Captain: never invoke its commands,
+  skills or subagents, even if one looks relevant.
 
 Crewmate rules that override the plugins' interactive steps:
 - No one is watching this pane. Where a skill says to ask the user or wait for agreement,
