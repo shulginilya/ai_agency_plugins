@@ -3,7 +3,8 @@
 #
 # Usage: integrations/firstmate/deploy.sh [--with-plugins] [FM_HOME]
 #   FM_HOME         firstmate home; defaults to $FM_HOME, then ~/firstmate
-#   --with-plugins  also install every plugin at user scope for Claude Code
+#   --with-plugins  also install the crew plugins at user scope for Claude Code;
+#                   refused while any crewmate of FM_HOME is live
 #
 # Copies (never symlinks) every deployable file below into <FM_HOME>/config/.
 # A file that already exists there with different content is backed up to
@@ -13,16 +14,10 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 files=(brief-include.md crew-dispatch.json)   # deployed when present
-crew_plugins=(developer debugger code-review scrum-master)   # routed in brief-include.md
-# Every plugin is installed, found the way apkit finds them: plugins/<name>/plugin.json,
-# skipping _-prefixed dirs. Non-crew plugins are the Captain's; brief-include.md keeps
-# crewmates off them, so a new plugin needs no change here.
-plugins=()
-for manifest in "$repo"/plugins/*/plugin.json; do
-  name="$(basename "$(dirname "$manifest")")"
-  case "$name" in _*) continue ;; esac
-  plugins+=("$name")
-done
+# Only these go into ~/.claude, which every Claude crewmate runs from. Any other
+# plugin would load its hooks into every crew session, so a new plugin stays out
+# until it is added here and routed in brief-include.md.
+crew_plugins=(developer debugger code-review scrum-master)
 for p in "${crew_plugins[@]}"; do
   [ -f "$repo/plugins/$p/plugin.json" ] || { echo "crew plugin not found: plugins/$p" >&2; exit 1; }
 done
@@ -42,6 +37,22 @@ fm_home="${fm_home:-${FM_HOME:-$HOME/firstmate}}"
 if [ ! -f "$fm_home/AGENTS.md" ] || [ ! -d "$fm_home/bin" ]; then
   echo "not a firstmate home: $fm_home (pass the path or set FM_HOME)" >&2
   exit 1
+fi
+
+# apkit install deletes ~/.claude/skills/<plugin> and copies the new build in, under
+# every running crewmate. firstmate keeps state/<id>.meta for exactly as long as a
+# task is live (fm-teardown.sh removes it), so refuse while any exists - before
+# anything is written, so a refused run changes nothing.
+if [ "$with_plugins" -eq 1 ]; then
+  live=()
+  for meta in "$fm_home"/state/*.meta; do
+    [ -f "$meta" ] && live+=("$(basename "$meta" .meta)")
+  done
+  if [ "${#live[@]}" -gt 0 ]; then
+    echo "refusing --with-plugins: ${#live[@]} crewmate(s) live in $fm_home: ${live[*]}" >&2
+    echo "replacing plugins under them would break them. Let them finish or tear them down, then rerun." >&2
+    exit 1
+  fi
 fi
 
 if grep -q 'Delivery contract: mode=' "$here/brief-include.md"; then
@@ -94,9 +105,9 @@ if [ "$with_plugins" -eq 1 ]; then
   [ -n "$py" ] || { echo "python not found" >&2; exit 1; }
   # install copies from dist/, which is gitignored and goes stale; rebuild first.
   build_args=()
-  for p in "${plugins[@]}"; do build_args+=(--plugin "$p"); done
+  for p in "${crew_plugins[@]}"; do build_args+=(--plugin "$p"); done
   (cd "$repo" && "$py" -m tools.apkit build --target claude-code "${build_args[@]}")
-  for p in "${plugins[@]}"; do
+  for p in "${crew_plugins[@]}"; do
     (cd "$repo" && "$py" -m tools.apkit install "$p" --target claude-code --scope user)
   done
 fi
