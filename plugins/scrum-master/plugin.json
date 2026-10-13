@@ -1,13 +1,14 @@
 {
   "name": "scrum-master",
   "displayName": "Scrum Master",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, and builds a sprint plan with one goal and a capacity number that survives contact with reality. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, or plan the next sprint.",
   "author": {
     "name": "Ilya Shulgin",
     "email": "ishulgin8@gmail.com"
   },
   "license": "MIT",
+  "shared_skills": ["ticket-management"],
   "homepage": "https://github.com/shulginilya/ai_agency_plugins",
   "repository": "https://github.com/shulginilya/ai_agency_plugins",
   "keywords": ["scrum", "agile", "backlog", "sprint-planning", "user-stories", "github-issues"],

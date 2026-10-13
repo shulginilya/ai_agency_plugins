@@ -11,6 +11,7 @@ from . import frontmatter
 
 MANIFEST_NAME = "plugin.json"
 SKILL_FILE = "SKILL.md"
+SHARED_DIR = "_shared"  # plugins/_shared/skills/<name>, borrowed via "shared_skills"
 
 
 class SourceError(Exception):
@@ -102,6 +103,36 @@ def _load_skill(directory: Path) -> Skill:
     return Skill(name=directory.name, path=directory, meta=meta, body=body)
 
 
+def _load_shared_skills(
+    root: Path, manifest: Dict[str, Any], manifest_path: Path, local: List[Skill]
+) -> List[Skill]:
+    """Skills a plugin borrows from plugins/_shared/skills/ by listing them in "shared_skills".
+
+    One source directory, built into every plugin that lists it, so a skill the
+    whole crew needs is never copied into each plugin and left to drift. The
+    _-prefix keeps _shared out of discovery, like _template.
+    """
+    names = manifest.get("shared_skills") or []
+    if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+        raise SourceError("%s: 'shared_skills' must be a list of skill names" % manifest_path)
+    taken = {skill.name for skill in local}
+    shared_root = root.parent / SHARED_DIR / "skills"
+    loaded = []
+    for name in names:
+        if name in taken:
+            raise SourceError(
+                "%s: shared skill %r clashes with the plugin's own skills/%s" % (manifest_path, name, name)
+            )
+        directory = shared_root / name
+        if not directory.is_dir():
+            raise SourceError(
+                "%s: shared skill %r not found in %s" % (manifest_path, name, shared_root)
+            )
+        loaded.append(_load_skill(directory))
+        taken.add(name)
+    return loaded
+
+
 def load_plugin(root: Path) -> Plugin:
     """Read one plugin source directory into a Plugin."""
     root = root.resolve()
@@ -118,6 +149,7 @@ def load_plugin(root: Path) -> Plugin:
     if skills_dir.is_dir():
         for entry in sorted(p for p in skills_dir.iterdir() if p.is_dir()):
             plugin.skills.append(_load_skill(entry))
+    plugin.skills.extend(_load_shared_skills(root, manifest, manifest_path, plugin.skills))
 
     commands_dir = root / "commands"
     if commands_dir.is_dir():

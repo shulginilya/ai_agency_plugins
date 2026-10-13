@@ -14,6 +14,7 @@ the adapter.
 | Path | What it is | Hand-edited? |
 | --- | --- | --- |
 | `plugins/<name>/` | Portable plugin source | ✅ yes |
+| `plugins/_shared/skills/<name>/` | A skill several plugins share; built into each plugin whose `plugin.json` lists it in `shared_skills` | ✅ yes |
 | `targets/*.json` | Declarative harness manifests | ✅ yes |
 | `tools/apkit/` | The build/validate/install CLI | ✅ yes |
 | `integrations/<tool>/` | Config for tools that drive the installed plugins (e.g. firstmate) | ✅ yes |

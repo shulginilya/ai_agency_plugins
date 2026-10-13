@@ -1,13 +1,14 @@
 {
   "name": "code-review",
   "displayName": "Code Review",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Structured code review and repository audit. Reviews a diff, branch or pull request against correctness, security, performance and accessibility, and reports findings ranked by severity with a concrete failure scenario for each. Use when asked to review code, audit a PR, or check quality before merging.",
   "author": {
     "name": "Ilya Shulgin",
     "email": "ishulgin8@gmail.com"
   },
   "license": "MIT",
+  "shared_skills": ["ticket-management"],
   "homepage": "https://github.com/shulginilya/ai_agency_plugins",
   "repository": "https://github.com/shulginilya/ai_agency_plugins",
   "keywords": ["code-review", "pull-request", "audit", "security", "quality"],

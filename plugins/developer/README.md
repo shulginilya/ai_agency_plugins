@@ -12,6 +12,7 @@ checks, and self-review before handing off. Plus the behaviour-preserving half
 | Skill | `feature-implementation` | The loop: orient → plan → slice → verify → self-review → report |
 | Skill | `safe-refactoring` | Pin behaviour, size the blast radius, apply mechanical moves |
 | Skill | `ship-change` | Ticket on a board, branch, commit, push, PR, card confirmed in review |
+| Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Command | `/implement` | Build a feature, ticket or fix end to end |
 | Command | `/refactor` | Restructure without changing behaviour |
 | Command | `/verify` | Run the checks the repo declares, and report what actually failed |
@@ -20,7 +21,7 @@ checks, and self-review before handing off. Plus the behaviour-preserving half
 | Hook | `SessionStart` | Branch, divergence, uncommitted count, and the repo's checks |
 | MCP | `developer` | Dependency-free stdio server: `verify_commands`, `find_callers`, `dev_playbook` |
 
-Three scripts carry the logic, and everything else imports them rather than
+Two scripts carry the logic, and everything else imports them rather than
 restating a rule:
 
 - `skills/feature-implementation/scripts/verify.py` — reads `package.json`
@@ -30,9 +31,9 @@ restating a rule:
   different answer from "everything passed".
 - `skills/safe-refactoring/scripts/callers.py` — every reference to a symbol,
   grouped into definitions, production call sites and tests.
-- `skills/ship-change/scripts/board.py` — GitHub Projects board steps through
-  `gh api graphql`: list boards, add an issue, name its branch, and move the
-  card, then re-read it so a board automation cannot silently undo the move.
+- `ship-change` files its ticket and moves its card with the shared
+  `ticket-management` skill's `tickets.py` and `board.py`. `board.py` re-reads a
+  card after moving it, so a board automation cannot silently undo the move.
 
 The heavy detail lives in three references that load on demand:
 `change-plan.md` (plan format, slicing rules, expand-contract), `handoff.md`
