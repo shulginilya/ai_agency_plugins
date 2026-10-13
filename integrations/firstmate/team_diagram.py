@@ -115,6 +115,7 @@ def read_plugin(name: str) -> Dict:
         fm = frontmatter(f)
         agents.append(f"{fm.get('name', f.stem)} ({fm.get('model', 'inherit')})")
     skills = sorted(p.parent.name for p in root.glob("skills/*/SKILL.md"))
+    skills += [f"{n} (shared)" for n in meta.get("shared_skills") or []]
     tools: List[str] = []
     server = root / "mcp" / "server.py"
     if server.is_file():
