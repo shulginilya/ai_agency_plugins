@@ -5,6 +5,9 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
 - Feature, ticket or change: `/developer:implement`. The Captain's intent and Firstmate spec
   above are the agreed change plan; do not stop to ask for plan approval.
 - Restructure without behaviour change: `/developer:refactor`.
+- New or changed UI: `/designer:spec` before building, so every state, the copy and the
+  accessibility are decided up front. Then `/designer:review` on the built UI before pushing,
+  and fix every blocker.
 - Bug, failing or flaky test, wrong output: `/debugger:diagnose` to a proved mechanism,
   then `/debugger:fix` with the failing test first. Known-good regression: `/debugger:bisect`.
 - Before pushing: `/code-review:review` on your own diff and fix every high-severity finding;
@@ -20,7 +23,7 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   step to file. Delete a ticket only when this brief names it for deletion; otherwise close
   it as not planned.
 - New project board: `/scrum-master:create-board`, only when this brief asks for a board.
-- Only the developer, debugger, code-review and scrum-master plugins are for crew work.
+- Only the developer, debugger, code-review, scrum-master and designer plugins are for crew work.
   Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, pair-programmer,
   prompt-engineer or recruiter-inbox) belongs to the Captain: never invoke its commands,
   skills or subagents, even if one looks relevant.
