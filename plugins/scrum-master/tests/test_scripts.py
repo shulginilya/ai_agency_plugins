@@ -18,11 +18,15 @@ BACKLOG = REFINEMENT_SCRIPTS / "backlog.py"
 CAPACITY = PLUGIN / "skills" / "sprint-planning" / "scripts" / "capacity.py"
 SPRINT_CONTEXT = PLUGIN / "scripts" / "sprint_context.py"
 MCP_SERVER = PLUGIN / "mcp" / "server.py"
+CREATE_BOARD = PLUGIN / "skills" / "board-setup" / "scripts" / "create_board.py"
 
 sys.path.insert(0, str(REFINEMENT_SCRIPTS))
 sys.path.insert(0, str(CAPACITY.parent))
 import capacity  # noqa: E402
 import ready  # noqa: E402
+
+sys.path.insert(0, str(CREATE_BOARD.parent))
+import create_board  # noqa: E402
 
 READY_STORY = """As a merchant, I want to issue a partial refund so that support
 stops handling them by hand.
@@ -330,6 +334,35 @@ class McpServerTest(unittest.TestCase):
         )
         self.assertEqual(responses[0]["error"]["code"], -32602)
         self.assertEqual(responses[1]["error"]["code"], -32601)
+
+
+class CreateBoardTest(unittest.TestCase):
+    def test_default_columns_are_the_team_flow(self):
+        self.assertEqual(create_board.parse_columns(None),
+                         ["Backlog", "Ready", "In progress", "In review", "Done"])
+
+    def test_custom_columns_keep_order_and_trim(self):
+        self.assertEqual(create_board.parse_columns(" Todo , Doing,Done "), ["Todo", "Doing", "Done"])
+
+    def test_bad_columns_are_input_errors(self):
+        for text in ("Backlog,,Done", "Done,done", "Only", "A," + "x" * 60):
+            with self.assertRaises(create_board.InputError, msg=text):
+                create_board.parse_columns(text)
+
+    def test_colors_follow_meaning_and_unknown_columns_are_gray(self):
+        options = {o["name"]: o["color"] for o in create_board.column_options(["Ready", "In review", "Done", "Parking"])}
+        self.assertEqual(options, {"Ready": "BLUE", "In review": "PURPLE", "Done": "GREEN", "Parking": "GRAY"})
+
+    def test_an_open_board_with_the_same_title_is_a_duplicate(self):
+        boards = [{"number": 1, "title": "Old", "closed": True}, {"number": 2, "title": "AI Projects", "closed": False}]
+        self.assertEqual(create_board.find_duplicate(boards, "ai projects ")["number"], 2)
+        self.assertIsNone(create_board.find_duplicate(boards, "old"))
+
+    def test_dry_run_needs_no_network(self):
+        result = subprocess.run([sys.executable, str(CREATE_BOARD), "--title", "Demo", "--dry-run"],
+                                capture_output=True, text=True, env={**os.environ, "PATH": ""}, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(json.loads(result.stdout)["columns"]), 5)
 
 
 if __name__ == "__main__":
