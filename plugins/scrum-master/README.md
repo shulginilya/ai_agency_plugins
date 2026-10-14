@@ -11,10 +11,12 @@ standups and retros alone.
 | --- | --- | --- |
 | Skill | `backlog-refinement` | Definition of Ready, the refinement loop, the issue template |
 | Skill | `sprint-planning` | Capacity first, goal second, selection third, then the pre-flight checks |
+| Skill | `board-setup` | Create a GitHub Projects board with the team's columns, linked to the repo |
 | Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Command | `/refine` | Refine one item into a ready story |
 | Command | `/plan-sprint` | Build a sprint plan from the ready backlog |
 | Command | `/backlog-health` | How much of the backlog is plannable, and what is missing |
+| Command | `/create-board` | Create the board a new project's backlog goes on |
 | Agent | `story-splitter` | Splits one oversized item into vertical slices, in a fresh context |
 | Hook | `SessionStart` | Prints the active milestone and its open issues, once |
 | MCP | `scrum-master` | `backlog`, `readiness_check`, `scrum_checklist` |
