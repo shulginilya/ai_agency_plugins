@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The shared ticket-management skill: built into every crew plugin, scripts that refuse safely."""
+"""The shared ticket-management skill: built into developer and scrum-master only, scripts that refuse safely."""
 
 from __future__ import annotations
 
@@ -19,7 +19,8 @@ from tools.apkit.targets import load_targets
 ROOT = Path(__file__).resolve().parent.parent
 SKILL = ROOT / "plugins" / "_shared" / "skills" / "ticket-management"
 SCRIPTS = SKILL / "scripts"
-CREW = ("developer", "debugger", "code-review", "scrum-master")
+CREW = ("developer", "scrum-master")  # the only crew plugins that manage tickets
+NO_TICKETS = ("debugger", "code-review")
 
 sys.path.insert(0, str(SCRIPTS))
 import board  # noqa: E402
@@ -93,6 +94,11 @@ class CrewBundlesTest(unittest.TestCase):
                     self.assertTrue((bundle / "scripts" / script).is_file(), "%s lacks %s" % (name, script))
                 manifest = json.loads((Path(tmp) / "claude-code" / name / ".claude-plugin" / "plugin.json").read_text())
                 self.assertNotIn("shared_skills", manifest, "source-only key must not reach the harness")
+
+    def test_other_crew_plugins_do_not_manage_tickets(self):
+        for name in NO_TICKETS:
+            plugin = load_plugin(ROOT / "plugins" / name)
+            self.assertNotIn("ticket-management", [s.name for s in plugin.skills], name)
 
     def test_developer_has_no_board_script_of_its_own(self):
         self.assertFalse((ROOT / "plugins" / "developer" / "skills" / "ship-change" / "scripts" / "board.py").exists())

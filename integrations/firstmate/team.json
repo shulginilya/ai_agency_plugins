@@ -9,7 +9,7 @@
       "does": [
         "Sets the intent for every task",
         "Answers the questions a crewmate stops on",
-        "Approves anything irreversible: board creation, GitHub writes beyond a delivery contract",
+        "Approves anything irreversible: deleting a ticket, creating a board, GitHub writes beyond a delivery contract",
         "Reviews and merges PRs"
       ],
       "owns": [
@@ -43,7 +43,7 @@
       "owns": [
         "Code changes, built in slices that stay green",
         "Repo checks passing before push",
-        "Ticket, branch, PR and board card, as far as the delivery contract allows"
+        "Branch, PR and the ticket's card to In review (/developer:ship)"
       ]
     },
     "debugger": {
@@ -66,26 +66,26 @@
       "owns": [
         "Backlog readiness: value, acceptance criteria, size",
         "Splitting items sized 13+ into vertical slices",
-        "Sprint goal, capacity and plan",
-        "Proposes GitHub writes in its report, never makes them"
+        "Filing the backlog it refines (tickets.py batch, rerunnable)",
+        "Creating the project board and its columns (/scrum-master:create-board)",
+        "Sprint goal, capacity and plan"
       ]
     }
   },
-  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so one ship crewmate usually plays Developer, then Code Reviewer, then Developer again. Firstmate can run several crewmates side by side.",
-  "gaps": [
-    "No crew skill creates a GitHub Projects board, its columns or fields: ship-change's board.py only lists boards, adds cards and moves them",
-    "Scrum Master writes nothing to GitHub, so filing the stories it refines falls to a ship crewmate (Developer) or the Captain"
-  ],
+  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so one ship crewmate usually plays Developer, then Code Reviewer, then Developer again. Only Developer and Scrum Master carry the ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. Debugger and Code Reviewer propose tickets in the report. Firstmate can run several crewmates side by side.",
+  "gaps": [],
   "raci": {
     "legend": {"R": "does the work", "A": "signs off", "C": "consulted", "I": "informed"},
     "columns": ["captain", "firstmate", "scrum-master", "developer", "debugger", "code-review"],
     "rows": [
       {"activity": "Set project intent and priorities", "captain": "A/R", "firstmate": "I"},
       {"activity": "Write spec, brief and delivery contract", "captain": "A", "firstmate": "R"},
-      {"activity": "Create the project board (no skill yet)", "captain": "A", "firstmate": "C", "developer": "R"},
+      {"activity": "Create the project board", "captain": "A", "firstmate": "C", "scrum-master": "R"},
       {"activity": "Refine raw items into ready stories", "captain": "A", "firstmate": "I", "scrum-master": "R"},
       {"activity": "Split items sized 13+", "scrum-master": "R"},
-      {"activity": "File issues and put them on the board", "captain": "A", "scrum-master": "C", "developer": "R"},
+      {"activity": "File the backlog and put it on the board", "captain": "A", "firstmate": "I", "scrum-master": "R"},
+      {"activity": "Create, edit or close a ticket during a task", "firstmate": "I", "scrum-master": "R", "developer": "R", "debugger": "C", "code-review": "C"},
+      {"activity": "Delete a ticket (named in the brief)", "captain": "A", "firstmate": "C", "scrum-master": "R", "developer": "R"},
       {"activity": "Plan the sprint", "captain": "A", "firstmate": "C", "scrum-master": "R"},
       {"activity": "Implement a feature or ticket", "firstmate": "A", "developer": "R", "code-review": "C"},
       {"activity": "Diagnose and fix a bug", "firstmate": "A", "debugger": "R", "code-review": "C"},
@@ -102,24 +102,23 @@
     "lanes": ["captain", "firstmate", "scrum-master", "developer", "code-review", "debugger"],
     "steps": [
       {"id": "s1", "lane": "captain", "kind": "decision", "text": "Intent: new project X. Create its board and a first backlog from these notes"},
-      {"id": "s2", "lane": "firstmate", "text": "Spec, then two briefs in parallel. T1 scout → backlog draft. T2 ship → board. Contract T2: create the board only"},
-      {"id": "s3", "lane": "scrum-master", "after": ["s2"], "text": "/scrum-master:refine each raw idea → user-value story, testable criteria, size"},
-      {"id": "s4", "lane": "developer", "after": ["s2"], "col": 3, "kind": "gap", "text": "Create board by hand: gh project create + Status columns Backlog → Ready → In progress → In review → Done"},
-      {"id": "s5", "lane": "scrum-master", "after": ["s3"], "text": "story-splitter subagent splits 13+ items; readiness check on each story"},
-      {"id": "s6", "lane": "developer", "after": ["s4"], "col": 4, "text": "board.py boards confirms it; report the project number N"},
-      {"id": "s7", "lane": "scrum-master", "after": ["s5"], "text": "/scrum-master:backlog-health → report with proposed gh issue create commands, no writes"},
-      {"id": "s8", "lane": "firstmate", "after": ["s7", "s6"], "text": "Merge both reports; relay open questions"},
-      {"id": "s9", "lane": "captain", "kind": "decision", "text": "Answer questions, approve the backlog"},
-      {"id": "s10", "lane": "firstmate", "text": "Ship brief T3: file the approved stories. Contract: issues and board cards only"},
-      {"id": "s11", "lane": "developer", "kind": "write", "text": "gh issue create per story; board.py add --project N; board.py move --status Ready"},
-      {"id": "s12", "lane": "scrum-master", "text": "/scrum-master:plan-sprint → sprint goal, capacity, issues that fit (proposal)"},
-      {"id": "s13", "lane": "captain", "kind": "decision", "text": "Approve sprint 1"},
-      {"id": "s14", "lane": "firstmate", "text": "One ship brief per sprint ticket", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s15", "lane": "developer", "text": "/developer:implement", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s16", "lane": "code-review", "text": "/code-review:review own diff; fix every high-severity finding", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s17", "lane": "debugger", "after": ["s15"], "col": 16, "kind": "optional", "text": "Only if a test fails: /debugger:diagnose → /debugger:fix", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s18", "lane": "developer", "after": ["s16", "s17"], "kind": "write", "text": "/developer:verify, then /developer:ship → branch, PR, card to In review", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s19", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}
+      {"id": "s2", "lane": "firstmate", "text": "Spec, then a scout brief T1: draft the backlog and propose the board. No writes yet"},
+      {"id": "s3", "lane": "scrum-master", "text": "/scrum-master:refine each raw idea → user-value story, testable criteria, size"},
+      {"id": "s4", "lane": "scrum-master", "text": "story-splitter subagent splits 13+ items; readiness check on each story"},
+      {"id": "s5", "lane": "scrum-master", "text": "Plan file for tickets.py batch --dry-run; /scrum-master:create-board --dry-run. Both go in the report"},
+      {"id": "s6", "lane": "firstmate", "text": "Relay the backlog, the board plan and open questions"},
+      {"id": "s7", "lane": "captain", "kind": "decision", "text": "Answer questions, approve the board and the backlog"},
+      {"id": "s8", "lane": "firstmate", "text": "Brief T2: create the board, then file the approved plan on it"},
+      {"id": "s9", "lane": "scrum-master", "kind": "write", "text": "/scrum-master:create-board → board N, columns Backlog → Ready → In progress → In review → Done"},
+      {"id": "s10", "lane": "scrum-master", "kind": "write", "text": "tickets.py batch --plan plan.json --project N --status Ready (safe to rerun; slices linked to epics)"},
+      {"id": "s11", "lane": "scrum-master", "text": "/scrum-master:plan-sprint → sprint goal, capacity, issues that fit (proposal)"},
+      {"id": "s12", "lane": "captain", "kind": "decision", "text": "Approve sprint 1"},
+      {"id": "s13", "lane": "firstmate", "text": "One ship brief per sprint ticket", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s14", "lane": "developer", "text": "/developer:implement", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s15", "lane": "code-review", "text": "/code-review:review own diff; fix every high-severity finding", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s16", "lane": "debugger", "after": ["s14"], "col": 15, "kind": "optional", "text": "Only if a test fails: /debugger:diagnose → /debugger:fix", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s17", "lane": "developer", "after": ["s15", "s16"], "kind": "write", "text": "/developer:verify, then /developer:ship → branch, PR, card to In review. Follow-up tickets with ticket-management", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s18", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}
     ]
   }
 }

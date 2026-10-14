@@ -11,7 +11,6 @@ and a test that fails without the fix.
 | --- | --- | --- |
 | Skill | `root-cause-analysis` | The method: reproduce, narrow, prove causation, fix the cause, verify |
 | Skill | `regression-triage` | "It worked before": bracket, bisect, read the culprit commit |
-| Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Command | `/diagnose` | Diagnose a symptom without touching code |
 | Command | `/bisect` | Find the commit that introduced a regression |
 | Command | `/fix` | Implement a fix for an already-proved cause, failing test first |

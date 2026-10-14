@@ -11,7 +11,15 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   then `/developer:verify` must pass.
 - Scout (read-only) tasks: use `/debugger:diagnose` or `/code-review:review-pr` without
   changing code, and put the findings in the report this brief names.
-- Backlog or issue grooming: `/scrum-master:refine`; propose GitHub writes in the report.
+- Backlog or issue grooming: `/scrum-master:refine`, then file the stories with the
+  `ticket-management` skill (`tickets.py batch`) on the board this brief names.
+- Tickets: only the developer and scrum-master plugins manage them. Create, edit or close
+  tickets and move board cards with their `ticket-management` skill when the task calls for
+  it, and list each one with its link in your report. A debugger or code-review finding that
+  needs a ticket goes in your report as a proposed ticket for the developer or scrum-master
+  step to file. Delete a ticket only when this brief names it for deletion; otherwise close
+  it as not planned.
+- New project board: `/scrum-master:create-board`, only when this brief asks for a board.
 - Only the developer, debugger, code-review and scrum-master plugins are for crew work.
   Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, pair-programmer,
   prompt-engineer or recruiter-inbox) belongs to the Captain: never invoke its commands,
@@ -22,4 +30,5 @@ Crewmate rules that override the plugins' interactive steps:
   decide from this brief, record the decision and the reason in your report, and continue.
 - If the brief cannot settle a decision, write the question in your report and stop.
   Never guess on anything irreversible.
-- Write to remotes only as far as this brief's delivery contract requires.
+- Ticket and board writes above are allowed in ship and scout tasks alike. Write anything
+  else to remotes only as far as this brief's delivery contract requires.
