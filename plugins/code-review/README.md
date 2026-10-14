@@ -10,6 +10,7 @@ piece fits together, it is demonstrated here.
 | --- | --- | --- |
 | Skill | `code-review` | The review method: scope, five passes, a four-line finding format |
 | Skill | `pr-audit` | Whole-PR audit: scope, blast radius, reversibility, deploy ordering, verdict |
+| Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Command | `/review` | Review the current diff |
 | Command | `/review-pr` | Audit a PR or branch |
 | Agent | `reviewer` | One focused pass in a fresh context; returns findings only |

@@ -11,6 +11,7 @@ standups and retros alone.
 | --- | --- | --- |
 | Skill | `backlog-refinement` | Definition of Ready, the refinement loop, the issue template |
 | Skill | `sprint-planning` | Capacity first, goal second, selection third, then the pre-flight checks |
+| Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Command | `/refine` | Refine one item into a ready story |
 | Command | `/plan-sprint` | Build a sprint plan from the ready backlog |
 | Command | `/backlog-health` | How much of the backlog is plannable, and what is missing |

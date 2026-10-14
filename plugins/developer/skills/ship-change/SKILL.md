@@ -14,12 +14,17 @@ that says why, a branch and a PR that say what, and a board card that says
 where it stands. Every step writes to GitHub, so each one is checked before the
 next.
 
+The ticket and board steps use the `ticket-management` skill, which ships in
+this plugin too. Its scripts are in `../ticket-management/scripts/`:
+
 ```bash
-python scripts/board.py boards                               # open boards, most used first
-python scripts/board.py add    --project N --issue I         # card on the board
-python scripts/board.py branch --issue I                     # <number>-<type>-<slug>
-python scripts/board.py move   --project N --issue I         # to "In review", and confirm it held
+python ../ticket-management/scripts/board.py boards                       # open boards, most used first
+python ../ticket-management/scripts/tickets.py create --title T --body-file F --project N
+python ../ticket-management/scripts/board.py branch --issue I             # <number>-<type>-<slug>
+python ../ticket-management/scripts/board.py move   --project N --issue I # to "In review", and confirm it held
 ```
+
+Below, `board.py` and `tickets.py` mean those two scripts.
 
 ## 0. Before anything is written
 
@@ -54,8 +59,9 @@ Body:   ## Problem   — what is wrong or missing today, concretely
         ## Acceptance criteria — checkboxes, each one testable
 ```
 
-Write the body to a file and run `gh issue create --title ... --body-file ...`.
-Then `board.py add --project N --issue I`.
+Write the body to a file and run
+`tickets.py create --title ... --body-file ... --project N`, which creates the
+issue and puts it on the board in one step.
 
 ## 3. Branch, commit, push
 

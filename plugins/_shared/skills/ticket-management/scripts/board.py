@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GitHub Projects (v2) board steps for shipping a change, through `gh api graphql`.
+"""GitHub Projects (v2) board steps for tickets and shipping, through `gh api graphql`.
 
     board.py boards                         open boards of the repo's owner, and where recent issues went
     board.py add    --project N --issue 21  put an issue on a board (idempotent), print the item id

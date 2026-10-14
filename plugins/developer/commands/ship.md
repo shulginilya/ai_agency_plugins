@@ -15,10 +15,11 @@ Follow the `ship-change` skill:
    If something is missing, say what and stop.
 2. **Ask which board** unless the notes, an earlier answer in this conversation
    or a delivery contract name one. Offer
-   `python {{PLUGIN_ROOT}}/skills/ship-change/scripts/board.py boards` and
+   `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py boards` and
    recommend the most used.
-3. **File the ticket** (Problem, Proposal, Acceptance criteria) with
-   `gh issue create`, then put it on the board with `board.py add`.
+3. **File the ticket** (Problem, Proposal, Acceptance criteria) and put it on
+   the board in one step:
+   `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/tickets.py create --title ... --body-file ... --project N`.
 4. **Branch** with the name from `board.py branch` and check it out. **Commit**
    only the change's files, ending the message with `Closes #<issue>`.
    **Push** with `-u`. Never force-push and never push to the default branch.
