@@ -89,7 +89,8 @@ class OrganizeTest(unittest.TestCase):
             self.assertEqual((Path(tmp) / "crew.md.bak").read_text(encoding="utf-8"), MESSY)
             self.assertEqual(run("check", Path(tmp) / "crew.md.bak", note).returncode, 0)
             lost = Path(tmp) / "lost.md"
-            lost.write_text(note.read_text(encoding="utf-8").replace("Remember the bashrc change.\n", ""))
+            lost.write_text(note.read_text(encoding="utf-8").replace("Remember the bashrc change.\n", ""),
+                            encoding="utf-8")
             result = run("check", Path(tmp) / "crew.md.bak", lost)
             self.assertEqual(result.returncode, 1)
             self.assertIn("Remember the bashrc change.", result.stderr)
@@ -118,11 +119,17 @@ class RootTest(unittest.TestCase):
             self.assertEqual(json.loads(run("where", env=env).stdout)["from"], "$NOTES_DIR")
             self.assertEqual(json.loads(run("--root", tmp, "where", env=env).stdout)["from"], "--root")
 
+    @unittest.skipIf(os.name == "nt", "WSL mapping only applies outside native Windows")
     def test_windows_paths_map_to_wsl_mounts(self):
-        with mock.patch.object(notes.os, "name", "posix"), mock.patch.object(notes.Path, "is_dir", return_value=True):
+        with mock.patch.object(notes.Path, "is_dir", return_value=True):
             self.assertEqual(notes.normalize_path(r"C:\Users\Ilya Shulgin\notes"),
                              Path("/mnt/c/Users/Ilya Shulgin/notes"))
         self.assertEqual(notes.normalize_path("/home/me/notes"), Path("/home/me/notes"))
+
+    @unittest.skipUnless(os.name == "nt", "native Windows only")
+    def test_native_windows_keeps_drive_paths(self):
+        self.assertEqual(notes.normalize_path(r"C:\Users\Ilya Shulgin\notes"),
+                         Path(r"C:\Users\Ilya Shulgin\notes"))
 
 
 class ExportAndLinkTest(unittest.TestCase):

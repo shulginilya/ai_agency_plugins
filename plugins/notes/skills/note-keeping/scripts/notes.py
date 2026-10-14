@@ -571,6 +571,10 @@ def cmd_file(args) -> Any:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    # Notes and their "→ #N" markers are UTF-8; a Windows console defaults to cp1252 and would crash.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--root", help="notes folder (overrides $NOTES_DIR and the saved one)")
     sub = parser.add_subparsers(dest="cmd", required=True)
