@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import _helpers  # noqa: F401
 from tools.apkit.build import build
@@ -179,6 +180,16 @@ class BoardTest(unittest.TestCase):
         result = run(SCRIPTS / "board.py", "branch", "--issue", "3", "--title", "fix: flaky login test")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["branch"], "3-fix-flaky-login-test")
+
+    def test_gh_repo_names_the_repo_without_asking_gh(self):
+        with mock.patch.dict(os.environ, {"GH_REPO": "me/notes-target"}), \
+             mock.patch.object(board, "gh", side_effect=AssertionError("gh must not be called")):
+            self.assertEqual(board.current_repo(), {"owner": "me", "name": "notes-target"})
+        with mock.patch.dict(os.environ, {"GH_REPO": "github.com/me/x"}):
+            self.assertEqual(board.current_repo(), {"owner": "me", "name": "x"})
+        with mock.patch.dict(os.environ, {"GH_REPO": "nonsense"}):
+            with self.assertRaises(board.InputError):
+                board.current_repo()
 
     def test_missing_gh_is_a_clean_failure(self):
         result = run(SCRIPTS / "board.py", "boards", env={**os.environ, "PATH": ""})

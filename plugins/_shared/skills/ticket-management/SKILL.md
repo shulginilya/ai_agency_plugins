@@ -34,6 +34,9 @@ python scripts/board.py move --project N --issue I --status S   # change column,
 - **Which board:** use the board the user or the brief named. Otherwise run
   `board.py boards` and ask, recommending the one recent issues use most.
   Never guess.
+- **Which repository:** the one the current folder belongs to. To write to
+  another, set `GH_REPO=owner/name` on the command. Both scripts and every
+  `gh` call they make honor it.
 
 ## Create one ticket
 
