@@ -12,10 +12,12 @@ accounts, so it also works for unattended crewmates.
 | --- | --- | --- |
 | Skill | `design-spec` | Flow, every screen state, layout, copy, accessibility and acceptance criteria for one ticket; optional HTML wireframe |
 | Skill | `ux-review` | Usability, WCAG 2.2 AA and design-system review, findings ranked by harm |
-| Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Command | `/spec` | Write the design spec for a ticket and attach it |
 | Command | `/review` | Review a flow, screen or UI diff |
 | Agent | `first-time-user` | Walks one flow in a fresh context knowing only what the screens say |
+
+It doesn't manage tickets. Specs and findings that need a ticket are handed to
+developer or scrum-master, the only crew members that manage them.
 
 There are no hooks. A crew plugin's hooks would run in every crewmate session,
 and nothing here needs one.
@@ -62,6 +64,3 @@ python -m tools.apkit install designer --target claude-code --scope user
   session.
 - **Generic `.agents/skills`** takes the skills only. Both scripts travel with
   `ux-review`.
-- **`ticket-management`** arrives only once the shared-skills build from #28 is
-  on `main`. Before that, `shared_skills` is ignored and the designer files
-  tickets with plain `gh`.

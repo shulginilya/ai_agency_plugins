@@ -87,8 +87,9 @@ state, plus the accessibility and responsive ones:
 
 ## 6. Hand it over
 
-Attach the spec to the ticket with the `ticket-management` skill. Append it to
-the body under `## Design`, or post it as a comment when the body belongs to
-someone else. Use the same approval rules as any other ticket write. If the
-spec splits the work, propose the slices. When scrum-master is installed, its
-`story-splitter` owns the split.
+The designer does not write tickets. Only developer and scrum-master manage
+them. Give the spec in your reply, or in your report under a crew brief, ready
+to paste under `## Design` in the ticket's body or as a comment. Say which
+ticket it belongs to, so the developer or scrum-master can attach it. If the
+spec splits the work, propose the slices; scrum-master's `story-splitter` owns
+the split.

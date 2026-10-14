@@ -84,5 +84,6 @@ Check:  WCAG 3.3.1 Error Identification
 
 End with the flows and checks you could not cover and why, such as "dark mode
 not reviewed: no toggle in the running app". When a finding should become a
-ticket, file it with the `ticket-management` skill, under the same approval
-rules as any other ticket write.
+ticket, write it up as a proposed ticket (a title, plus the finding as the
+body) in your reply or report. The designer does not file tickets; developer or
+scrum-master does.

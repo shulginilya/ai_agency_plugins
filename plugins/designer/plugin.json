@@ -8,7 +8,6 @@
     "email": "ishulgin8@gmail.com"
   },
   "license": "MIT",
-  "shared_skills": ["ticket-management"],
   "repository": "https://github.com/shulginilya/ai_agency_plugins",
   "keywords": ["design", "ux", "ui", "accessibility", "wcag", "design-system"],
   "targets": {

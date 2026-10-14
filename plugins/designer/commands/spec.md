@@ -22,5 +22,6 @@ Follow the `design-spec` skill:
    state, final copy, and accessibility.
 4. Add a low-fidelity HTML wireframe under `docs/design/` only when layout is
    the hard part.
-5. End with testable acceptance criteria. Attach the spec to the ticket with
-   the `ticket-management` skill after approval, or as the brief allows.
+5. End with testable acceptance criteria. Hand the spec over without writing
+   to the ticket yourself: give it in your reply or report, ready to paste under
+   `## Design`, for the developer or scrum-master to attach.
