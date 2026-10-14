@@ -13,9 +13,11 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   changing code, and put the findings in the report this brief names.
 - Backlog or issue grooming: `/scrum-master:refine`, then file the stories with the
   `ticket-management` skill (`tickets.py batch`) on the board this brief names.
-- Tickets during any task: create, edit or close them and move board cards with the
-  `ticket-management` skill when the task calls for it, and list each one with its link in
-  your report. Delete a ticket only when this brief names it for deletion; otherwise close
+- Tickets: only the developer and scrum-master plugins manage them. Create, edit or close
+  tickets and move board cards with their `ticket-management` skill when the task calls for
+  it, and list each one with its link in your report. A debugger or code-review finding that
+  needs a ticket goes in your report as a proposed ticket for the developer or scrum-master
+  step to file. Delete a ticket only when this brief names it for deletion; otherwise close
   it as not planned.
 - New project board: `/scrum-master:create-board`, only when this brief asks for a board.
 - Only the developer, debugger, code-review and scrum-master plugins are for crew work.

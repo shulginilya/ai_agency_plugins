@@ -72,7 +72,7 @@
       ]
     }
   },
-  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so one ship crewmate usually plays Developer, then Code Reviewer, then Developer again. All four share the ticket-management skill, so any crewmate can create, edit and close tickets and move board cards; it deletes one only when its brief names it. Firstmate can run several crewmates side by side.",
+  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so one ship crewmate usually plays Developer, then Code Reviewer, then Developer again. Only Developer and Scrum Master carry the ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. Debugger and Code Reviewer propose tickets in the report. Firstmate can run several crewmates side by side.",
   "gaps": [],
   "raci": {
     "legend": {"R": "does the work", "A": "signs off", "C": "consulted", "I": "informed"},
@@ -84,8 +84,8 @@
       {"activity": "Refine raw items into ready stories", "captain": "A", "firstmate": "I", "scrum-master": "R"},
       {"activity": "Split items sized 13+", "scrum-master": "R"},
       {"activity": "File the backlog and put it on the board", "captain": "A", "firstmate": "I", "scrum-master": "R"},
-      {"activity": "Create, edit or close a ticket during a task", "firstmate": "I", "scrum-master": "R", "developer": "R", "debugger": "R", "code-review": "R"},
-      {"activity": "Delete a ticket (named in the brief)", "captain": "A", "firstmate": "C", "scrum-master": "R", "developer": "R", "debugger": "R", "code-review": "R"},
+      {"activity": "Create, edit or close a ticket during a task", "firstmate": "I", "scrum-master": "R", "developer": "R", "debugger": "C", "code-review": "C"},
+      {"activity": "Delete a ticket (named in the brief)", "captain": "A", "firstmate": "C", "scrum-master": "R", "developer": "R"},
       {"activity": "Plan the sprint", "captain": "A", "firstmate": "C", "scrum-master": "R"},
       {"activity": "Implement a feature or ticket", "firstmate": "A", "developer": "R", "code-review": "C"},
       {"activity": "Diagnose and fix a bug", "firstmate": "A", "debugger": "R", "code-review": "C"},
