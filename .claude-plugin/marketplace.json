@@ -17,7 +17,7 @@
         "ref": "dist"
       },
       "description": "Structured code review and repository audit. Reviews a diff, branch or pull request against correctness, security, performance and accessibility, and reports findings ranked by severity with a concrete failure scenario for each. Use when asked to review code, audit a PR, or check quality before merging.",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -39,7 +39,7 @@
         "ref": "dist"
       },
       "description": "Diagnoses failures down to their mechanism before changing any code. Reproduces the fault deterministically, narrows it to the smallest failing case, bisects regressions to the commit that introduced them, and proves the fix with a test that fails without it. Use when something is broken, a test fails or is flaky, behaviour regressed after a change, or a crash, stack trace or incident needs a root cause.",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -62,7 +62,7 @@
         "ref": "dist"
       },
       "description": "The feature development loop: orient in the code, write a change plan, implement it in verifiable slices, run the repository's own checks, and self-review before handoff, then ship it for review as a ticket, branch and PR. Also covers behaviour-preserving refactors. Use when asked to implement a feature, build or add functionality, work a ticket, refactor existing code, check that a change is finished, or open a PR for it.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -231,7 +231,7 @@
         "ref": "dist"
       },
       "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, and builds a sprint plan with one goal and a capacity number that survives contact with reality. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, or plan the next sprint.",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
