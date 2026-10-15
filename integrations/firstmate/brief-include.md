@@ -18,10 +18,10 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   `ticket-management` skill (`tickets.py batch`) on the board this brief names.
 - Tickets: only the developer and scrum-master plugins manage them. Create, edit or close
   tickets and move board cards with their `ticket-management` skill when the task calls for
-  it, and list each one with its link in your report. A debugger or code-review finding that
-  needs a ticket goes in your report as a proposed ticket for the developer or scrum-master
-  step to file. Delete a ticket only when this brief names it for deletion; otherwise close
-  it as not planned.
+  it, and list each one with its link in your report. A debugger, code-review or designer
+  finding that needs a ticket, or a designer spec for a ticket, goes in your report for the
+  developer or scrum-master step to file or attach. Delete a ticket only when this brief
+  names it for deletion; otherwise close it as not planned.
 - New project board: `/scrum-master:create-board`, only when this brief asks for a board.
 - Only the developer, debugger, code-review, scrum-master and designer plugins are for crew work.
   Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, pair-programmer,
