@@ -1,8 +1,8 @@
 {
   "name": "developer",
   "displayName": "Developer",
-  "version": "0.3.0",
-  "description": "The feature development loop: orient in the code, write a change plan, implement it in verifiable slices, run the repository's own checks, and self-review before handoff, then ship it for review as a ticket, branch and PR. Also covers behaviour-preserving refactors. Use when asked to implement a feature, build or add functionality, work a ticket, refactor existing code, check that a change is finished, or open a PR for it.",
+  "version": "0.4.0",
+  "description": "The development loop end to end: implement a feature in verifiable slices, refactor without changing behaviour, diagnose a bug to its proved root cause, fix it with the failing test first, bisect a regression to the commit that caused it, run the repo's checks, then ship it as a ticket, branch and PR. Use when asked to implement, refactor, debug, fix a failing or flaky test, find what broke, or open a PR.",
   "author": {
     "name": "Ilya Shulgin",
     "email": "ishulgin8@gmail.com"
