@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """GitHub issue lifecycle for the crew: create, batch, edit, close, delete.
 
-    tickets.py create --title T --body-file F [--label L ...] [--project N [--status S]] [--skip-existing]
+    tickets.py create --title T --body-file F [--label L ...] [--create-missing-labels] [--project N [--status S]] [--skip-existing]
     tickets.py batch  --plan plan.json [--project N] [--status Backlog] [--dry-run]
     tickets.py edit   --issue 12 [--title T] [--body-file F] [--add-label L ...] [--remove-label L ...]
     tickets.py close  --issue 12 [--reason completed|not-planned] [--comment C]
@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import urllib.parse
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -106,6 +107,26 @@ def existing_titles() -> Dict[str, int]:
     return {row["title"]: row["number"] for row in json.loads(out)}
 
 
+LABEL_COLOR = "1d76db"
+
+
+def ensure_labels(labels: List[str]) -> List[str]:
+    """Create any label the repository lacks, so `gh issue create --label` cannot refuse it."""
+    repo = board.current_repo()
+    created = []
+    for label in labels:
+        path = "repos/%s/%s/labels/%s" % (repo["owner"], repo["name"], urllib.parse.quote(label, safe=""))
+        try:
+            gh("api", path)
+        except BoardError as exc:
+            if "Not Found" not in str(exc) and "404" not in str(exc):
+                raise
+            gh("api", "-X", "POST", "repos/%s/%s/labels" % (repo["owner"], repo["name"]),
+               "-f", "name=%s" % label, "-f", "color=%s" % LABEL_COLOR)
+            created.append(label)
+    return created
+
+
 def create_issue(title: str, body: str, labels: List[str]) -> Dict[str, Any]:
     args = ["issue", "create", "--title", title, "--body", body or " "]
     for label in labels:
@@ -159,8 +180,11 @@ def cmd_create(args: argparse.Namespace) -> Dict[str, Any]:
         number = existing_titles().get(args.title)
         if number:
             return {"number": number, "created": False, "board": place_on_board(args.project, args.status, number)}
+    created_labels = ensure_labels(args.label or []) if args.create_missing_labels else []
     made = create_issue(args.title, read_body(args) or "", args.label or [])
     made["created"] = True
+    if created_labels:
+        made["labels_created"] = created_labels
     made["board"] = place_on_board(args.project, args.status, made["number"])
     return made
 
@@ -244,6 +268,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--project", type=int, help="also put it on this board")
     p.add_argument("--status", help="board column, with --project")
     p.add_argument("--skip-existing", action="store_true", help="reuse an issue with the same title")
+    p.add_argument("--create-missing-labels", action="store_true", help="create any --label the repo lacks")
 
     p = sub.add_parser("batch", help="create a backlog from a plan file; safe to rerun")
     p.add_argument("--plan", required=True)

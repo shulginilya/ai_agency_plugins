@@ -20,5 +20,5 @@ Follow the `acceptance-testing` skill:
    subagent. Never fix what you find: record it.
 4. Write `results.json` and run
    `python {{PLUGIN_ROOT}}/skills/acceptance-testing/scripts/qa_report.py results.json`.
-5. Report the verdict, the commit tested, and one `bug-reporting` report per failure, for
-   developer or scrum-master to file.
+5. Report the verdict, the commit tested, and one bug ticket per failure, filed with the
+   `bug-reporting` skill and labelled "QA testing", with each ticket's link.

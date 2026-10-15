@@ -59,5 +59,8 @@ Untestable as written: AC3 "loads fast" → propose "renders within 1 s for 500 
 Not covered by any criterion: <behaviour the ticket implies but never states>
 ```
 
-QA doesn't write tickets. Proposed criterion rewrites go to developer or
-scrum-master, who edit the ticket.
+QA may add the plan to the ticket with the `ticket-management` skill's
+`edit`: append it under `## Test plan`, keeping the body as it was. Read the
+current body first (`gh issue view N --json body`). Proposed criterion
+rewrites are listed for whoever owns the ticket: changing what was promised
+isn't QA's call. QA never closes or deletes a ticket.

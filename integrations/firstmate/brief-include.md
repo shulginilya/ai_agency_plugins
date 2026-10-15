@@ -15,16 +15,18 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
 - Ticket with acceptance criteria: `/qa:plan` before building, so every criterion has test
   cases. Before reporting a ship task done: `/qa:verify` against the ticket. Only an accept
   verdict means done; on reject or blocked, fix and verify again, or report what blocks it.
-- Bug found while testing: `/qa:bug` writes the report; never patch it from the QA step.
+- Bug found while testing: `/qa:bug` writes the report and files it as a ticket labelled
+  "QA testing"; never patch it from the QA step.
 - Scout (read-only) tasks: use `/developer:diagnose`, `/designer:review` or `/qa:plan` without
   changing code, and put the findings in the report this brief names.
 - Backlog or issue grooming: `/scrum-master:refine`, then file the stories with the
   `ticket-management` skill (`tickets.py batch`) on the board this brief names.
-- Tickets: only the developer and scrum-master plugins manage them. Create, edit or close
+- Tickets: the developer and scrum-master plugins manage them: create, edit or close
   tickets and move board cards with their `ticket-management` skill when the task calls for
-  it, and list each one with its link in your report. A designer or QA finding that
-  needs a ticket (a QA bug report), or a designer spec for a ticket, goes in your report for the
-  developer or scrum-master step to file or attach. Delete a ticket only when this brief
+  it. QA creates and edits tickets only, never closes or deletes one, and labels every
+  ticket it creates "QA testing". List each ticket you write with its link in your report.
+  A designer finding that needs a ticket, or a designer spec for a ticket, goes in your
+  report for the developer or scrum-master step to file or attach. Delete a ticket only when this brief
   names it for deletion; otherwise close it as not planned.
 - New project board: `/scrum-master:create-board`, only when this brief asks for a board.
 - Only the developer, scrum-master, designer and qa plugins are for crew work.

@@ -74,8 +74,8 @@ A pass with no evidence is counted as not run.
 Give the report `qa_report.py` prints, plus:
 
 - the commit tested, and how (local run, preview URL, test data used),
-- one bug report per failure (`bug-reporting` skill), ready for developer or
-  scrum-master to file. QA doesn't write tickets itself,
+- one bug ticket per failure, filed by QA with the `bug-reporting` skill and
+  labelled **QA testing**, with each ticket's link,
 - anything the criteria never covered but a user will hit, as proposed new
   criteria.
 

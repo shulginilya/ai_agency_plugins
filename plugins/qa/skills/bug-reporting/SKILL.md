@@ -1,6 +1,6 @@
 ---
 name: bug-reporting
-description: Writes a bug report a developer can reproduce on the first try — title, exact steps from a clean start, expected versus actual, environment and commit, severity with its reason, evidence, and what was ruled out — ready for developer or scrum-master to file as a ticket. Use when asked to report, write up or log a bug, describe a failure found in testing, or turn a QA failure into a ticket.
+description: Writes a bug report a developer can reproduce on the first try — title, exact steps from a clean start, expected versus actual, environment and commit, severity with its reason, evidence, and what was ruled out — and files it as a GitHub ticket labelled "QA testing". Use when asked to report, write up or log a bug, describe a failure found in testing, or turn a QA failure into a ticket.
 license: MIT
 metadata:
   author: ilya-shulgin
@@ -54,9 +54,23 @@ Ruled out: <what you checked that does not matter: another browser, a fresh acco
 
 Pick severity by the effect on the user, not by how hard the fix looks.
 
-## Hand it over
+## File it
 
-QA doesn't file tickets. Give the report in your reply, or in your report
-under a crew brief. Developer or scrum-master files it with their
-`ticket-management` skill. One bug per report, even when several came up in
-one session. Say if it's related to another bug.
+QA creates the ticket itself with the `ticket-management` skill. Every ticket
+QA creates carries the **QA testing** label, so the team can see what came
+out of testing:
+
+```bash
+python ../ticket-management/scripts/tickets.py create --title "<title>" --body-file report.md \
+    --label "QA testing" --create-missing-labels [--project N --status Backlog]
+```
+
+- One bug per ticket, even when several came up in one session. Link a
+  related bug in the body ("Related: #N").
+- Before creating, check that it isn't already filed
+  (`gh issue list --search "<key words>" --state all`). If it is, add your
+  findings to that ticket with `edit` or a comment instead.
+- In a conversation, show the report first and create the ticket after a yes.
+  Under a crew brief, create it and list its link in your report.
+- QA creates and edits tickets, but never closes or deletes one. That stays
+  with developer and scrum-master.

@@ -1,9 +1,9 @@
 ---
-description: Write a bug report a developer can reproduce on the first try, ready to be filed as a ticket.
+description: Write a bug report a developer can reproduce on the first try, and file it as a ticket labelled "QA testing".
 argument_hint: "[what went wrong, or a failing QA case]"
 model: claude-sonnet-5-5
 effort: medium
-allowed_tools: Bash Read Grep Glob
+allowed_tools: Bash Read Grep Glob Write
 ---
 
 Report a bug: {{ARGS}}
@@ -15,4 +15,6 @@ Follow the `bug-reporting` skill:
 3. Write the report in the skill's format: title, severity with its reason, where it was
    found, build and environment, steps, expected versus actual, frequency, evidence, and
    what was ruled out.
-4. Hand it over for developer or scrum-master to file. QA doesn't write tickets.
+4. Check that it isn't already filed, then create the ticket with
+   `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/tickets.py create --title ... --body-file ... --label "QA testing" --create-missing-labels`.
+   In a conversation, show the report first and create it after a yes.

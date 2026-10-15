@@ -19,4 +19,5 @@ Follow the `test-planning` skill:
    and accessibility for UI), each with steps, data and an observable expected result,
    using `references/case-design.md`.
 4. Hand over the plan in the skill's format. Proposed criterion rewrites go to developer
-   or scrum-master: QA doesn't edit tickets.
+   or scrum-master. QA may append the plan to the ticket under `## Test plan` with the
+   `ticket-management` skill's `edit`, but doesn't change the criteria.

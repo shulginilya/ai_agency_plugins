@@ -17,13 +17,16 @@ things go wrong.
 | Skill | `test-planning` | Criteria → cases (happy, edge and boundary, negative, regression, accessibility); flag untestable criteria |
 | Skill | `acceptance-testing` | Gate on the repo's checks, run every case with evidence, verdict: accept / reject / blocked |
 | Skill | `bug-reporting` | Reproducible report: steps, expected vs actual, build, severity, evidence, what was ruled out |
+| Skill (shared) | `ticket-management` | Create and edit GitHub issues; QA's tickets are labelled **QA testing**. Source: `plugins/_shared/skills/` |
 | Command | `/plan` | Test plan for a ticket |
 | Command | `/verify` | Verify a branch or PR against its ticket and give the verdict |
-| Command | `/bug` | Write one bug report |
+| Command | `/bug` | Write one bug report and file it, labelled **QA testing** |
 | Agent | `acceptance-checker` | Judges each criterion in a fresh context, from the criteria and the running result only |
 
-It doesn't manage tickets. Bug reports and proposed criterion rewrites are
-handed to developer or scrum-master, the only crew members that manage them.
+It creates and edits tickets, but never closes or deletes them. Every bug it
+files carries the **QA testing** label, and it may append a test plan to a
+ticket. Proposed criterion rewrites go to whoever owns the ticket.
+
 There are no hooks, because a crew plugin's hooks run in every crewmate
 session.
 

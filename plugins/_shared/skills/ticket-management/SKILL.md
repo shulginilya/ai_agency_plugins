@@ -48,10 +48,13 @@ Body:   the problem or the user value, the proposal, and testable
         acceptance criteria as checkboxes
 ```
 
-Write the body to a file and run `create`. Pass `--skip-existing` when the
-ticket may already exist: an issue with the exact same title is reused instead
-of duplicated. Add `--project N --status <column>` to put it on a board in the
-same step.
+Write the body to a file and run `create`.
+
+- A `--label` must already exist in the repository. Add
+  `--create-missing-labels` to create any that don't.
+- Pass `--skip-existing` when the ticket may already exist: an issue with the
+  exact same title is reused instead of duplicated.
+- Add `--project N --status <column>` to put it on a board in the same step.
 
 ## Create a backlog
 

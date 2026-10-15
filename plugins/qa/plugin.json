@@ -2,12 +2,13 @@
   "name": "qa",
   "displayName": "QA Engineer",
   "version": "0.1.0",
-  "description": "Quality assurance for the crew: turns a ticket's acceptance criteria into a test plan before work starts, verifies the finished change against every criterion with evidence and gives an accept or reject verdict, and writes bug reports a developer can reproduce. Use when asked to test, QA or verify a change, check acceptance criteria, write test cases or a test plan, or report a bug.",
+  "description": "Quality assurance for the crew: turns a ticket's acceptance criteria into a test plan before work starts, verifies the finished change against every criterion with evidence and gives an accept or reject verdict, and files reproducible bug tickets labelled \"QA testing\". Use when asked to test, QA or verify a change, check acceptance criteria, write test cases or a test plan, or report a bug.",
   "author": {
     "name": "Ilya Shulgin",
     "email": "ishulgin8@gmail.com"
   },
   "license": "MIT",
+  "shared_skills": ["ticket-management"],
   "repository": "https://github.com/shulginilya/ai_agency_plugins",
   "keywords": ["qa", "testing", "acceptance-criteria", "test-plan", "bug-report"],
   "targets": {
