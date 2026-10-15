@@ -9,28 +9,6 @@
   },
   "plugins": [
     {
-      "name": "code-review",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
-        "path": "claude-code/code-review",
-        "ref": "dist"
-      },
-      "description": "Structured code review and repository audit. Reviews a diff, branch or pull request against correctness, security, performance and accessibility, and reports findings ranked by severity with a concrete failure scenario for each. Use when asked to review code, audit a PR, or check quality before merging.",
-      "version": "0.2.0",
-      "author": {
-        "name": "Ilya Shulgin",
-        "email": "ishulgin8@gmail.com"
-      },
-      "keywords": [
-        "code-review",
-        "pull-request",
-        "audit",
-        "security",
-        "quality"
-      ]
-    },
-    {
       "name": "designer",
       "source": {
         "source": "git-subdir",
