@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SKILL = ROOT / "plugins" / "_shared" / "skills" / "ticket-management"
 SCRIPTS = SKILL / "scripts"
 CREW = ("developer", "scrum-master")  # the only crew plugins that manage tickets
-NO_TICKETS = ("designer",)
+NO_TICKETS = ("designer", "qa")
 
 sys.path.insert(0, str(SCRIPTS))
 import board  # noqa: E402
