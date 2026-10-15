@@ -48,7 +48,7 @@ gate (`apkit validate`, the tests).
   conversation. Use one when not having seen the work is the point.
 - **A command per skill.** Commands exist for what users start; a skill the
   model should pick up on its own does not need one.
-- **Anything because the reference plugin has it.** `code-review` exercises
+- **Anything because the reference plugin has it.** `scrum-master` exercises
   every component type on purpose. That is a demo, not a mandate.
 
 ## Choosing between two that both fit

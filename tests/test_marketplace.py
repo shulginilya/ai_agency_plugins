@@ -24,40 +24,40 @@ REPO = "https://github.com/shulginilya/ai_agency_plugins.git"
 class PluginSourceTest(unittest.TestCase):
     def test_path_mode_stays_relative_to_the_marketplace_root(self):
         self.assertEqual(
-            marketplace.plugin_source("code-review", publish="path"),
-            "./dist/claude-code/code-review",
+            marketplace.plugin_source("scrum-master", publish="path"),
+            "./dist/claude-code/scrum-master",
         )
 
     def test_git_subdir_names_repo_path_and_ref(self):
-        source = marketplace.plugin_source("code-review", publish="git-subdir", repo=REPO)
+        source = marketplace.plugin_source("scrum-master", publish="git-subdir", repo=REPO)
         self.assertEqual(
             source,
             {
                 "source": "git-subdir",
                 "url": REPO,
-                "path": "claude-code/code-review",
+                "path": "claude-code/scrum-master",
                 "ref": "dist",
             },
         )
 
     def test_git_subdir_path_carries_no_leading_dot_slash(self):
         source = marketplace.plugin_source(
-            "code-review", publish="git-subdir", repo=REPO, source_root="./claude-code/"
+            "scrum-master", publish="git-subdir", repo=REPO, source_root="./claude-code/"
         )
-        self.assertEqual(source["path"], "claude-code/code-review")
+        self.assertEqual(source["path"], "claude-code/scrum-master")
 
     def test_git_subdir_without_a_repo_is_refused(self):
         with self.assertRaises(ValueError):
-            marketplace.plugin_source("code-review", publish="git-subdir")
+            marketplace.plugin_source("scrum-master", publish="git-subdir")
 
     def test_unknown_mode_is_refused(self):
         with self.assertRaises(ValueError):
-            marketplace.plugin_source("code-review", publish="tarball")
+            marketplace.plugin_source("scrum-master", publish="tarball")
 
 
 class IndexTest(unittest.TestCase):
     def setUp(self):
-        self.plugins = [load_plugin(ROOT / "plugins" / "code-review")]
+        self.plugins = [load_plugin(ROOT / "plugins" / "scrum-master")]
 
     def index(self, **kwargs):
         return marketplace.build_index(
@@ -70,7 +70,7 @@ class IndexTest(unittest.TestCase):
 
     def test_entry_carries_description_and_version(self):
         entry = self.index(publish="git-subdir", repo=REPO)["plugins"][0]
-        self.assertEqual(entry["name"], "code-review")
+        self.assertEqual(entry["name"], "scrum-master")
         self.assertTrue(entry["description"])
         self.assertTrue(entry["version"])
 
@@ -133,7 +133,7 @@ class CliTest(unittest.TestCase):
         self.assertGreater(len(reread["plugins"]), 0)
 
     def test_marketplace_rejects_a_plugin_filter(self):
-        self.assertEqual(main(["marketplace", "--plugin", "code-review"]), 2)
+        self.assertEqual(main(["marketplace", "--plugin", "scrum-master"]), 2)
 
 
 if __name__ == "__main__":

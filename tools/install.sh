@@ -53,8 +53,8 @@ Usage:
   tools/install.sh [options] [plugin ...]
 
 Plugins are positional and may be repeated, comma-separated, or both:
-  tools/install.sh code-review developer
-  tools/install.sh code-review,developer
+  tools/install.sh scrum-master developer
+  tools/install.sh scrum-master,developer
 
 Selecting plugins
   -a, --all                every plugin under plugins/ (skips _template)

@@ -118,7 +118,7 @@ Stop, print `{"decision": "block", "reason": "..."}` and honour
 ```
 
 `server.py` is a dependency-free JSON-RPC 2.0 stdio server, about 150 lines:
-copy the shape of `plugins/code-review/mcp/server.py`. It answers
+copy the shape of `plugins/scrum-master/mcp/server.py`. It answers
 `initialize`, `tools/list` and `tools/call`; each tool imports its logic from
 a skill's `scripts/`. `tools/call` catches `(Exception, SystemExit)` and
 returns `isError`, because the imported scripts are CLIs that exit on bad

@@ -36,9 +36,10 @@ Three tiers, and the split matters more as your library grows:
 3. **References** (loaded only when the body sends the model there) —
    `references/*.md`, one level deep
 
-The `code-review` skill in this repo does this: the body carries the method and
-a table saying which reference to load for which kind of change. A diff that
-touches no markup never pays for the accessibility reference.
+The `backlog-refinement` skill in this repo does this: the body carries the
+refinement loop and sends the model to `estimation.md`, `invest.md` or
+`splitting.md` only at the step that needs it. Refining a small, clear item
+never pays for the splitting reference.
 
 Scripts get the same treatment. A deterministic script is cheaper and more
 reliable than asking a model to compute the same thing — `changed_files.py`

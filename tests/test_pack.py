@@ -27,7 +27,7 @@ class PackTestCase(unittest.TestCase):
         base = Path(self._tmp.name)
         self.dist = base / "dist"
         self.out = base / "out"
-        self.plugin = load_plugin(ROOT / "plugins" / "code-review")
+        self.plugin = load_plugin(ROOT / "plugins" / "scrum-master")
         self.targets = {t.id: t for t in load_targets(ROOT / "targets")}
 
     def pack(self, target_id: str) -> pack.PackResult:
@@ -42,7 +42,7 @@ class ArchiveLayoutTest(PackTestCase):
         self.assertIn(".claude-plugin/plugin.json", members)
         for member in members:
             self.assertFalse(
-                member.startswith("code-review/"),
+                member.startswith("scrum-master/"),
                 "archive wraps its contents in a directory: %s" % member,
             )
 
@@ -73,7 +73,7 @@ class NamingTest(PackTestCase):
     def test_name_carries_plugin_and_version(self):
         result = self.pack("claude-code")
         self.assertEqual(
-            result.path.name, "code-review-%s.plugin" % self.plugin.version
+            result.path.name, "scrum-master-%s.plugin" % self.plugin.version
         )
 
     def test_archives_land_under_the_requested_directory(self):

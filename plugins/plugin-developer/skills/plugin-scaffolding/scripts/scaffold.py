@@ -97,7 +97,7 @@ def stub_test(path: str, verifies: List[str]) -> str:
 def stub_server() -> str:
     return (
         '#!/usr/bin/env python3\n"""%s the MCP server: stdlib JSON-RPC over stdio.\n\n'
-        "Start from plugins/code-review/mcp/server.py. Tools import their logic from the\n"
+        "Start from plugins/scrum-master/mcp/server.py. Tools import their logic from the\n"
         'skills\' scripts/ -- never restate a rule here.\n"""\n'
     ) % MARKER
 

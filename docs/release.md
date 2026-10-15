@@ -22,8 +22,8 @@ python -m tools.apkit build --clean
 python -m tools.apkit test
 python -m tools.apkit marketplace
 
-git commit -am "feat(code-review): <what changed>"
-git tag code-review-v0.2.0
+git commit -am "feat(scrum-master): <what changed>"
+git tag scrum-master-v0.2.0
 git push --follow-tags
 ```
 
@@ -43,11 +43,11 @@ branch the bundles are published on:
 
 ```json
 {
-  "name": "code-review",
+  "name": "scrum-master",
   "source": {
     "source": "git-subdir",
     "url": "https://github.com/shulginilya/ai_agency_plugins.git",
-    "path": "claude-code/code-review",
+    "path": "claude-code/scrum-master",
     "ref": "dist"
   }
 }
@@ -61,7 +61,7 @@ That keeps the index on the default branch, which is what consumers sync:
 
 ```bash
 /plugin marketplace add shulginilya/ai_agency_plugins
-/plugin install code-review@ai-agency
+/plugin install scrum-master@ai-agency
 ```
 
 In the Claude desktop app and Cowork it is Customize -> Plugins -> Personal
@@ -111,11 +111,11 @@ than writing an archive that will fail quietly.
 For a single machine, skip the marketplace entirely:
 
 ```bash
-python -m tools.apkit install code-review --target claude-code --scope user
+python -m tools.apkit install scrum-master --target claude-code --scope user
 ```
 
-That drops the bundle into `~/.claude/skills/code-review/`, which Claude Code
-loads as a personal-scope plugin (`code-review@skills-dir`) with no marketplace
+That drops the bundle into `~/.claude/skills/scrum-master/`, which Claude Code
+loads as a personal-scope plugin (`scrum-master@skills-dir`) with no marketplace
 and no install step. Personal skills do not sync to Cowork or cloud sessions,
 so the marketplace above is the route for anything but your own terminal.
 
@@ -125,8 +125,8 @@ There is no registry. Installation is `apkit install`, or a checked-in
 `.agents/skills/` directory in the repo people are already working in:
 
 ```bash
-python -m tools.apkit install code-review --target agents --scope project --into .
-git add .agents/skills && git commit -m "chore: vendor the code-review skill"
+python -m tools.apkit install scrum-master --target agents --scope project --into .
+git add .agents/skills && git commit -m "chore: vendor the scrum-master skill"
 ```
 
 Committed skills are the most reliable distribution there is — everyone on the

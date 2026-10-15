@@ -44,12 +44,12 @@ class MarkdownTest(unittest.TestCase):
 
 class SourceReaderTest(unittest.TestCase):
     def test_mcp_tools_read_without_importing_the_server(self):
-        names = [n for n, _ in docs.mcp_tools(load_plugin(ROOT / "plugins" / "code-review"))]
+        names = [n for n, _ in docs.mcp_tools(load_plugin(ROOT / "plugins" / "scrum-master"))]
         self.assertTrue(names)
 
     def test_hooks_name_their_script(self):
-        rows = docs.hook_rows(load_plugin(ROOT / "plugins" / "code-review"))
-        self.assertEqual(rows[0][0], "PostToolUse")
+        rows = docs.hook_rows(load_plugin(ROOT / "plugins" / "scrum-master"))
+        self.assertEqual(rows[0][0], "SessionStart")
         self.assertTrue(rows[0][2].endswith(".py"))
 
 
