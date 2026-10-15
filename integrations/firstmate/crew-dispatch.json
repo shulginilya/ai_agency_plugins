@@ -1,0 +1,31 @@
+{
+  "rules": [
+    {
+      "when": "The task is a trivial mechanical edit: a rote rename, a formatting sweep, a typo or copy fix, a version bump, or gathering files and facts with no judgment involved.",
+      "use": { "harness": "claude", "model": "claude-haiku-5-5", "effort": "low" },
+      "why": "Narrow, low-ambiguity work. The cheapest fast profile is enough, and the crew plugins are installed for Claude Code only."
+    },
+    {
+      "when": "The task is read-only and plans or reports rather than changes code: a scout investigation, a PR audit, a UX review of existing UI, backlog refinement, sprint planning, or drafting a backlog or board plan.",
+      "use": { "harness": "claude", "model": "claude-sonnet-5-5", "effort": "medium" },
+      "why": "Reading and judging, not building: /code-review:review-pr, /designer:review, /scrum-master:refine and plan-sprint all run well on Sonnet."
+    },
+    {
+      "when": "The task is a bug whose cause is not known yet: a crash, wrong output, a failing or flaky test, or a regression that has to be diagnosed or bisected before it can be fixed.",
+      "use": { "harness": "claude", "model": "claude-opus-5-5", "effort": "high" },
+      "why": "/developer:diagnose must prove a mechanism before any fix, and /developer:bisect reads the culprit commit. A wrong diagnosis costs more than the extra effort."
+    },
+    {
+      "when": "The task is a large or ambiguous multi-file feature, a risky refactor, or a change touching migrations, auth, payments, data deletion or a public contract.",
+      "approval": "captain",
+      "use": { "harness": "claude", "model": "claude-opus-5-5", "effort": "high" },
+      "why": "Many moving parts and costly mistakes: the strongest profile, and the Captain confirms the dispatch."
+    },
+    {
+      "when": "The task builds or changes UI: a new screen, page, flow or component that needs a /designer:spec first and a /designer:review before pushing.",
+      "use": { "harness": "claude", "model": "claude-opus-5-5", "effort": "medium" },
+      "why": "Spec, implement and review in one session. Every state, the copy and accessibility have to hold together."
+    }
+  ],
+  "default": { "harness": "claude", "model": "claude-opus-5-5", "effort": "medium" }
+}
