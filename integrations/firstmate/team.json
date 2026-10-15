@@ -65,13 +65,21 @@
         "Creating the project board and its columns (/scrum-master:create-board)",
         "Sprint goal, capacity and plan"
       ]
+    },
+    "qa": {
+      "role": "QA Engineer",
+      "owns": [
+        "A test plan from each ticket's acceptance criteria, before it is built",
+        "The accept / reject / blocked verdict on a built change, with evidence per criterion",
+        "Bug tickets for every failure, filed by QA and labelled \"QA testing\" (create and edit, never close or delete)"
+      ]
     }
   },
-  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so on UI work one ship crewmate plays Designer, then Developer, then Designer again. Only Developer and Scrum Master carry the ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. Designer proposes tickets in the report. Firstmate can run several crewmates side by side.",
+  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so on UI work one ship crewmate plays Designer, then Developer, then Designer again. Developer and Scrum Master carry the full ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. QA Engineer creates and edits tickets, labelling each one it creates \"QA testing\". Designer proposes tickets in the report. Firstmate can run several crewmates side by side.",
   "gaps": [],
   "raci": {
     "legend": {"R": "does the work", "A": "signs off", "C": "consulted", "I": "informed"},
-    "columns": ["captain", "firstmate", "scrum-master", "designer", "developer"],
+    "columns": ["captain", "firstmate", "scrum-master", "designer", "qa", "developer"],
     "rows": [
       {"activity": "Set project intent and priorities", "captain": "A/R", "firstmate": "I"},
       {"activity": "Write spec, brief and delivery contract", "captain": "A", "firstmate": "R"},
@@ -79,15 +87,18 @@
       {"activity": "Refine raw items into ready stories", "captain": "A", "firstmate": "I", "scrum-master": "R"},
       {"activity": "Split items sized 13+", "scrum-master": "R"},
       {"activity": "File the backlog and put it on the board", "captain": "A", "firstmate": "I", "scrum-master": "R"},
-      {"activity": "Create, edit or close a ticket during a task", "firstmate": "I", "scrum-master": "R", "developer": "R"},
+      {"activity": "Create, edit or close a ticket during a task", "firstmate": "I", "scrum-master": "R", "developer": "R", "qa": "R"},
       {"activity": "Delete a ticket (named in the brief)", "captain": "A", "firstmate": "C", "scrum-master": "R", "developer": "R"},
       {"activity": "Plan the sprint", "captain": "A", "firstmate": "C", "scrum-master": "R"},
       {"activity": "Design spec for a UI ticket", "captain": "C", "firstmate": "A", "designer": "R", "developer": "C"},
+      {"activity": "Test plan from acceptance criteria", "firstmate": "A", "qa": "R", "scrum-master": "C", "developer": "I"},
       {"activity": "Implement a feature or ticket", "firstmate": "A", "developer": "R", "designer": "C"},
       {"activity": "UX review of built UI before push", "designer": "R", "developer": "C"},
       {"activity": "Diagnose and fix a bug", "firstmate": "A", "developer": "R"},
       {"activity": "Review own diff before push", "developer": "R"},
       {"activity": "Run repo checks before push", "developer": "R"},
+      {"activity": "Verify the change against its criteria (accept / reject)", "firstmate": "A", "qa": "R", "developer": "C"},
+      {"activity": "File a reproducible bug ticket (labelled QA testing)", "qa": "R", "developer": "I"},
       {"activity": "Open PR, move card to In review", "firstmate": "A", "developer": "R"},
       {"activity": "Merge", "captain": "A/R", "firstmate": "I"},
       {"activity": "Deploy crew plugins (deploy.sh)", "captain": "A/R"}
@@ -95,7 +106,7 @@
   },
   "scenario": {
     "title": "Example — a new project needs a board and a first backlog",
-    "lanes": ["captain", "firstmate", "scrum-master", "designer", "developer"],
+    "lanes": ["captain", "firstmate", "scrum-master", "designer", "developer", "qa"],
     "steps": [
       {"id": "s1", "lane": "captain", "kind": "decision", "text": "Intent: new project X. Create its board and a first backlog from these notes"},
       {"id": "s2", "lane": "firstmate", "text": "Spec, then a scout brief T1: draft the backlog and propose the board. No writes yet"},
@@ -110,13 +121,15 @@
       {"id": "s11", "lane": "scrum-master", "text": "/scrum-master:plan-sprint → sprint goal, capacity, issues that fit (proposal)"},
       {"id": "s12", "lane": "captain", "kind": "decision", "text": "Approve sprint 1"},
       {"id": "s13", "lane": "firstmate", "text": "One ship brief per sprint ticket", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s14", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:spec → flow, every state, copy, accessibility, criteria", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s15", "lane": "developer", "text": "/developer:implement", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s16", "lane": "developer", "kind": "optional", "text": "Only if a test fails: /developer:diagnose → /developer:fix", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s17", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:review the built UI; developer fixes every blocker", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s18", "lane": "developer", "text": "Self-review own diff against the handoff checklist; fix what it finds", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s19", "lane": "developer", "kind": "write", "text": "/developer:verify, then /developer:ship → branch, PR, card to In review", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s20", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}
+      {"id": "s14", "lane": "qa", "text": "/qa:plan → test cases for every acceptance criterion", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s15", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:spec → flow, every state, copy, accessibility, criteria", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s16", "lane": "developer", "text": "/developer:implement", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s17", "lane": "developer", "kind": "optional", "text": "Only if a test fails: /developer:diagnose → /developer:fix", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s18", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:review the built UI; developer fixes every blocker", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s19", "lane": "developer", "text": "Self-review own diff against the handoff checklist; /developer:verify", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s20", "lane": "qa", "text": "/qa:verify → accept, or reject with /qa:bug tickets labelled QA testing for developer to fix", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s21", "lane": "developer", "kind": "write", "text": "On accept: /developer:ship → branch, PR, card to In review", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s22", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}
     ]
   }
 }

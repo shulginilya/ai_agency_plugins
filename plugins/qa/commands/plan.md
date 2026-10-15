@@ -1,0 +1,23 @@
+---
+description: Turn a ticket's acceptance criteria into a test plan, and flag criteria that can't be tested as written.
+argument_hint: "[issue number or URL, or a file with the ticket body]"
+model: claude-sonnet-5-5
+effort: medium
+allowed_tools: Bash(gh:*) Bash(python:*) Read Grep Glob
+---
+
+Plan the tests for: {{ARGS}}
+
+If that is empty, ask which ticket to plan.
+
+Follow the `test-planning` skill:
+
+1. Run `python {{PLUGIN_ROOT}}/skills/test-planning/scripts/criteria.py --issue <n>` (or
+   `--file`). If there are no criteria, say so and stop: there's nothing to test against.
+2. For each criterion flagged as untestable, propose a testable rewording.
+3. Write the cases per criterion (happy, edge and boundary, negative, regression,
+   and accessibility for UI), each with steps, data and an observable expected result,
+   using `references/case-design.md`.
+4. Hand over the plan in the skill's format. Proposed criterion rewrites go to developer
+   or scrum-master. QA may append the plan to the ticket under `## Test plan` with the
+   `ticket-management` skill's `edit`, but doesn't change the criteria.

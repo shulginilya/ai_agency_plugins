@@ -20,7 +20,7 @@ from tools.apkit.targets import load_targets
 ROOT = Path(__file__).resolve().parent.parent
 SKILL = ROOT / "plugins" / "_shared" / "skills" / "ticket-management"
 SCRIPTS = SKILL / "scripts"
-CREW = ("developer", "scrum-master")  # the only crew plugins that manage tickets
+CREW = ("developer", "scrum-master", "qa")  # the crew plugins that carry ticket-management
 NO_TICKETS = ("designer",)
 
 sys.path.insert(0, str(SCRIPTS))
@@ -153,6 +153,31 @@ class DeleteGuardTest(unittest.TestCase):
     def test_status_without_project_is_bad_input(self):
         result = run(SCRIPTS / "tickets.py", "create", "--title", "x", "--status", "Backlog")
         self.assertEqual(result.returncode, 2)
+
+
+class LabelTest(unittest.TestCase):
+    def test_missing_labels_are_created_and_existing_ones_left_alone(self):
+        calls = []
+
+        def fake_gh(*args):
+            calls.append(args)
+            if args[:1] == ("api",) and len(args) == 2 and args[1].endswith("/labels/QA%20testing"):
+                raise board.BoardError("gh: Not Found (HTTP 404)")
+            return "{}"
+
+        with mock.patch.dict(os.environ, {"GH_REPO": "me/app"}), mock.patch.object(tickets, "gh", fake_gh):
+            created = tickets.ensure_labels(["bug", "QA testing"])
+        self.assertEqual(created, ["QA testing"])
+        posts = [c for c in calls if "-X" in c]
+        self.assertEqual(len(posts), 1)
+        self.assertIn("name=QA testing", posts[0])
+        self.assertTrue(any(c[1].endswith("/labels/bug") for c in calls if len(c) == 2))
+
+    def test_other_errors_are_not_mistaken_for_a_missing_label(self):
+        with mock.patch.dict(os.environ, {"GH_REPO": "me/app"}), \
+             mock.patch.object(tickets, "gh", side_effect=board.BoardError("HTTP 401: Bad credentials")):
+            with self.assertRaises(board.BoardError):
+                tickets.ensure_labels(["QA testing"])
 
 
 class BoardTest(unittest.TestCase):
