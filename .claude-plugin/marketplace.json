@@ -54,6 +54,29 @@
       ]
     },
     {
+      "name": "designer",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
+        "path": "claude-code/designer",
+        "ref": "dist"
+      },
+      "description": "UI and UX for the crew: writes the design spec a developer builds and tests against (flow, every screen state, layout, copy, accessibility) and reviews existing UI for usability, WCAG 2.2 AA and consistency with the project's own tokens. Use when asked to design or spec a screen or flow, review UX or UI, check accessibility or contrast, or make an interface consistent.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "design",
+        "ux",
+        "ui",
+        "accessibility",
+        "wcag",
+        "design-system"
+      ]
+    },
+    {
       "name": "developer",
       "source": {
         "source": "git-subdir",
