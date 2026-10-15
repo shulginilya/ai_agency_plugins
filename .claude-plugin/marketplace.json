@@ -151,6 +151,29 @@
       ]
     },
     {
+      "name": "notes",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
+        "path": "claude-code/notes",
+        "ref": "dist"
+      },
+      "description": "Keeps running notes on many topics organized in plain Markdown: captures as you go, regroups each topic into In progress, TODO, Done and Notes without losing a line, shows what is open, and turns TODO or in-progress items into GitHub tickets on the board you name. Use when asked to note something, organize or clean up notes, list open TODOs, or file notes as tickets.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "notes",
+        "todo",
+        "markdown",
+        "organize",
+        "github-issues",
+        "projects"
+      ]
+    },
+    {
       "name": "pair-programmer",
       "source": {
         "source": "git-subdir",
