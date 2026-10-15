@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -96,6 +97,14 @@ def graphql(query: str, **variables: Any) -> Dict[str, Any]:
 
 
 def current_repo() -> Dict[str, str]:
+    """The repo to act on: $GH_REPO when set (as every `gh issue` call already honors), else the cwd's."""
+    named = os.environ.get("GH_REPO", "").strip()
+    if named:
+        parts = named.split("/")
+        if len(parts) not in (2, 3) or not all(parts):
+            raise InputError("GH_REPO must be OWNER/REPO or HOST/OWNER/REPO, not %r" % named)
+        return {"owner": parts[-2], "name": parts[-1]}
+    # gh 2.4's `repo view` ignores GH_REPO, which is why it is read above, not left to gh.
     owner, name = gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner").strip().split("/", 1)
     return {"owner": owner, "name": name}
 
