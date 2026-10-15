@@ -58,7 +58,7 @@ def main() -> int:
 
     hits = scan(text)
     if hits:
-        print("debugger: %s now contains %s." % (path.name, "; ".join(hits)))
+        print("developer: %s now contains %s." % (path.name, "; ".join(hits)))
         print("If this is the fix, check it removes the cause rather than the evidence.")
     return 0
 

@@ -12,14 +12,21 @@ checks, and self-review before handing off. Plus the behaviour-preserving half
 | Skill | `feature-implementation` | The loop: orient → plan → slice → verify → self-review → report |
 | Skill | `safe-refactoring` | Pin behaviour, size the blast radius, apply mechanical moves |
 | Skill | `ship-change` | Ticket on a board, branch, commit, push, PR, card confirmed in review |
+| Skill | `root-cause-analysis` | Reproduce, narrow, prove the mechanism, fix the cause, leave a failing-first test |
+| Skill | `regression-triage` | "It worked before": bracket good and bad, script a verdict, bisect, read the culprit |
 | Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Command | `/implement` | Build a feature, ticket or fix end to end |
 | Command | `/refactor` | Restructure without changing behaviour |
 | Command | `/verify` | Run the checks the repo declares, and report what actually failed |
 | Command | `/ship` | Put a finished change up for review: ticket, branch, PR, In review |
+| Command | `/diagnose` | Diagnose a bug down to its root cause, without changing code |
+| Command | `/fix` | Fix a bug whose cause is proved, failing test first |
+| Command | `/bisect` | Find the commit that introduced a regression |
 | Agent | `implementer` | One slice of the plan, in a fresh context, reported back |
+| Agent | `investigator` | Tests one hypothesis about a bug's cause, in a fresh context, with the evidence |
 | Hook | `SessionStart` | Branch, divergence, uncommitted count, and the repo's checks |
-| MCP | `developer` | Dependency-free stdio server: `verify_commands`, `find_callers`, `dev_playbook` |
+| Hook | `PostToolUse` | After an edit, flags a change that hides a symptom (swallowed error, skipped test) |
+| MCP | `developer` | Dependency-free stdio server: `verify_commands`, `find_callers`, `dev_playbook`, `repro_command`, `change_history`, `bug_playbook` |
 
 Two scripts carry the logic, and everything else imports them rather than
 restating a rule:

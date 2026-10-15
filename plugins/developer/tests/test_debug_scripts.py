@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke tests for the scripts, hook and MCP server the debugger plugin ships."""
+"""Smoke tests for the scripts, hook and MCP server developer ships for debugging (root-cause-analysis, regression-triage)."""
 
 from __future__ import annotations
 
@@ -320,9 +320,9 @@ class McpServerTest(unittest.TestCase):
             ]
         )
         self.assertEqual(len(responses), 2, "notifications must not get a response")
-        self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "debugger")
+        self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "developer")
         names = {tool["name"] for tool in responses[1]["result"]["tools"]}
-        self.assertEqual(names, {"repro_command", "change_history", "bug_playbook"})
+        self.assertEqual(names, {"verify_commands", "find_callers", "dev_playbook", "repro_command", "change_history", "bug_playbook"})
 
     def test_playbook_returns_the_skill_reference(self):
         responses = self._rpc(

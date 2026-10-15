@@ -182,7 +182,7 @@ class McpServerTest(unittest.TestCase):
         self.assertEqual(len(responses), 2, "notifications must not get a response")
         self.assertEqual(responses[0]["result"]["serverInfo"]["name"], "developer")
         names = {tool["name"] for tool in responses[1]["result"]["tools"]}
-        self.assertEqual(names, {"verify_commands", "find_callers", "dev_playbook"})
+        self.assertEqual(names, {"verify_commands", "find_callers", "dev_playbook", "repro_command", "change_history", "bug_playbook"})
 
     def test_verify_commands_reads_the_repository(self):
         with tempfile.TemporaryDirectory() as tmp:

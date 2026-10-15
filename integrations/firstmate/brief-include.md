@@ -8,22 +8,22 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
 - New or changed UI: `/designer:spec` before building, so every state, the copy and the
   accessibility are decided up front. Then `/designer:review` on the built UI before pushing,
   and fix every blocker.
-- Bug, failing or flaky test, wrong output: `/debugger:diagnose` to a proved mechanism,
-  then `/debugger:fix` with the failing test first. Known-good regression: `/debugger:bisect`.
+- Bug, failing or flaky test, wrong output: `/developer:diagnose` to a proved mechanism,
+  then `/developer:fix` with the failing test first. Known-good regression: `/developer:bisect`.
 - Before pushing: `/code-review:review` on your own diff and fix every high-severity finding;
   then `/developer:verify` must pass.
-- Scout (read-only) tasks: use `/debugger:diagnose` or `/code-review:review-pr` without
+- Scout (read-only) tasks: use `/developer:diagnose` or `/code-review:review-pr` without
   changing code, and put the findings in the report this brief names.
 - Backlog or issue grooming: `/scrum-master:refine`, then file the stories with the
   `ticket-management` skill (`tickets.py batch`) on the board this brief names.
 - Tickets: only the developer and scrum-master plugins manage them. Create, edit or close
   tickets and move board cards with their `ticket-management` skill when the task calls for
-  it, and list each one with its link in your report. A debugger, code-review or designer
+  it, and list each one with its link in your report. A code-review or designer
   finding that needs a ticket, or a designer spec for a ticket, goes in your report for the
   developer or scrum-master step to file or attach. Delete a ticket only when this brief
   names it for deletion; otherwise close it as not planned.
 - New project board: `/scrum-master:create-board`, only when this brief asks for a board.
-- Only the developer, debugger, code-review, scrum-master and designer plugins are for crew work.
+- Only the developer, code-review, scrum-master and designer plugins are for crew work.
   Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, pair-programmer,
   prompt-engineer or recruiter-inbox) belongs to the Captain: never invoke its commands,
   skills or subagents, even if one looks relevant.
