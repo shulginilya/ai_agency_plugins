@@ -40,8 +40,8 @@ def write_plugin(root: Path, name: str, skill_meta: str, skill_body: str = "Body
 
 
 class ShippedPluginsTest(unittest.TestCase):
-    def test_code_review_validates_strictly(self):
-        plugin = load_plugin(ROOT / "plugins" / "code-review")
+    def test_scrum_master_validates_strictly(self):
+        plugin = load_plugin(ROOT / "plugins" / "scrum-master")
         report = validate_plugin(plugin, strict=True)
         self.assertTrue(
             report.ok(strict=True),

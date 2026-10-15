@@ -31,7 +31,7 @@ harness changes a path or a placeholder, you edit data, not code.
 .
 ├── plugins/                  # ← source of truth. One directory per plugin.
 │   ├── _template/            #   copy this to start a new plugin
-│   └── code-review/          #   the demo plugin (see below)
+│   └── scrum-master/         #   the reference plugin (see below)
 ├── targets/                  # declarative harness manifests (paths, dialects)
 ├── tools/apkit/              # the CLI: validate · build · pack · install · doctor
 ├── tools/install.sh          # install many plugins into many harnesses
@@ -46,9 +46,9 @@ harness changes a path or a placeholder, you edit data, not code.
 ```bash
 python -m tools.apkit validate            # lint every plugin against the spec
 python -m tools.apkit build               # → dist/<target>/<plugin>/
-python -m tools.apkit build --target codex --plugin code-review
-python -m tools.apkit install code-review --target cursor --scope user
-python -m tools.apkit pack --plugin code-review --target claude-code
+python -m tools.apkit build --target codex --plugin scrum-master
+python -m tools.apkit install scrum-master --target cursor --scope user
+python -m tools.apkit pack --plugin scrum-master --target claude-code
 python -m tools.apkit doctor              # what's installed where, on this machine
 python -m tools.apkit marketplace         # regenerate the marketplace index
 python -m tools.apkit docs                # rebuild docs/handbook.pdf from source
@@ -72,25 +72,28 @@ pip install -e .
 apkit build
 ```
 
-## The demo plugin: `code-review`
+## The reference plugin: `scrum-master`
 
-`plugins/code-review/` is a working plugin that exercises every component type
-the format supports, so it doubles as the reference implementation:
+`plugins/scrum-master/` is a working plugin that exercises every component type
+the format supports, so the `apkit` tests build, install, pack and validate it,
+and the docs use it as the worked example:
 
-- **skills** — `code-review` (the review method, progressive-disclosure
-  references for security / performance / accessibility) and `pr-audit`
-  (repo-wide audit workflow)
-- **commands** — `/review` and `/review-pr`, rendered into each harness's
-  command dialect
-- **agent** — a `reviewer` subagent (Claude Code; degrades to a skill elsewhere)
-- **hook** — a `PostToolUse` formatter/lint nudge (Claude Code only)
-- **mcp** — a declared server entry, projected into each harness's MCP config
-- **scripts** — `changed_files.py`, a real helper the skills call
+- **skills** — `backlog-refinement` (the Definition of Ready and the refinement
+  loop, with references loaded on demand), `sprint-planning` and `board-setup`,
+  plus the shared `ticket-management` skill from `plugins/_shared/skills/`
+- **commands** — `/refine`, `/plan-sprint`, `/backlog-health` and
+  `/create-board`, rendered into each harness's command dialect
+- **agent** — a `story-splitter` subagent (Claude Code; degrades to a skill elsewhere)
+- **hook** — a `SessionStart` hook that prints the active sprint (Claude Code only)
+- **mcp** — a dependency-free stdio server (`backlog`, `readiness_check`,
+  `scrum_checklist`), projected into each harness's MCP config
+- **scripts** — `ready.py`, `backlog.py`, `capacity.py` and `create_board.py`,
+  real helpers the skills call
 
 Build it and diff the outputs to see exactly what each adapter does:
 
 ```bash
-python -m tools.apkit build --plugin code-review
+python -m tools.apkit build --plugin scrum-master
 find dist -type f | sort
 ```
 

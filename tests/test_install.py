@@ -25,7 +25,7 @@ class InstallTestCase(unittest.TestCase):
         self.dist = base / "dist"
         self.project = base / "project"
         self.project.mkdir()
-        self.plugin = load_plugin(ROOT / "plugins" / "code-review")
+        self.plugin = load_plugin(ROOT / "plugins" / "scrum-master")
         self.targets = {t.id: t for t in load_targets(ROOT / "targets")}
 
     def bundle(self, target_id: str) -> Path:
@@ -43,23 +43,23 @@ class InstallTestCase(unittest.TestCase):
 class ProjectScopeTest(InstallTestCase):
     def test_generic_target_lands_in_dot_agents(self):
         self.install("agents")
-        skill = self.project / ".agents" / "skills" / "code-review" / "SKILL.md"
+        skill = self.project / ".agents" / "skills" / "backlog-refinement" / "SKILL.md"
         self.assertTrue(skill.is_file())
         self.assertTrue(
-            (self.project / ".agents" / "skills" / "reviewer" / "SKILL.md").is_file()
+            (self.project / ".agents" / "skills" / "story-splitter" / "SKILL.md").is_file()
         )
 
     def test_cursor_project_install_covers_skills_commands_and_mcp(self):
         self.install("cursor")
-        self.assertTrue((self.project / ".cursor" / "skills" / "code-review").is_dir())
-        self.assertTrue((self.project / ".cursor" / "commands" / "review.md").is_file())
+        self.assertTrue((self.project / ".cursor" / "skills" / "backlog-refinement").is_dir())
+        self.assertTrue((self.project / ".cursor" / "commands" / "refine.md").is_file())
         config = json.loads((self.project / ".cursor" / "mcp.json").read_text())
-        self.assertIn("code-review", config["mcpServers"])
+        self.assertIn("scrum-master", config["mcpServers"])
 
     def test_claude_project_install_places_bare_skill_directories(self):
         self.install("claude-code")
-        self.assertTrue((self.project / ".claude" / "skills" / "pr-audit" / "SKILL.md").is_file())
-        self.assertTrue((self.project / ".claude" / "commands" / "review.md").is_file())
+        self.assertTrue((self.project / ".claude" / "skills" / "sprint-planning" / "SKILL.md").is_file())
+        self.assertTrue((self.project / ".claude" / "commands" / "refine.md").is_file())
 
     def test_reinstall_is_idempotent(self):
         self.install("agents")
@@ -81,7 +81,7 @@ class MergeJsonTest(InstallTestCase):
 
         merged = json.loads(config_path.read_text())
         self.assertEqual(merged["mcpServers"]["existing"]["command"], "keep-me")
-        self.assertIn("code-review", merged["mcpServers"])
+        self.assertIn("scrum-master", merged["mcpServers"])
         self.assertTrue(merged["other"])
         self.assertTrue(config_path.with_suffix(".json.apkit.bak").is_file())
 
@@ -106,13 +106,13 @@ class PlanTest(InstallTestCase):
     def test_unknown_scope_is_rejected_with_the_available_ones(self):
         with self.assertRaises(install.InstallError) as caught:
             install.plan(
-                self.targets["agents"], "code-review", self.bundle("agents"), "nope", self.project
+                self.targets["agents"], "scrum-master", self.bundle("agents"), "nope", self.project
             )
         self.assertIn("user", str(caught.exception))
 
     def test_user_scope_destinations_are_absolute(self):
         actions = install.plan(
-            self.targets["codex"], "code-review", self.bundle("codex"), "user", self.project
+            self.targets["codex"], "scrum-master", self.bundle("codex"), "user", self.project
         )
         self.assertTrue(actions)
         for action in actions:
@@ -124,12 +124,12 @@ class LedgerTest(InstallTestCase):
     def test_uninstall_removes_what_install_recorded(self):
         ledger_root = self.project
         actions = self.install("agents")
-        install.record(ledger_root, "code-review", "agents", "project", actions)
+        install.record(ledger_root, "scrum-master", "agents", "project", actions)
 
         skills = self.project / ".agents" / "skills"
         self.assertTrue(any(skills.iterdir()))
 
-        removed = install.uninstall(ledger_root, "code-review")
+        removed = install.uninstall(ledger_root, "scrum-master")
         self.assertTrue(removed)
         self.assertFalse(any(skills.iterdir()))
         self.assertEqual(install.read_ledger(ledger_root)["installs"], [])

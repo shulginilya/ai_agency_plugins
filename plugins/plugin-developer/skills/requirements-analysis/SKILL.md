@@ -86,7 +86,7 @@ plugin; tests also list what they `verifies`.
 Start from the requirements, not from a template. Walk the decision table in
 [component rules](references/component-rules.md) for each requirement, and
 choose the smallest set that covers them all. Copying the full set of
-component types because `code-review` has them is the most common way a
+component types because `scrum-master` has them is the most common way a
 plan goes wrong.
 
 Then check coverage both ways with the `plugin-verification` skill's

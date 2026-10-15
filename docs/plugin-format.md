@@ -24,15 +24,15 @@ plugins/<name>/
 
 ```json
 {
-  "name": "code-review",
-  "displayName": "Code Review",
+  "name": "scrum-master",
+  "displayName": "Scrum Master",
   "version": "0.1.0",
   "description": "What it does, and when someone would reach for it.",
   "author": { "name": "...", "email": "..." },
   "license": "MIT",
   "homepage": "https://...",
   "repository": "https://...",
-  "keywords": ["code-review", "audit"],
+  "keywords": ["scrum", "backlog"],
   "targets": {
     "exclude": ["gemini-cli"],
     "overrides": {
@@ -111,7 +111,7 @@ Standard MCP server objects. `{{PLUGIN_ROOT}}` resolves per target.
 ```json
 {
   "mcpServers": {
-    "code-review": {
+    "scrum-master": {
       "command": "python",
       "args": ["{{PLUGIN_ROOT}}/mcp/server.py"],
       "env": {}
@@ -123,5 +123,5 @@ Standard MCP server objects. `{{PLUGIN_ROOT}}` resolves per target.
 Anything else in `mcp/` is treated as the server implementation and ships with
 bundle targets, so the config never points at a file that is not there. A
 dependency-free stdio server is about 150 lines — see
-`plugins/code-review/mcp/server.py` — and is worth far more than a config entry
+`plugins/scrum-master/mcp/server.py` — and is worth far more than a config entry
 pointing at a package the user has to install first.
