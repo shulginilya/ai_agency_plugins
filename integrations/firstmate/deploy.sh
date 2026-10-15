@@ -17,7 +17,7 @@ files=(brief-include.md crew-dispatch.json)   # deployed when present
 # Only these go into ~/.claude, which every Claude crewmate runs from. Any other
 # plugin would load its hooks into every crew session, so a new plugin stays out
 # until it is added here and routed in brief-include.md.
-crew_plugins=(developer debugger code-review scrum-master)
+crew_plugins=(developer debugger code-review scrum-master designer)
 for p in "${crew_plugins[@]}"; do
   [ -f "$repo/plugins/$p/plugin.json" ] || { echo "crew plugin not found: plugins/$p" >&2; exit 1; }
 done

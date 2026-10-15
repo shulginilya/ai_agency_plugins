@@ -61,6 +61,14 @@
         "Ship / ship-with-changes / hold verdict on a PR (scout)"
       ]
     },
+    "designer": {
+      "role": "UI/UX Designer",
+      "owns": [
+        "Design spec before UI is built: flow, every state, layout, copy, accessibility",
+        "UX review of built UI: usability, WCAG 2.2 AA, design-system consistency",
+        "A first-time-user walk-through of each new flow"
+      ]
+    },
     "scrum-master": {
       "role": "Scrum Master",
       "owns": [
@@ -76,7 +84,7 @@
   "gaps": [],
   "raci": {
     "legend": {"R": "does the work", "A": "signs off", "C": "consulted", "I": "informed"},
-    "columns": ["captain", "firstmate", "scrum-master", "developer", "debugger", "code-review"],
+    "columns": ["captain", "firstmate", "scrum-master", "designer", "developer", "debugger", "code-review"],
     "rows": [
       {"activity": "Set project intent and priorities", "captain": "A/R", "firstmate": "I"},
       {"activity": "Write spec, brief and delivery contract", "captain": "A", "firstmate": "R"},
@@ -87,7 +95,9 @@
       {"activity": "Create, edit or close a ticket during a task", "firstmate": "I", "scrum-master": "R", "developer": "R", "debugger": "C", "code-review": "C"},
       {"activity": "Delete a ticket (named in the brief)", "captain": "A", "firstmate": "C", "scrum-master": "R", "developer": "R"},
       {"activity": "Plan the sprint", "captain": "A", "firstmate": "C", "scrum-master": "R"},
-      {"activity": "Implement a feature or ticket", "firstmate": "A", "developer": "R", "code-review": "C"},
+      {"activity": "Design spec for a UI ticket", "captain": "C", "firstmate": "A", "designer": "R", "developer": "C"},
+      {"activity": "Implement a feature or ticket", "firstmate": "A", "developer": "R", "designer": "C", "code-review": "C"},
+      {"activity": "UX review of built UI before push", "designer": "R", "developer": "C"},
       {"activity": "Diagnose and fix a bug", "firstmate": "A", "debugger": "R", "code-review": "C"},
       {"activity": "Review own diff before push", "developer": "C", "debugger": "C", "code-review": "R"},
       {"activity": "Run repo checks before push", "developer": "R", "debugger": "C"},
@@ -99,7 +109,7 @@
   },
   "scenario": {
     "title": "Example — a new project needs a board and a first backlog",
-    "lanes": ["captain", "firstmate", "scrum-master", "developer", "code-review", "debugger"],
+    "lanes": ["captain", "firstmate", "scrum-master", "designer", "developer", "code-review", "debugger"],
     "steps": [
       {"id": "s1", "lane": "captain", "kind": "decision", "text": "Intent: new project X. Create its board and a first backlog from these notes"},
       {"id": "s2", "lane": "firstmate", "text": "Spec, then a scout brief T1: draft the backlog and propose the board. No writes yet"},
@@ -115,7 +125,9 @@
       {"id": "s12", "lane": "captain", "kind": "decision", "text": "Approve sprint 1"},
       {"id": "s13", "lane": "firstmate", "text": "One ship brief per sprint ticket", "group": "Then: the delivery loop, per ticket"},
       {"id": "s14", "lane": "developer", "text": "/developer:implement", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s14b", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:spec → flow, every state, copy, accessibility, criteria", "group": "Then: the delivery loop, per ticket"},
       {"id": "s15", "lane": "code-review", "text": "/code-review:review own diff; fix every high-severity finding", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s15b", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:review the built UI; developer fixes every blocker", "group": "Then: the delivery loop, per ticket"},
       {"id": "s16", "lane": "debugger", "after": ["s14"], "col": 15, "kind": "optional", "text": "Only if a test fails: /debugger:diagnose → /debugger:fix", "group": "Then: the delivery loop, per ticket"},
       {"id": "s17", "lane": "developer", "after": ["s15", "s16"], "kind": "write", "text": "/developer:verify, then /developer:ship → branch, PR, card to In review. Follow-up tickets with ticket-management", "group": "Then: the delivery loop, per ticket"},
       {"id": "s18", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}

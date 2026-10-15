@@ -19,8 +19,9 @@ integrations/firstmate/deploy.sh                  # after editing a file here
 ```
 
 - The firstmate home defaults to `$FM_HOME`, then `~/firstmate`; pass a path to override.
-- `--with-plugins` installs only the crew plugins, `developer`, `debugger`, `code-review` and
-  `scrum-master` (the `crew_plugins` list in `deploy.sh`), into `~/.claude` at user scope.
+- `--with-plugins` installs only the crew plugins, `developer`, `debugger`, `code-review`,
+  `scrum-master` and `designer` (the `crew_plugins` list in `deploy.sh`), into `~/.claude` at
+  user scope.
   It rebuilds their `claude-code` bundles first, so rerun it after a crew plugin changes.
   - Claude crewmates run from that same `~/.claude`, so nothing else is installed there: every
     plugin there loads its hooks into every crew session. A new plugin stays out until it is
