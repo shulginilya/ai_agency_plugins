@@ -80,7 +80,7 @@
       ]
     }
   },
-  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so one ship crewmate usually plays Developer, then Code Reviewer, then Developer again. Only Developer and Scrum Master carry the ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. Debugger and Code Reviewer propose tickets in the report. Firstmate can run several crewmates side by side.",
+  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so one ship crewmate usually plays Developer, then Code Reviewer, then Developer again. Only Developer and Scrum Master carry the ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. Debugger, Code Reviewer and Designer propose tickets in the report. Firstmate can run several crewmates side by side.",
   "gaps": [],
   "raci": {
     "legend": {"R": "does the work", "A": "signs off", "C": "consulted", "I": "informed"},
@@ -124,13 +124,13 @@
       {"id": "s11", "lane": "scrum-master", "text": "/scrum-master:plan-sprint → sprint goal, capacity, issues that fit (proposal)"},
       {"id": "s12", "lane": "captain", "kind": "decision", "text": "Approve sprint 1"},
       {"id": "s13", "lane": "firstmate", "text": "One ship brief per sprint ticket", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s14", "lane": "developer", "text": "/developer:implement", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s14b", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:spec → flow, every state, copy, accessibility, criteria", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s15", "lane": "code-review", "text": "/code-review:review own diff; fix every high-severity finding", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s15b", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:review the built UI; developer fixes every blocker", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s16", "lane": "debugger", "after": ["s14"], "col": 15, "kind": "optional", "text": "Only if a test fails: /debugger:diagnose → /debugger:fix", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s17", "lane": "developer", "after": ["s15", "s16"], "kind": "write", "text": "/developer:verify, then /developer:ship → branch, PR, card to In review. Follow-up tickets with ticket-management", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s18", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}
+      {"id": "s14", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:spec → flow, every state, copy, accessibility, criteria", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s15", "lane": "developer", "text": "/developer:implement", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s16", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:review the built UI; developer fixes every blocker", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s17", "lane": "code-review", "text": "/code-review:review own diff; fix every high-severity finding", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s18", "lane": "debugger", "after": ["s15"], "col": 17, "kind": "optional", "text": "Only if a test fails: /debugger:diagnose → /debugger:fix", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s19", "lane": "developer", "after": ["s17", "s18"], "kind": "write", "text": "/developer:verify, then /developer:ship → branch, PR, card to In review", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s20", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}
     ]
   }
 }
