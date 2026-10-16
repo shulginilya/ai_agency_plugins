@@ -1,0 +1,26 @@
+{
+  "name": "skill-trainer",
+  "displayName": "Skill Trainer",
+  "version": "0.1.0",
+  "description": "Keeps a senior engineer's skills sharp next to a full-time job: daily and weekly plans across coding, system design, stack deep-dives, practices and builds, honest grading and spaced review, plus an interview track for coding and system design. Stack, coding language and cadence are changeable settings. Use when asked for a study plan, today's practice, a coding drill, interview practice or progress.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/shulginilya/ai_agency_plugins",
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "keywords": [
+    "training",
+    "learning",
+    "practice",
+    "spaced-repetition",
+    "coding-interview",
+    "system-design",
+    "career"
+  ],
+  "targets": {
+    "exclude": [],
+    "overrides": {}
+  }
+}

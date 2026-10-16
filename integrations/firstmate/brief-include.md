@@ -30,8 +30,8 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   names it for deletion; otherwise close it as not planned.
 - New project board: `/scrum-master:create-board`, only when this brief asks for a board.
 - Only the developer, scrum-master, designer and qa plugins are for crew work.
-  Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, pair-programmer,
-  prompt-engineer or recruiter-inbox) belongs to the Captain: never invoke its commands,
+  Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, notes, pair-programmer,
+  prompt-engineer, recruiter-inbox or skill-trainer) belongs to the Captain: never invoke its commands,
   skills or subagents, even if one looks relevant.
 
 Crewmate rules that override the plugins' interactive steps:
