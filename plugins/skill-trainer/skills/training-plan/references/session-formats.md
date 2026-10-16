@@ -24,6 +24,15 @@ Load only the section for the item being run.
      attempt.
 6. Time box: L1 20 min, L2 30 min, L3 40 min.
 
+A `react-ui-*` item is a frontend coding round instead:
+- clarify the requirements;
+- sketch the component tree and the state shape;
+- build it working end to end;
+- handle the loading, error and empty states, plus keyboard and ARIA;
+- write one test.
+
+Time box: 45 min. The React section of `coding-patterns.md` has the setup.
+
 Score 4 needs a working solution inside the box with the complexity stated.
 Score 5 also needs no hints and a clean first structure.
 

@@ -16,7 +16,7 @@ Follow the `interview-track` skill. Screening and behavioral rounds are out of s
    drill.
 3. **coding**, **design** or a topic id: run one drill. Take the topic from the
    `next` list for that area unless an id is given. Coding is solved in the
-   interview language (`python "{{PLUGIN_ROOT}}/skills/training-plan/scripts/trainer.py" config show`), with the harness from
+   item's language, one of the interview languages (`python "{{PLUGIN_ROOT}}/skills/training-plan/scripts/trainer.py" config show`), with the harness from
    `references/coding-patterns.md`. Design uses
    `references/system-design-framework.md`. Hold the time box, grade strictly,
    then log:

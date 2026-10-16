@@ -15,7 +15,7 @@ tomorrow, strong ones space out to weeks.
 | Command | `/skill-trainer:log` | Log practice done on your own |
 | Command | `/skill-trainer:status` | Streaks, what is due, coverage, weakest area |
 | Command | `/skill-trainer:interview` | Coding or design drill, or interview readiness |
-| Command | `/skill-trainer:settings` | Change stack, interview language, cadence, focus, time, folder |
+| Command | `/skill-trainer:settings` | Change stack, interview languages, cadence, focus, time, folder |
 | Hook | `SessionStart` | One line when today's training is not done — at most once a day |
 
 ## Both plans
@@ -27,7 +27,7 @@ tomorrow, strong ones space out to weeks.
 Both always exist. `config set cadence daily|weekly` picks the active one.
 `today --cadence weekly` runs a weekly session on a daily plan.
 
-Areas: `coding` (19 patterns), `design` (16 system designs), `deep-dive`
+Areas: `coding` (19 patterns, plus 7 React UI builds), `design` (16 system designs), `deep-dive`
 (your stack), `practices` (testing, observability, security, data,
 delivery…), `build` (small projects with acceptance criteria). The focus
 weights them:
@@ -39,14 +39,17 @@ weights them:
 
 ```bash
 python skills/training-plan/scripts/trainer.py config set stack "React,TypeScript,Node,Python"
-python skills/training-plan/scripts/trainer.py config set interview-language Node
+python skills/training-plan/scripts/trainer.py config set interview-languages "Node,Python,React"
 python skills/training-plan/scripts/trainer.py config set cadence weekly
 python skills/training-plan/scripts/trainer.py config set interview-date 2026-11-20
 python skills/training-plan/scripts/trainer.py set-home "C:\Users\me\training"
 ```
 
 - **Defaults:** stack React, TypeScript, Node, Python; interview coding in
-  Node; daily, mixed focus.
+  Node, Python and React; daily, mixed focus.
+- **Interview languages:** algorithm drills rotate through the languages day
+  by day. A framework entry such as React adds UI-build drills (an
+  autocomplete, a form, an accessible modal…).
 - **Stack changes keep history.** Topics for a dropped technology stop coming
   up but keep their scores. A technology the catalog doesn't know gets
   generated deep-dives.
@@ -63,8 +66,9 @@ one way only.
 Coding drills don't name the pattern, because recognizing it is half the test.
 - **Time boxes:** 20, 30 and 40 minutes by level.
 - **Order:** brute force out loud, then the better approach.
-- **Harness:** a real test harness in the interview language (`node --test`
-  for Node). `coding-patterns.md` also lists the language's gotchas.
+- **Harness:** a real test harness in each interview language (`node --test`
+  for Node, pytest or plain asserts for Python, Vitest with Testing Library
+  for React). `coding-patterns.md` also lists the language's gotchas.
 
 System design runs a fixed seven-step framework with times and probes. For
 full graded mocks, the track hands off to `/interview-prep:mock` when that

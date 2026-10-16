@@ -1,6 +1,6 @@
 ---
-description: Show or change your training settings — stack, interview coding language, cadence, focus, minutes, goals, weak areas, interview date, and where the training is kept.
-argument_hint: "[e.g. \"stack React,TypeScript,Node,Python,Go\", \"interview-language Python\", \"cadence weekly\"]"
+description: Show or change your training settings — stack, interview coding languages, cadence, focus, minutes, goals, weak areas, interview date, and where the training is kept.
+argument_hint: "[e.g. \"stack React,TypeScript,Node,Python,Go\", \"interview-languages Node,Python,React\", \"cadence weekly\"]"
 model: sonnet
 allowed_tools: Bash(python:*) Read
 ---
@@ -15,7 +15,7 @@ Otherwise apply each change with `python "{{PLUGIN_ROOT}}/skills/training-plan/s
 | Key | Value |
 | --- | --- |
 | stack | comma-separated, e.g. `React,TypeScript,Node,Python` |
-| interview-language | e.g. `Node`, `TypeScript`, `Python`, `Go` |
+| interview-languages | comma-separated, e.g. `Node,Python,React`. Algorithm drills rotate through the languages; a framework such as React adds UI-build drills |
 | cadence | `daily` or `weekly` |
 | focus | `skills`, `interview` or `mixed` |
 | daily-minutes / session-minutes | 10–240 |

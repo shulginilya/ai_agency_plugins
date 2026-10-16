@@ -1,6 +1,6 @@
 ---
 name: interview-track
-description: Trains for the technical phases of senior engineering interviews, coding and system design, with the screening round skipped. Works through about twenty coding patterns as timed drills in a configurable language (Node by default) and through staged system-design problems with a fixed seven-step framework, tracks which patterns and designs hold up, and brings the weak ones back. Use when preparing for coding or system design interviews, asking for a coding drill, a LeetCode-style problem or a design question, checking interview readiness, or switching the interview coding language.
+description: Trains for the technical phases of senior engineering interviews, coding and system design, with the screening round skipped. Works through about twenty coding patterns as timed drills in configurable languages (Node, Python and React by default) and through staged system-design problems with a fixed seven-step framework, tracks which patterns and designs hold up, and brings the weak ones back. Use when preparing for coding or system design interviews, asking for a coding drill, a LeetCode-style problem or a design question, checking interview readiness, or switching the interview coding language.
 license: MIT
 metadata:
   author: ilya-shulgin
@@ -21,7 +21,7 @@ its script:
 python ../training-plan/scripts/trainer.py interview                  # progress per pattern and design
 python ../training-plan/scripts/trainer.py topics --track interview
 python ../training-plan/scripts/trainer.py config set focus interview # every session is coding or design
-python ../training-plan/scripts/trainer.py config set interview-language Node   # or Python, TypeScript...
+python ../training-plan/scripts/trainer.py config set interview-languages "Node,Python,React"
 python ../training-plan/scripts/trainer.py config set interview-date 2026-11-20
 python ../training-plan/scripts/trainer.py log --topic graphs-bfs-dfs --score 3 --kind practice
 ```
@@ -29,8 +29,12 @@ python ../training-plan/scripts/trainer.py log --topic graphs-bfs-dfs --score 3 
 ## Coding drills
 
 - Load [references/coding-patterns.md](references/coding-patterns.md). It
-  covers each pattern's signal, its template, and the language notes for the
+  covers each pattern's signal, its template, and the language notes for each
   interview language (harness and gotchas).
+- Solve each drill in the item's `language`. Algorithm drills rotate through
+  the interview languages. A `react-ui-*` drill is a frontend coding round:
+  build a working component in 45 minutes, as described in the React section
+  of the patterns reference.
 - Choose a real problem for the pattern. Don't name the pattern: recognizing
   it is half of what is tested.
 - Order inside a drill:
@@ -65,7 +69,8 @@ python ../training-plan/scripts/trainer.py log --topic graphs-bfs-dfs --score 3 
 `interview` shows practised versus total per area. Before a real interview:
 
 - **Coding.** Every L1 and L2 pattern practised at least once, with a last
-  score of 3 or more, and the L1 ones at 4 or more.
+  score of 3 or more, and the L1 ones at 4 or more. With React among
+  the interview languages, at least three UI builds at 3 or more.
 - **Design.** At least six designs practised, including two L3, and at least
   two full mocks.
 - **Mocks.** One full mock per phase in the last week before the interview.

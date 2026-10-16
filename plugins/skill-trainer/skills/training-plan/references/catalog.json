@@ -27,6 +27,13 @@
     {"id": "greedy", "area": "coding", "level": 2, "title": "Greedy", "hints": ["jump game", "gas station", "task scheduler"]},
     {"id": "tries", "area": "coding", "level": 3, "title": "Tries", "hints": ["implement a trie", "word search II", "autocomplete top results"]},
     {"id": "design-data-structure", "area": "coding", "level": 2, "title": "Design a data structure", "hints": ["LRU cache", "LFU cache", "time-based key-value store", "rate limiter class"]},
+    {"id": "react-ui-autocomplete", "area": "coding", "level": 2, "framework": "react", "title": "UI build: autocomplete with a debounced fetch", "hints": ["debounce", "stale responses and AbortController", "keyboard navigation", "ARIA combobox"]},
+    {"id": "react-ui-infinite-list", "area": "coding", "level": 2, "framework": "react", "title": "UI build: paginated or infinite list", "hints": ["IntersectionObserver", "loading, error and empty states", "virtualization for long lists"]},
+    {"id": "react-ui-form", "area": "coding", "level": 1, "framework": "react", "title": "UI build: a validated form", "hints": ["controlled vs uncontrolled", "validate on blur and submit", "accessible error messages", "disable while submitting"]},
+    {"id": "react-ui-accessible-widget", "area": "coding", "level": 2, "framework": "react", "title": "UI build: accessible modal, tabs or accordion", "hints": ["focus trap and restore", "Escape to close", "roving tabindex", "aria attributes"]},
+    {"id": "react-ui-custom-hook", "area": "coding", "level": 1, "framework": "react", "title": "UI build: a custom hook", "hints": ["useDebounce", "useFetch with cancellation", "useLocalStorage", "cleanup and stale closures"]},
+    {"id": "react-ui-interactive-board", "area": "coding", "level": 2, "framework": "react", "title": "UI build: an interactive widget", "hints": ["tic-tac-toe with undo", "kanban drag between columns", "star rating", "state shape first"]},
+    {"id": "react-ui-timer", "area": "coding", "level": 1, "framework": "react", "title": "UI build: timer, stopwatch or progress bar", "hints": ["intervals inside effects", "drift", "pause and resume", "cleanup on unmount"]},
     {"id": "async-utilities", "area": "coding", "level": 2, "title": "Practical async utilities", "hints": ["debounce and throttle", "promise pool with a concurrency limit", "retry with exponential backoff", "event emitter"]},
 
     {"id": "sd-framework-estimates", "area": "design", "level": 1, "title": "The framework and back-of-envelope estimates", "hints": ["QPS, storage and bandwidth from DAU", "read/write ratio", "latency numbers worth knowing"]},

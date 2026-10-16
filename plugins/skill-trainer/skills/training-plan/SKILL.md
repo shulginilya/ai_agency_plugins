@@ -1,6 +1,6 @@
 ---
 name: training-plan
-description: Keeps a working engineer's skills sharp next to a full-time job with a daily plan (about 40 minutes) and a weekly plan (two to four longer sessions) across coding patterns, system design, deep-dives into their own stack, engineering practices and small builds, runs today's session, grades it honestly and brings weak topics back sooner. The stack, coding language, cadence and time budget are settings that can change at any time. Use when asked for a training or study plan, what to practise today, to log a practice session, to see a streak or progress, or to change the stack, language or schedule.
+description: Keeps a working engineer's skills sharp next to a full-time job with a daily plan (about 40 minutes) and a weekly plan (two to four longer sessions) across coding patterns, system design, deep-dives into their own stack, engineering practices and small builds, runs today's session, grades it honestly and brings weak topics back sooner. The stack, coding languages, cadence and time budget are settings that can change at any time. Use when asked for a training or study plan, what to practise today, to log a practice session, to see a streak or progress, or to change the stack, language or schedule.
 license: MIT
 metadata:
   author: ilya-shulgin
@@ -15,10 +15,10 @@ decides what comes next.
 
 ```bash
 python scripts/trainer.py where                                   # which folder, and why
-python scripts/trainer.py init --stack "React,TypeScript,Node,Python" --interview-language Node
+python scripts/trainer.py init --stack "React,TypeScript,Node,Python" --interview-languages "Node,Python,React"
 python scripts/trainer.py config show
 python scripts/trainer.py config set stack "React,TypeScript,Node,Python,Go"
-python scripts/trainer.py config set interview-language Python
+python scripts/trainer.py config set interview-languages "Node,Python"
 python scripts/trainer.py config set cadence weekly               # daily | weekly
 python scripts/trainer.py config set focus interview              # skills | interview | mixed
 python scripts/trainer.py plan --write                            # both plans, rendered to plan.md
@@ -32,7 +32,7 @@ python scripts/trainer.py add-topic --area deep-dive --title "Postgres internals
 
 ## Settings are never baked in
 
-The stack, the interview coding language, the cadence, the focus, the minutes,
+The stack, the interview coding languages, the cadence, the focus, the minutes,
 the weak areas and the interview date all live in `state.json` and change with
 `config set`. History is kept across every change. A topic for a technology
 that leaves the stack stops coming up, but its scores are kept and return if
@@ -47,8 +47,8 @@ Windows paths are fine.
 
 If `where` says the folder is not initialized, ask in one message:
 
-1. Stack (default React, TypeScript, Node, Python) and coding language for
-   interviews (default Node).
+1. Stack (default React, TypeScript, Node, Python) and coding languages for
+   interviews (default Node, Python and React).
 2. Daily or weekly as the active cadence, and the time: minutes a day, or
    sessions a week and minutes each.
 3. Goals for the next few months, and the areas or technologies that feel
@@ -66,7 +66,9 @@ between them.
    for each item's area, and run the item that way. The topic names a pattern
    or a subject. Choose a real problem or question for it yourself, and don't
    reveal the pattern when the session is meant to test recognizing it.
-3. Coding items are solved in the item's `language`. Run the code the user
+3. Coding items are solved in the item's `language`. Algorithm drills rotate
+   through the interview languages day by day. A framework entry such as React
+   adds UI-build drills, solved in that framework. Run the code the user
    writes. Don't write the solution for them.
 4. Hold the time box. Running over is part of the grade.
 5. Grade with the rubric below, quoting what happened, then `log` it. Log one

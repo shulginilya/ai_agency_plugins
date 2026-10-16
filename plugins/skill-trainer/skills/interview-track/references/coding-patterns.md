@@ -38,8 +38,8 @@ Each pattern has the **signal** in the problem that should trigger it and the
 
 ## Language notes
 
-The language comes from `config set interview-language`. Use the section that
-matches it. For a language not listed, use its standard test runner and say so.
+The item's language comes from `config set interview-languages`. Algorithm
+drills rotate through the languages. Use the section that matches it. For a language not listed, use its standard test runner and say so.
 
 ### Node (JavaScript)
 
@@ -90,3 +90,32 @@ Harness: plain `assert` lines under `if __name__ == "__main__":`, or pytest.
 - `[[0] * m for _ in range(n)]`, never `[[0] * m] * n`.
 - `sys.setrecursionlimit` or iterate for deep recursion.
 - `@functools.cache` for memoized DP: say what it costs in memory.
+
+### React (UI-build rounds)
+
+`react-ui-*` items are frontend coding rounds, not algorithm drills. Set up
+with `npm create vite@latest -- --template react-ts` (or `react` without
+TypeScript), plus `vitest`, `@testing-library/react` and `jsdom` for one test.
+
+The shape of a 45-minute round:
+1. Requirements (5 min).
+2. Component tree and state shape (5 min).
+3. Working end to end (20 min).
+4. States, keyboard and ARIA (10 min).
+5. One test (5 min).
+
+Gotchas worth saying out loud:
+
+- **Stale closures.** Effects and intervals capture old state: use functional
+  updates (`setN(n => n + 1)`) or a ref.
+- **Effect cleanup.** Every subscription, timer and fetch needs a cleanup.
+  Abort stale fetches with `AbortController`, or race conditions show old
+  results.
+- **Keys.** Use stable ids, never array indexes for lists that reorder.
+- **Derived state.** Don't copy props into state. Compute it during render.
+- **Accessibility.**
+  - a `<button>` for actions, never a clickable `<div>`;
+  - a label for every input;
+  - focus moved into and back out of a modal.
+- **Re-renders.** Reach for `memo` or `useMemo` only after naming what
+  re-renders and why.

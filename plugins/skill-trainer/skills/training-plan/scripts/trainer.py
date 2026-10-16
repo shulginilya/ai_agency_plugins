@@ -3,9 +3,9 @@
 
     trainer.py where                                  the training folder in use, and why
     trainer.py set-home PATH                          remember the training folder (Windows paths are fine)
-    trainer.py init [--stack S] [--interview-language L] [--cadence daily|weekly] [--focus F] ...
+    trainer.py init [--stack S] [--interview-languages L] [--cadence daily|weekly] [--focus F] ...
     trainer.py config show [--json]
-    trainer.py config set KEY VALUE                   stack, interview-language, cadence, focus, daily-minutes,
+    trainer.py config set KEY VALUE                   stack, interview-languages, cadence, focus, daily-minutes,
                                                       weekly-sessions, session-minutes, goals, weak-areas,
                                                       interview-date
     trainer.py plan [--write] [--json]                both plans: the daily rotation and the weekly sessions
@@ -49,7 +49,7 @@ FOCUSES = ("skills", "interview", "mixed")
 CADENCES = ("daily", "weekly")
 DEFAULTS: Dict[str, Any] = {
     "stack": ["React", "TypeScript", "Node", "Python"],
-    "interview_language": "Node",
+    "interview_languages": ["Node", "Python", "React"],
     "cadence": "daily",
     "focus": "mixed",
     "daily_minutes": 40,
@@ -80,6 +80,8 @@ LANGUAGES = {
     "python": "Python", "go": "Go", "java": "Java", "kotlin": "Kotlin", "rust": "Rust",
     "csharp": "C#", "c++": "C++", "ruby": "Ruby", "swift": "Swift", "php": "PHP", "scala": "Scala",
 }
+# Frameworks are not languages for algorithm drills: they get UI-build coding topics instead.
+FRAMEWORKS = {"react": "React"}
 GENERATED = (
     ("internals", "{name}: internals and runtime model", 1),
     ("idioms", "{name}: idioms and common pitfalls", 1),
@@ -173,7 +175,11 @@ def read_state(home: Path) -> Dict[str, Any]:
     if not isinstance(state, dict) or state.get("kind") != KIND:
         raise TrainerError("%s is not a skill-trainer state file; refusing to touch it" % path)
     settings = dict(DEFAULTS)
-    settings.update(state.get("settings") or {})
+    saved = dict(state.get("settings") or {})
+    if "interview_language" in saved:  # one language before 0.1.0 shipped; keep what was chosen
+        old = saved.pop("interview_language")
+        saved.setdefault("interview_languages", split_list(old) if isinstance(old, str) else old)
+    settings.update(saved)
     state["settings"] = settings
     for key, empty in (("progress", {}), ("sessions", []), ("custom_topics", [])):
         state.setdefault(key, empty)
@@ -211,11 +217,12 @@ def set_setting(settings: Dict[str, Any], key: str, value: str) -> str:
         if not items:
             raise TrainerError("stack needs at least one entry, e.g. \"React,TypeScript,Node,Python\"")
         settings["stack"] = items
-    elif key in ("interview-language", "language"):
-        if not value.strip():
-            raise TrainerError("interview-language needs a value, e.g. Node, Python or TypeScript")
-        settings["interview_language"] = value.strip()
-        key = "interview-language"
+    elif key in ("interview-languages", "interview-language", "language", "languages"):
+        items = split_list(value)
+        if not items:
+            raise TrainerError("interview-languages needs at least one entry, e.g. \"Node,Python,React\"")
+        settings["interview_languages"] = items
+        key = "interview-languages"
     elif key == "cadence":
         if value not in CADENCES:
             raise TrainerError("cadence is one of %s" % ", ".join(CADENCES))
@@ -240,18 +247,35 @@ def set_setting(settings: Dict[str, Any], key: str, value: str) -> str:
     elif key == "interview-date":
         settings["interview_date"] = None if value.lower() in ("", "none", "-") else parse_date(value).isoformat()
     else:
-        raise TrainerError("unknown setting %r. Settings: stack, interview-language, cadence, focus, "
+        raise TrainerError("unknown setting %r. Settings: stack, interview-languages, cadence, focus, "
                            "daily-minutes, weekly-sessions, session-minutes, goals, weak-areas, "
                            "interview-date" % key)
     return key
 
 
-def coding_language(settings: Dict[str, Any], day: dt.date) -> str:
-    """Interview and mixed focus practise in the interview language; skills focus rotates the stack's languages."""
+def interview_frameworks(settings: Dict[str, Any]) -> List[str]:
+    return [stack_key(l) for l in settings["interview_languages"] if stack_key(l) in FRAMEWORKS]
+
+
+def algorithm_languages(settings: Dict[str, Any]) -> List[str]:
+    """The interview languages that algorithm drills rotate through: every entry that is not a framework."""
+    langs = [l for l in settings["interview_languages"] if stack_key(l) not in FRAMEWORKS]
+    return langs or ["Node"]
+
+
+def coding_language(settings: Dict[str, Any], day: dt.date, topic: Optional[Dict[str, Any]] = None) -> str:
+    """A UI-build topic uses its framework. Algorithm drills rotate by day: through the interview languages
+    under interview and mixed focus, through the stack's languages under skills focus."""
+    if topic and topic.get("framework"):
+        name = FRAMEWORKS.get(topic["framework"], topic["framework"])
+        typed = "typescript" in {stack_key(s) for s in settings["stack"]}
+        return "%s (%s)" % (name, "TypeScript" if typed else "JavaScript")
     if settings["focus"] in ("interview", "mixed"):
-        return settings["interview_language"]
-    langs = [LANGUAGES[stack_key(s)] for s in settings["stack"] if stack_key(s) in LANGUAGES]
-    return langs[day.toordinal() % len(langs)] if langs else settings["interview_language"]
+        langs = algorithm_languages(settings)
+    else:
+        langs = [LANGUAGES[stack_key(s)] for s in settings["stack"] if stack_key(s) in LANGUAGES
+                 and stack_key(s) not in FRAMEWORKS] or algorithm_languages(settings)
+    return langs[day.toordinal() % len(langs)]
 
 
 # --- topics ------------------------------------------------------------------
@@ -285,7 +309,10 @@ def all_topics(state: Dict[str, Any]) -> List[Dict[str, Any]]:
 def active_topics(state: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Topics that apply to the current stack. Topics for a dropped stack keep their history but stop coming up."""
     stack = {stack_key(s) for s in state["settings"]["stack"]}
-    return [t for t in all_topics(state) if not t.get("stack") or stack & set(t["stack"])]
+    frameworks = set(interview_frameworks(state["settings"]))
+    return [t for t in all_topics(state)
+            if (not t.get("stack") or stack & set(t["stack"]))
+            and (not t.get("framework") or t["framework"] in frameworks)]
 
 
 def topic_by_id(state: Dict[str, Any], topic_id: str) -> Dict[str, Any]:
@@ -370,6 +397,18 @@ def new_topics(state: Dict[str, Any], area: str) -> List[Dict[str, Any]]:
                     rotated.append(buckets[key].pop(0))
         is_weak = [t for t in rotated if rank((0, t))[0] == 0]
         ordered = is_weak + [t for t in rotated if t not in is_weak]
+    if area == "coding":
+        # One framework UI build after every three algorithm patterns, so neither starves.
+        ui = [t for t in ordered if t.get("framework")]
+        algo = [t for t in ordered if not t.get("framework")]
+        mixed: List[Dict[str, Any]] = []
+        while algo or ui:
+            mixed += algo[:3]
+            algo = algo[3:]
+            if ui:
+                mixed.append(ui.pop(0))
+        is_weak = [t for t in mixed if rank((0, t))[0] == 0]
+        ordered = is_weak + [t for t in mixed if t not in is_weak]
     return ordered
 
 
@@ -440,7 +479,7 @@ def session_for(state: Dict[str, Any], day: dt.date, cadence: Optional[str] = No
         item.setdefault("kind", "practice")
         item["minutes"] = max(10, minutes // max(1, len(items)))
         if item["area"] == "coding":
-            item["language"] = coding_language(settings, day)
+            item["language"] = coding_language(settings, day, item)
         item.pop("origin", None)
     done = [x["topic"] for x in state["sessions"] if x["date"] == day.isoformat()]
     return {"date": day.isoformat(), "cadence": cadence, "focus": focus, "label": label,
@@ -505,8 +544,8 @@ def render_plan(state: Dict[str, Any], day: dt.date) -> str:
     s = state["settings"]
     lines = [
         "# Training plan", "",
-        "Stack: %s · interview coding language: %s · focus: %s · active cadence: %s"
-        % (", ".join(s["stack"]), s["interview_language"], s["focus"], s["cadence"]),
+        "Stack: %s · interview coding languages: %s · focus: %s · active cadence: %s"
+        % (", ".join(s["stack"]), ", ".join(s["interview_languages"]), s["focus"], s["cadence"]),
     ]
     if s["goals"]:
         lines += ["Goals: " + "; ".join(s["goals"])]
@@ -545,7 +584,7 @@ def render_plan(state: Dict[str, Any], day: dt.date) -> str:
 
 
 def interview_report(state: Dict[str, Any], day: dt.date) -> Dict[str, Any]:
-    out: Dict[str, Any] = {"language": state["settings"]["interview_language"],
+    out: Dict[str, Any] = {"languages": state["settings"]["interview_languages"],
                            "interview_date": state["settings"]["interview_date"], "areas": {}}
     for area in TRACKS["interview"]:
         rows = []
@@ -593,7 +632,7 @@ def cmd_init(args) -> int:
         raise TrainerError("%s already exists. Change settings with `config set`; --force starts over "
                            "(history is backed up to state.json.bak)" % state_path(home))
     settings: Dict[str, Any] = {}
-    for key in ("stack", "interview_language", "cadence", "focus", "daily_minutes", "weekly_sessions",
+    for key in ("stack", "interview_languages", "cadence", "focus", "daily_minutes", "weekly_sessions",
                 "session_minutes", "goals", "weak_areas", "interview_date"):
         value = getattr(args, key)
         if value is not None:
@@ -701,7 +740,7 @@ def cmd_interview(args) -> int:
     home, _ = resolve_home(args.home)
     state = read_state(home)
     report = interview_report(state, parse_date(args.date))
-    lines = ["Interview track — coding in %s%s" % (report["language"],
+    lines = ["Interview track — coding in %s%s" % (", ".join(report["languages"]),
              ", interview on %s" % report["interview_date"] if report["interview_date"] else "")]
     for area, rows in report["areas"].items():
         seen = [r for r in rows if r["last_score"] is not None]
@@ -748,7 +787,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("init")
     p.add_argument("--stack")
-    p.add_argument("--interview-language", dest="interview_language")
+    p.add_argument("--interview-languages", "--interview-language", dest="interview_languages",
+                   help="comma-separated, e.g. Node,Python,React")
     p.add_argument("--cadence")
     p.add_argument("--focus")
     p.add_argument("--daily-minutes", dest="daily_minutes")

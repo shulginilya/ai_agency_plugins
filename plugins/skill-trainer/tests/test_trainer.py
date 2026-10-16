@@ -49,12 +49,12 @@ class Home:
 
 
 class SettingsTest(unittest.TestCase):
-    def test_defaults_are_the_users_stack_and_node(self):
+    def test_defaults_are_the_users_stack_and_languages(self):
         with Home() as h:
             self.assertEqual(h.run("init").returncode, 0)
             s = h.state()["settings"]
             self.assertEqual(s["stack"], ["React", "TypeScript", "Node", "Python"])
-            self.assertEqual(s["interview_language"], "Node")
+            self.assertEqual(s["interview_languages"], ["Node", "Python", "React"])
             self.assertEqual(s["cadence"], "daily")
 
     def test_stack_and_language_change_later_without_losing_history(self):
@@ -63,10 +63,10 @@ class SettingsTest(unittest.TestCase):
             self.assertEqual(h.run("log", "--topic", "react-rendering", "--score", "4",
                                    "--date", "2026-10-19").returncode, 0)
             self.assertEqual(h.run("config", "set", "stack", "TypeScript,Go").returncode, 0)
-            self.assertEqual(h.run("config", "set", "interview-language", "Python").returncode, 0)
+            self.assertEqual(h.run("config", "set", "interview-languages", "Python,Go").returncode, 0)
             state = h.state()
             self.assertEqual(state["settings"]["stack"], ["TypeScript", "Go"])
-            self.assertEqual(state["settings"]["interview_language"], "Python")
+            self.assertEqual(state["settings"]["interview_languages"], ["Python", "Go"])
             self.assertIn("react-rendering", state["progress"])
             active = {t["id"] for t in trainer.active_topics(state)}
             self.assertNotIn("react-rendering", active, "a dropped technology stops coming up")
@@ -74,14 +74,34 @@ class SettingsTest(unittest.TestCase):
             h.run("config", "set", "stack", "React")
             self.assertIn("react-rendering", {t["id"] for t in trainer.active_topics(h.state())})
 
-    def test_coding_items_use_the_interview_language(self):
+    def test_coding_items_rotate_through_the_interview_languages(self):
         with Home() as h:
-            h.run("init", "--interview-language", "Node")
-            session = trainer.session_for(h.state(), MONDAY)  # Monday is a coding day
-            self.assertEqual(session["items"][0]["area"], "coding")
-            self.assertEqual(session["items"][0]["language"], "Node")
-            h.run("config", "set", "interview-language", "TypeScript")
+            h.run("init")
+            mondays = [MONDAY + dt.timedelta(days=7 * n) for n in range(4)]  # Monday is a coding day
+            langs = {trainer.session_for(h.state(), d)["items"][0]["language"] for d in mondays}
+            self.assertEqual(langs, {"Node", "Python"}, "React is a framework, not an algorithm language")
+            h.run("config", "set", "interview-languages", "TypeScript")
             self.assertEqual(trainer.session_for(h.state(), MONDAY)["items"][0]["language"], "TypeScript")
+
+    def test_react_adds_ui_builds_and_leaving_it_out_removes_them(self):
+        with Home() as h:
+            h.run("init")
+            coding = [t["id"] for t in trainer.new_topics(h.state(), "coding")]
+            self.assertTrue(any(i.startswith("react-ui-") for i in coding[:4]), "a UI build comes early")
+            self.assertFalse(coding[0].startswith("react-ui-"))
+            ui = dict(trainer.topic_by_id(h.state(), "react-ui-form"))
+            self.assertEqual(trainer.coding_language(h.state()["settings"], MONDAY, ui), "React (TypeScript)")
+            h.run("config", "set", "interview-languages", "Node,Python")
+            self.assertFalse(any(t["id"].startswith("react-ui-") for t in trainer.active_topics(h.state())))
+
+    def test_a_single_saved_language_is_migrated_to_a_list(self):
+        with Home() as h:
+            h.run("init")
+            raw = json.loads((h.home / "state.json").read_text())
+            del raw["settings"]["interview_languages"]
+            raw["settings"]["interview_language"] = "Python"
+            (h.home / "state.json").write_text(json.dumps(raw))
+            self.assertEqual(h.state()["settings"]["interview_languages"], ["Python"])
 
     def test_bad_values_are_refused(self):
         with Home() as h:
