@@ -267,6 +267,30 @@
         "user-stories",
         "github-issues"
       ]
+    },
+    {
+      "name": "skill-trainer",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
+        "path": "claude-code/skill-trainer",
+        "ref": "dist"
+      },
+      "description": "Keeps a senior engineer's skills sharp next to a full-time job: daily and weekly plans across coding, system design, stack deep-dives, practices and builds, honest grading and spaced review, plus an interview track for coding and system design. Stack, coding language and cadence are changeable settings. Use when asked for a study plan, today's practice, a coding drill, interview practice or progress.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "training",
+        "learning",
+        "practice",
+        "spaced-repetition",
+        "coding-interview",
+        "system-design",
+        "career"
+      ]
     }
   ]
 }
