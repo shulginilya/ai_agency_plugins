@@ -8,9 +8,9 @@ line. See what's open across every topic.
 Turn TODO and in-progress items into GitHub tickets assigned to you on your
 default board, and inline markers too: `"text"(todo)`, `"text"(optional)`,
 `"text"(wip)`, and `"text"(done)` or `"text"(+)`. The bullet lines under a
-marker become the ticket's task list. Once filed, an item is removed from the
-note, because it lives in its ticket now. A `.bak` keeps the previous
-version, and nothing is filed twice.
+marker become the ticket's task list. Once filed, an item is replaced in the
+note by a link to its ticket, because it lives there now. A `.bak` keeps the
+previous version, and nothing is filed twice.
 
 It's a Captain plugin, for your own sessions. It isn't in the firstmate crew
 (`crew_plugins`), and the crew brief doesn't route work to it.
@@ -53,8 +53,8 @@ notes folder or not:
 python skills/note-keeping/scripts/notes.py export --file "C:\Users\Ilya Shulgin\Desktop\meeting.md" --out /tmp/plans
 ```
 
-`status`, `scan` and `export` all take `--file`. Filed items are removed from
-that same file, which keeps a `.bak`.
+`status`, `scan` and `export` all take `--file`. Filed items are replaced by
+links to their tickets in that same file, which keeps a `.bak`.
 
 ## The format
 
@@ -147,17 +147,26 @@ add an error filter to the timeline
 - [ ] keep the filter in the URL
 ```
 
-After filing, all five come out of the note, scopes included. What's left:
+After filing, each of the five is replaced by a link to its ticket, with its
+scope folded into the ticket:
 
 ```markdown
 # Observatory
 
+→ [#11 add an error filter to the timeline](https://github.com/shulginilya/ai-common-tasks/issues/11)
+
+→ [#10 dark mode for the dashboard](https://github.com/shulginilya/ai-common-tasks/issues/10)
+
+→ [#13 wiring the Neon branch per PR](https://github.com/shulginilya/ai-common-tasks/issues/13)
+→ [#9 shipped the session list](https://github.com/shulginilya/ai-common-tasks/issues/9)
 This line has no bullet, so it is not part of anything.
+
+→ [#12 write the README](https://github.com/shulginilya/ai-common-tasks/issues/12)
 ```
 
 The previous version is kept as `observatory.md.bak`. "Planning call today."
-and "Nice to have:" went too, because they were on marked lines; their
-tickets quote them. To keep items in the note, marked with their ticket
+and "Nice to have:" were on marked lines, so they went too; their tickets
+quote them. The line with two markers became two links. To keep items in the note, marked with their ticket
 (`"write the README"(TODO) → shulginilya/ai-common-tasks#5`), set
 `notes.py defaults --after-filing link`, or pass `export --keep` for one run.
 
@@ -176,19 +185,21 @@ python skills/note-keeping/scripts/notes.py defaults     # show them
 
 `--board` takes a number or the board's exact name. The assignee defaults to
 `@me`, meaning you. `--assignee none` files tickets unassigned.
-`--after-filing remove` (the default) takes filed items out of the note.
-`--after-filing link` keeps them, marked with their ticket.
+`--after-filing remove` (the default) replaces filed items with links to
+their tickets. `--after-filing link` keeps them in place, marked with their
+ticket.
 
 ## Guarantees
 
 - **Nothing lost:** `organize` only regroups and refuses to write if a line
   would be lost or duplicated. `check before.md after.md` proves the same for
   any other edit.
-  - A filed item is removed only after its ticket exists. Its ticket holds
-    its title, the quoted line, its details and its scope, and the note's
-    previous version is kept as `<file>.bak`.
-  - A line that still holds an unfiled marker is never removed.
-- **Nothing filed twice:** filed items leave the note, or in link mode are
+  - A filed item is replaced only after its ticket exists, and always by a
+    link to that ticket. The ticket holds its title, the quoted line, its
+    details and its scope, and the note's previous version is kept as
+    `<file>.bak`.
+  - A line that still holds an unfiled marker is never replaced.
+- **Nothing filed twice:** filed items become links, or in link mode are
   marked `→ #N`. Either way they're never exported again, and the batch skips
   titles that already exist. Scope lines are part of their marker's ticket,
   never tickets of their own.

@@ -1,6 +1,6 @@
 ---
 name: notes-to-tickets
-description: Turns items in running notes — TODO and in-progress items, and inline "text"(todo), "text"(optional), "text"(wip) and "text"(done) markers, from every topic or one — into GitHub issues assigned to the user on the saved default board, TODO into Backlog, optional into In Definition, in-progress into In progress, done into Done and closed, then removes each filed item from the note (keeping a .bak), or with after-filing set to link marks it with its ticket number, so it is never filed twice. Use when asked to turn notes, TODOs or work in progress into tickets or issues, push notes to a board, or file what is open in the notes.
+description: Turns items in running notes — TODO and in-progress items, and inline "text"(todo), "text"(optional), "text"(wip) and "text"(done) markers, from every topic or one — into GitHub issues assigned to the user on the saved default board, TODO into Backlog, optional into In Definition, in-progress into In progress, done into Done and closed, then replaces each filed item in the note with a link to its ticket (keeping a .bak), or with after-filing set to link marks it with its ticket number, so it is never filed twice. Use when asked to turn notes, TODOs or work in progress into tickets or issues, push notes to a board, or file what is open in the notes.
 license: MIT
 metadata:
   author: ilya-shulgin
@@ -84,33 +84,35 @@ shulginilya/ai-common-tasks · AI common tasks (#5) · assigned to @me
 Each ticket's body says where it came from (topic, file and line) and
 carries the item's indented details. If a title reads badly out of context,
 offer a better one. To use it, change the note itself, then export again, so
-the note and the ticket keep the same wording. Tell the user that filed
-items will be removed from the note, unless `defaults` shows `after_filing:
+the note and the ticket keep the same wording. Tell the user that each filed
+item will be replaced in the note by a link to its ticket, unless `defaults` shows `after_filing:
 link` or they ask to keep them (`export --keep`). Stop here until the user
 says yes.
 
-## 3. File, then clear the note
+## 3. File, then link the note
 
 Run `file --plans PLANS_DIR --yes`. For each plan it calls the shared
 `ticket-management` batch with `GH_REPO` set to that plan's repo, puts every
 ticket in its column, and assigns it. Tickets created into Done are then
 closed as completed. Then it settles the note:
 
-- **remove** (the default): each filed item leaves the note, since it now
-  lives in its ticket. A checkbox item goes with its indented details. An
-  inline marker goes with its whole line and its scope. The ticket already
-  holds the title, the quoted line and the scope. The previous version is
-  saved as `<file>.bak`. A line that also holds a marker that wasn't filed
-  stays, and its filed marker gets `→ #N`. The line goes on the run that
-  files its last marker.
+- **remove** (the default): each filed item is replaced by one line linking
+  to its ticket, `→ [#N title](url)`, since it now lives there. A checkbox
+  item is replaced together with its indented details. An inline marker is
+  replaced with its whole line and its scope; a line with several filed
+  markers becomes one link per ticket. The ticket already holds the title,
+  the quoted line and the scope. The previous version is saved as
+  `<file>.bak`. A line that also holds a marker that wasn't filed stays, and
+  its filed marker gets `→ #N`. The line is replaced on the run that files its
+  last marker. Link lines are never filed and never join a scope.
 - **link** (`defaults --after-filing link`, or `export --keep` for one run):
   every item stays, marked `→ #N` (or `→ owner/repo#N`), right after the
   marker for an inline one.
 
-Only items whose ticket exists are removed or marked. If filing fails
+Only items whose ticket exists are replaced or marked. If filing fails
 partway, the rest of the note is untouched.
 
-- A rerun is safe. Batch skips titles that already exist, and removed or
+- A rerun is safe. Batch skips titles that already exist, and replaced or
   marked items are not exported again.
 - If an item moved or was reworded between export and file, it can't be
   found. The output says which one, and the item stays in the note. Delete it
@@ -121,6 +123,6 @@ partway, the rest of the note is untouched.
 ```
 Filed:   #N <title> — <repo>, <board> <column>, assigned <who>[, closed]   (from <file>:<line>)
 Skipped: <title> — already existed as #N
-Removed: <file>:<lines> — now in #N (previous version in <file>.bak)
+Replaced: <file>:<lines> — by a link to #N (previous version in <file>.bak)
 Not found: <item> — still in the note; delete it or add "→ #N" by hand
 ```

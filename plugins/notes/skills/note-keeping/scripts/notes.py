@@ -39,9 +39,10 @@ filed into the Done column and closed; checkbox `- [x]` items never are.
 Defaults for topics whose front matter names no repo, board or assignee are
 saved in the same config file by `defaults`. The assignee defaults to @me.
 
-After filing, each filed item is removed from its note: a checkbox item with
-its indented details, an inline marker with its whole line and its scope (the
-ticket keeps the title, the quoted line and the scope). The note is first saved
+After filing, each filed item is replaced in its note by a link to its ticket,
+`→ [#N title](url)`: a checkbox item with its indented details, an inline marker
+with its whole line and its scope (the ticket keeps the title, the quoted line
+and the scope); a line with several filed markers becomes one link per ticket. The note is first saved
 as <file>.bak. A line that also holds a marker that was not filed stays, and
 its filed marker gets `→ #N`. `defaults --after-filing link` keeps every item
 and marks it `→ #N` instead; `export --keep` does that for one run.
@@ -574,9 +575,32 @@ def block_end(lines: List[str], idx: int) -> int:
     return j
 
 
-def remove_filed(lines: List[str], filed: List[int]) -> List[Tuple[int, int]]:
-    """Delete each filed line with what belongs to it, unless it still holds an unfiled marker.
-    Returns the (first, last) 1-based line ranges removed, in the original numbering."""
+def ticket_url(ref: str, repo: str) -> Tuple[int, str]:
+    """`#12` or `owner/name#12` to its number and issue URL; a bare `#12` belongs to `repo`."""
+    where, number = ref.rsplit("#", 1)
+    return int(number), "https://github.com/%s/issues/%s" % (where or repo, number)
+
+
+def ticket_links(line: str, repo: str) -> List[str]:
+    """The link lines that replace a filed line: one per ticket it carries, as `→ [#N title](url)`.
+    A link line is neither an item nor a scope bullet, so it is never filed and never joins a scope."""
+    pad = line[:indent(line)]
+    pairs = [(m.group(1).strip(), m.group(3)) for m in INLINE_RE.finditer(line) if m.group(3)]
+    if not pairs:
+        m = ITEM_RE.match(line) or LOOSE_RE.match(line)
+        ref = TICKET_RE.search(m.group(3)) if m else None
+        if ref:
+            pairs = [(TICKET_RE.sub("", m.group(3)).strip(), ref.group(1))]
+    out = []
+    for text, ref in pairs:
+        number, url = ticket_url(ref, repo)
+        out.append("%s→ [#%d %s](%s)" % (pad, number, ticket_title(text), url))
+    return out
+
+
+def remove_filed(lines: List[str], filed: List[int], repo: str = "") -> List[Tuple[int, int]]:
+    """Replace each filed line, and what belongs to it, with a link to its ticket, unless the line
+    still holds an unfiled marker. Returns the (first, last) 1-based line ranges replaced."""
     spans = []
     for idx in sorted(set(filed)):
         line = lines[idx]
@@ -587,9 +611,7 @@ def remove_filed(lines: List[str], filed: List[int]) -> List[Tuple[int, int]]:
             end = scope_end(lines, end)
         spans.append((idx, end))
     for start, end in sorted(spans, reverse=True):
-        del lines[start:end]
-        if 0 < start < len(lines) and not lines[start - 1].strip() and not lines[start].strip():
-            del lines[start]  # no double blank line where the item was
+        lines[start:end] = ticket_links(lines[start], repo)
     return [(start + 1, end) for start, end in spans]
 
 
@@ -638,8 +660,8 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int],
             if str(path) not in backed_up:
                 path.with_name(path.name + ".bak").write_text(original, encoding="utf-8")
                 backed_up.add(str(path))
-            for first, last in remove_filed(lines, filed):
-                linked.append("%s:%s removed from the note (now in its ticket; previous version in %s.bak)"
+            for first, last in remove_filed(lines, filed, meta["repo"]):
+                linked.append("%s:%s replaced by a link to its ticket (previous version in %s.bak)"
                               % (rel, first if first == last else "%d-%d" % (first, last), path.name))
         if remove and filed:
             while lines and not lines[-1].strip():

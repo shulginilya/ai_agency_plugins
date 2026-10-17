@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import os
 import subprocess
 import sys
@@ -380,7 +381,9 @@ class FileArgumentTest(unittest.TestCase):
 
         with mock.patch.object(notes.subprocess, "run", fake_run):
             notes.file_plans(None, out)
-        self.assertEqual(self.elsewhere.read_text(encoding="utf-8"), "# Meeting\n", "item and scope removed")
+        self.assertEqual(self.elsewhere.read_text(encoding="utf-8"),
+                         "# Meeting\n→ [#9 call the vendor](https://github.com/me/tasks/issues/9)\n",
+                         "item and scope replaced by a link to the ticket")
         self.assertEqual(Path(str(self.elsewhere) + ".bak").read_text(encoding="utf-8"), before)
         self.assertNotIn("→", (self.root / "crew.md").read_text(encoding="utf-8"))
 
@@ -432,14 +435,17 @@ class RemoveAfterFilingTest(unittest.TestCase):
             notes.link_back(self.root, plan, numbers, backed_up)
         return self.path.read_text(encoding="utf-8")
 
-    def test_filed_items_leave_the_note_and_the_rest_stays(self):
+    def test_filed_items_are_replaced_by_a_link_and_the_rest_stays(self):
         after = self.file(["todo", "wip", "done"], keep={"keep this"})
-        self.assertNotIn("add an error filter", after)
+        link = r"→ \[#\d+ %s\]\(https://github\.com/me/tasks/issues/\d+\)"
+        for title in ("add an error filter", "plain checkbox", "another checkbox", "shipped it"):
+            self.assertRegex(after, "(?m)^" + link % re.escape(title) + "$")
+        self.assertNotIn("We agreed to", after, "the marked line itself goes")
         self.assertNotIn("filter by status", after, "scope lines go with their marker")
-        self.assertNotIn("plain checkbox", after)
         self.assertNotIn("its detail", after, "indented details go with their item")
-        self.assertNotIn("another checkbox", after)
-        self.assertNotIn("shipped it", after)
+        self.assertNotIn("- [ ] plain checkbox", after)
+        self.assertEqual(notes.export(self.root, ["todo", "wip", "done"], None, "me/tasks", 5, notes.DEFAULT_COLUMNS,
+                                      "@me")[0]["sources"].__len__(), 1, "only 'keep this' is left to file; links never are")
         self.assertIn('"dark mode"(optional) → me/tasks#', after,
                       "a line with an unfiled marker stays; its filed marker is linked")
         self.assertIn('and "keep this"(todo)\n', after, "the unfiled marker is untouched, not linked")
@@ -448,13 +454,17 @@ class RemoveAfterFilingTest(unittest.TestCase):
         self.assertNotIn("\n\n\n", after)
         self.assertEqual((self.root / "planning.md.bak").read_text(encoding="utf-8"), REMOVE,
                          "the .bak is the note before the run, though four plans each changed it")
-        self.assertTrue(after.endswith("- [x] done stays\n"), "no trailing blank line once the last item is gone")
+        self.assertRegex(after, r"- \[x\] done stays\n\n→ \[#\d+ shipped it\]\([^)]+\)\n$",
+                         "the last item's link ends the note, with no trailing blank line")
 
     def test_the_line_goes_once_its_last_marker_is_filed(self):
         first = self.file(["todo"], keep={"keep this"})   # "dark mode" filed, "keep this" not
         self.assertIn('Nice to have: "dark mode"(optional) → me/tasks#', first)
         after = self.file(["todo"])                         # now "keep this" is filed too
         self.assertNotIn("Nice to have", after)
+        self.assertRegex(after, r"→ \[#\d+ dark mode\]\(https://github\.com/me/tasks/issues/\d+\)\n"
+                                r"→ \[#\d+ keep this\]\(https://github\.com/me/tasks/issues/\d+\)\n",
+                         "a line with two filed markers becomes one link per ticket")
         self.assertIn("Prose that stays.", after)
 
     def test_link_mode_keeps_every_item(self):
