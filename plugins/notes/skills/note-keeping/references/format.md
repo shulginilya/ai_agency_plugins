@@ -61,7 +61,7 @@ Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(o
 | Marker | Status | Ticket goes to |
 | --- | --- | --- |
 | `"text"(todo)` or `(TODO)` | TODO | Backlog |
-| `"text"(optional)` or `(OPTIONAL)` | TODO, marked optional | Backlog, with "Marked optional" in its body |
+| `"text"(optional)` or `(OPTIONAL)` | TODO, marked optional | In Definition, with "Marked optional" in its body |
 | `"text"(wip)` or `(WIP)` | In progress | In progress |
 | `"text"(done)`, `(DONE)` or `(+)` | Done | Done, and the ticket is closed as completed |
 

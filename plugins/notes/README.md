@@ -57,7 +57,7 @@ line, mid-sentence included. The quoted text becomes the ticket title.
 | Marker | Ticket goes to |
 | --- | --- |
 | `"add an error filter"(todo)` | Backlog |
-| `"maybe a dark mode"(optional)` | Backlog, with "Marked optional" in its body |
+| `"maybe a dark mode"(optional)` | In Definition, with "Marked optional" in its body |
 | `"wiring the board"(wip)` | In progress |
 | `"shipped it"(done)` or `"shipped it"(+)` | Done, and the ticket is closed as completed |
 

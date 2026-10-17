@@ -1,6 +1,6 @@
 ---
 name: notes-to-tickets
-description: Turns items in running notes — TODO and in-progress items, and inline "text"(todo), "text"(optional), "text"(wip) and "text"(done) markers, from every topic or one — into GitHub issues assigned to the user on the saved default board, TODO and optional into Backlog, in-progress into In progress, done into Done and closed, then marks each item with its ticket number so it is never filed twice. Use when asked to turn notes, TODOs or work in progress into tickets or issues, push notes to a board, or file what is open in the notes.
+description: Turns items in running notes — TODO and in-progress items, and inline "text"(todo), "text"(optional), "text"(wip) and "text"(done) markers, from every topic or one — into GitHub issues assigned to the user on the saved default board, TODO into Backlog, optional into In Definition, in-progress into In progress, done into Done and closed, then marks each item with its ticket number so it is never filed twice. Use when asked to turn notes, TODOs or work in progress into tickets or issues, push notes to a board, or file what is open in the notes.
 license: MIT
 metadata:
   author: ilya-shulgin
@@ -26,16 +26,17 @@ python ../ticket-management/scripts/board.py boards     # pick a board when none
 - Open checkbox items: `- [ ]` and loose `TODO:` lines go to Backlog;
   `- [/]` and `WIP:` lines go to In progress.
 - Inline markers anywhere in the text (see the format reference):
-  - `"text"(todo)` and `"text"(optional)` go to Backlog. An optional
-    ticket's body says it was marked optional;
+  - `"text"(todo)` goes to Backlog;
+  - `"text"(optional)` goes to In Definition, and its body says it was marked
+    optional;
   - `"text"(wip)` goes to In progress;
   - `"text"(done)` or `"text"(+)` goes to Done, and `file` closes the ticket as
     completed.
 - The quoted text is the title. Done `- [x]` items are never filed.
 - A marker's scope is the bullet or dash lines straight after it, up to a
   blank line or any other line. It becomes the ticket's task list and is never
-  filed as separate tickets. In the list you show, give the scope count, e.g.
-  `build the importer (3 scope items)`.
+  filed as separate tickets. `export` lists such a ticket with its scope count,
+  e.g. `build the importer (3 scope items)`. Show it that way.
 - Every ticket is assigned to the saved assignee, `@me` unless changed.
   `--assignee none` files them unassigned.
 
@@ -64,10 +65,11 @@ included; done, dropped and already-linked items are skipped. Show the user:
 
 ```
 shulginilya/ai-common-tasks · AI common tasks (#5) · assigned to @me
-  In progress:  wiring the board
-  Backlog:      add an error filter
-                add designer to the diagram
-  Done:         shipped the notes plugin        (closed after filing)
+  In progress:    wiring the board
+  In Definition:  maybe a dark mode
+  Backlog:        add an error filter
+                  build the importer (3 scope items)
+  Done:           shipped the notes plugin        (closed after filing)
 ```
 
 Each ticket's body says where it came from (topic, file and line) and

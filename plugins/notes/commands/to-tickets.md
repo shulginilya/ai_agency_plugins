@@ -18,7 +18,8 @@ Follow the `notes-to-tickets` skill:
 2. Export to a scratch folder:
    `python {{PLUGIN_ROOT}}/skills/note-keeping/scripts/notes.py export --out <dir> [--topic T] [--repo R] [--board N] [--assignee A]`.
    Show the list per repo, board and column, with the assignee:
-   - TODO, `(todo)` and `(optional)` go to Backlog;
+   - TODO and `(todo)` go to Backlog;
+   - `(optional)` goes to In Definition;
    - in progress and `(wip)` go to In progress;
    - `(done)` and `(+)` go to Done and are closed.
 

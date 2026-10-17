@@ -24,8 +24,9 @@ and `## Notes`. Items: `- [ ]` todo, `- [/]` in progress, `- [x]` done,
 under an item belong to it. A filed item ends with `→ #N` or `→ owner/repo#N`.
 
 Inline markers count anywhere in a line, mid-sentence too: `"text"(todo)`,
-`"text"(optional)` (both go to the backlog), `"text"(wip)` and `"text"(done)`
-or `"text"(+)`, in any case. The bullet or dash lines straight after a marked
+`"text"(optional)`, `"text"(wip)` and `"text"(done)` or `"text"(+)`, in any
+case. Their columns: todo Backlog, optional In Definition, wip In progress,
+done Done. The bullet or dash lines straight after a marked
 line are its scope, up to a blank line or any other line. They become a task
 list in the ticket body and are never filed on their own. The quoted text is
 the ticket title. A filed marker is followed by `→ #N`. Inline done markers are
@@ -66,7 +67,7 @@ LOOSE_RE = re.compile(r"^(\s*)(TODO|FIXME|WIP|DOING)\s*:\s*(.+)$", re.I)
 LOOSE_STATUS = {"todo": "todo", "fixme": "todo", "wip": "wip", "doing": "wip"}
 TICKET_RE = re.compile(r"\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+)\s*$")
 TITLE_MAX = 80
-DEFAULT_COLUMNS = {"todo": "Backlog", "wip": "In progress", "done": "Done"}
+DEFAULT_COLUMNS = {"todo": "Backlog", "optional": "In Definition", "wip": "In progress", "done": "Done"}
 INLINE_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\((todo|optional|wip|done|\+)\)'
                        r'(?:\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+))?', re.I)
 INLINE_STATUS = {"todo": "todo", "optional": "todo", "wip": "wip", "done": "done", "+": "done"}
@@ -435,7 +436,8 @@ def ticket_title(text: str) -> str:
 def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
     details = "\n".join(c.strip() if not c.strip().startswith(("-", "*", "+")) else c.strip()
                         for c in item["children"] if c.strip())
-    parts = ["From my notes: **%s** (`%s`, line %d, %s)." % (topic, rel, item["line"], SECTION[item["status"]]),
+    label = "Optional" if item.get("optional") else SECTION[item["status"]]
+    parts = ["From my notes: **%s** (`%s`, line %d, %s)." % (topic, rel, item["line"], label),
              "", item["text"]]
     context = INLINE_RE.sub(lambda m: m.group(1), item["raw"]).strip() if item.get("inline") else ""
     if context and context != item["text"]:
@@ -483,15 +485,18 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
                 board_number = int(target_board) if target_board not in (None, "") else None
             except ValueError:
                 raise NotesError("%s: board %r is not a project number" % (rel, target_board))
-            key = (target_repo, board_number, item["status"])
-            plan = plans.setdefault(key, {"repo": target_repo, "board": board_number, "status": item["status"],
-                                          "column": columns[item["status"]], "issues": [], "sources": {},
+            lane = "optional" if item.get("optional") else item["status"]  # an optional todo has its own column
+            key = (target_repo, board_number, lane)
+            plan = plans.setdefault(key, {"repo": target_repo, "board": board_number, "status": lane,
+                                          "column": columns.get(lane, DEFAULT_COLUMNS[lane]),
+                                          "issues": [], "sources": {},
                                           "close": item["status"] == "done"})
             title = ticket_title(item["text"])
             if any(i["title"] == title for i in plan["issues"]):
                 title = ticket_title("%s (%s)" % (item["text"], note["topic"]))
             k = item_key(rel, item)
             issue = {"key": k, "title": title, "body": ticket_body(note["topic"], rel, item)}
+            plan.setdefault("scope_counts", {})[k] = len(item.get("scope") or [])
             if target_assignee:
                 issue["assignees"] = [target_assignee]
             plan["issues"].append(issue)
@@ -500,6 +505,10 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
     if problems:
         raise NotesError("cannot export:\n  " + "\n  ".join(dict.fromkeys(problems)))
     return list(plans.values())
+
+
+def scope_note(count: int) -> str:
+    return " (%d scope item%s)" % (count, "" if count == 1 else "s") if count else ""
 
 
 def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
@@ -513,7 +522,8 @@ def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
         summary.append({"plan": str(out / (name + ".json")), "repo": plan["repo"], "board": plan["board"],
                         "column": plan["column"], "closed_after": plan["close"],
                         "assignees": sorted({a for i in plan["issues"] for a in i.get("assignees", [])}),
-                        "items": [i["title"] for i in plan["issues"]]})
+                        "items": [i["title"] + scope_note(plan.get("scope_counts", {}).get(i["key"], 0))
+                                  for i in plan["issues"]]})
     return summary
 
 
@@ -733,7 +743,8 @@ def cmd_export(args) -> Any:
     bad = [s for s in statuses if s not in ("todo", "wip", "done")]
     if bad:
         raise NotesError("--status takes todo, wip and/or done, not %s" % ", ".join(bad))
-    columns = {"todo": args.todo_column, "wip": args.wip_column, "done": args.done_column}
+    columns = {"todo": args.todo_column, "optional": args.optional_column, "wip": args.wip_column,
+               "done": args.done_column}
     cfg = load_config()
     repo = args.repo or cfg.get("repo")
     board = args.board if args.board is not None else cfg.get("board")
@@ -788,6 +799,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--repo", help="owner/name for topics whose front matter names none")
     p.add_argument("--board", type=int, help="project number for topics whose front matter names none")
     p.add_argument("--todo-column", default=DEFAULT_COLUMNS["todo"])
+    p.add_argument("--optional-column", default=DEFAULT_COLUMNS["optional"])
     p.add_argument("--wip-column", default=DEFAULT_COLUMNS["wip"])
     p.add_argument("--done-column", default=DEFAULT_COLUMNS["done"])
     p.add_argument("--assignee", help="login, @me or none; overrides the saved default")

@@ -220,16 +220,18 @@ class InlineMarkerTest(unittest.TestCase):
     def test_columns_assignee_and_close_per_status(self):
         plans = {p["status"]: p for p in self.export()}
         self.assertEqual(plans["todo"]["column"], "Backlog")
+        self.assertEqual(plans["optional"]["column"], "In Definition")
+        self.assertEqual([i["title"] for i in plans["optional"]["issues"]], ["add a dark mode"])
+        self.assertIn("Marked optional", plans["optional"]["issues"][0]["body"])
+        self.assertIn("line 3, Optional)", plans["optional"]["issues"][0]["body"])
         self.assertEqual(plans["wip"]["column"], "In progress")
         self.assertEqual(plans["done"]["column"], "Done")
         self.assertTrue(plans["done"]["close"])
-        self.assertFalse(plans["todo"]["close"] or plans["wip"]["close"])
+        self.assertFalse(plans["todo"]["close"] or plans["optional"]["close"] or plans["wip"]["close"])
         titles = [i["title"] for i in plans["todo"]["issues"]]
-        self.assertEqual(titles, ["add an error filter", "try Neon branches", "add a dark mode",
+        self.assertEqual(titles, ["add an error filter", "try Neon branches",
                                   "checkbox with a marker", "a plain checkbox"], "a checkbox holding a marker is filed once")
-        bodies = {i["title"]: i["body"] for i in plans["todo"]["issues"]}
-        self.assertIn("Marked optional", bodies["add a dark mode"])
-        self.assertNotIn("Marked optional", bodies["add an error filter"])
+        self.assertNotIn("Marked optional", plans["todo"]["issues"][0]["body"])
         self.assertNotIn("old done checkbox", [i["title"] for i in plans["done"]["issues"]])
         self.assertTrue(all(i["assignees"] == ["@me"] for p in plans.values() for i in p["issues"]))
         self.assertTrue(all(p["repo"] == "me/tasks" and p["board"] == 5 for p in plans.values()))
@@ -318,6 +320,16 @@ class ScopeTest(unittest.TestCase):
         self.assertIn('- [ ] "move me"(todo)\n- with this step', after)
         self.assertEqual({i["text"]: i["scope"] for i in notes.inline_items(after)},
                          {i["text"]: i["scope"] for i in notes.inline_items(SCOPED)})
+
+    def test_export_lists_the_scope_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "n"
+            root.mkdir()
+            (root / "importer.md").write_text(SCOPED, encoding="utf-8")
+            plans = notes.export(root, ["todo"], None, "me/tasks", 5, notes.DEFAULT_COLUMNS, "@me")
+            items = notes.write_plans(plans, Path(tmp) / "plans")[0]["items"]
+        self.assertIn("build the importer (4 scope items)", items)
+        self.assertIn("a separate checkbox", items)
 
 
 class DefaultsTest(unittest.TestCase):
