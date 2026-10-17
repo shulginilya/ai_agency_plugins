@@ -82,6 +82,60 @@ We need "build the importer"(todo) soon
 This line is not part of it.
 ```
 
+### A full sample
+
+A note, `observatory.md`:
+
+```markdown
+# Observatory
+
+Planning call today. We agreed to "add an error filter to the timeline"(todo)
+- filter by status code
+- filter by agent name
+– keep the filter in the URL
+
+Nice to have: "dark mode for the dashboard"(optional)
+- follow the OS setting
+
+I'm currently "wiring the Neon branch per PR"(WIP), and yesterday I "shipped the session list"(+).
+This line has no bullet, so it is not part of anything.
+
+"write the README"(TODO)
+```
+
+`/notes:to-tickets` turns it into five tickets, all assigned to you:
+
+| Ticket | Column | Body extras |
+| --- | --- | --- |
+| add an error filter to the timeline | Backlog | Scope: filter by status code, filter by agent name, keep the filter in the URL |
+| write the README | Backlog | none |
+| dark mode for the dashboard | In Definition | "Marked optional", scope: follow the OS setting |
+| wiring the Neon branch per PR | In progress | none |
+| shipped the session list | Done, closed as completed | none |
+
+The bullets aren't tickets of their own: each scope becomes its ticket's task
+list. The blank line ends the first scope, so "Nice to have…" starts afresh.
+The line without a bullet is ignored. Each ticket's body opens with where it
+came from, then quotes the sentence. Here is the first one:
+
+```markdown
+From my notes: **Observatory** (`observatory.md`, line 3, TODO).
+
+add an error filter to the timeline
+
+> Planning call today. We agreed to add an error filter to the timeline
+
+**Scope**
+
+- [ ] filter by status code
+- [ ] filter by agent name
+- [ ] keep the filter in the URL
+```
+
+After filing, each marker carries its ticket, e.g.
+`"write the README"(TODO) → shulginilya/ai-common-tasks#5`, and is never filed
+again.
+
 The full description is in `skills/note-keeping/references/format.md`.
 
 ## Where tickets go
