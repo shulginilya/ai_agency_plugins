@@ -24,7 +24,7 @@ It's a Captain plugin, for your own sessions. It isn't in the firstmate crew
 | Command | `/add` | Capture a TODO, an in-progress item or a dated note |
 | Command | `/organize` | Regroup a topic, or all of them, into the standard sections |
 | Command | `/status` | What's open per topic, inline markers included; `--set-root <path>` changes the notes folder |
-| Command | `/to-tickets` | Turn open items and inline markers into tickets on a board, assigned to you |
+| Command | `/to-tickets` | Turn open items and inline markers into tickets on a board, assigned to you; give a file path to file just that note |
 
 No hooks, no agents, no MCP server. Everything runs when you ask.
 
@@ -40,6 +40,20 @@ First match wins:
 Windows paths such as `C:\Users\Ilya Shulgin\source\repos\tech_docs\notes`
 work as given: under WSL they map to `/mnt/c/...`. Change the folder any time
 by saving a new one.
+
+### One file instead of the folder
+
+To work on a single notes file, name it. It can be anywhere, inside the
+notes folder or not:
+
+```bash
+/notes:to-tickets C:\Users\Ilya Shulgin\Desktop\meeting.md
+/notes:status meeting.md                       # a bare name is looked up in the notes folder
+python skills/note-keeping/scripts/notes.py export --file "C:\Users\Ilya Shulgin\Desktop\meeting.md" --out /tmp/plans
+```
+
+`status`, `scan` and `export` all take `--file`. The tickets are linked back
+into that same file.
 
 ## The format
 
@@ -175,6 +189,7 @@ python $N status
 python $N organize --file observatory.md            # preview; add --write to apply
 python $N defaults --repo me/tasks --board "AI common tasks"
 python $N export --out /tmp/plans                     # todo, wip and done, assigned to @me
+python $N export --file ~/Desktop/meeting.md --out /tmp/plans   # just one file, anywhere
 python -m tools.apkit test --plugin notes
 ```
 

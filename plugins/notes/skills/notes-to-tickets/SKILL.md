@@ -15,7 +15,7 @@ seen the list. The scripts guarantee the "only once". The list is your job.
 ```bash
 python ../note-keeping/scripts/notes.py defaults                # where tickets go by default, and to whom
 python ../note-keeping/scripts/notes.py defaults --repo owner/name --board "AI common tasks" --assignee @me
-python ../note-keeping/scripts/notes.py export [--topic T] [--status todo,wip,done] \
+python ../note-keeping/scripts/notes.py export [--topic T | --file F] [--status todo,wip,done] \
     [--repo owner/name] [--board N] [--assignee @me|LOGIN|none] --out PLANS_DIR
 python ../note-keeping/scripts/notes.py file --plans PLANS_DIR --yes
 python ../ticket-management/scripts/board.py boards     # pick a board when none is named
@@ -39,6 +39,15 @@ python ../ticket-management/scripts/board.py boards     # pick a board when none
   e.g. `build the importer (3 scope items)`. Show it that way.
 - Every ticket is assigned to the saved assignee, `@me` unless changed.
   `--assignee none` files them unassigned.
+
+## 0. Which notes
+
+By default, every topic in the notes folder is read. `--topic T` narrows that
+to one topic. `--file F` reads just one notes file instead, anywhere on disk,
+inside the notes folder or not. Use it when the user names a file. A bare
+name like `meeting.md` is looked up in the notes folder, and Windows paths
+are fine. The export records which folder it read, so `file` links the
+tickets back into that same file.
 
 ## 1. Decide where the tickets go
 

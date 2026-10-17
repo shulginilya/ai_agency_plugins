@@ -332,6 +332,56 @@ class ScopeTest(unittest.TestCase):
         self.assertIn("a separate checkbox", items)
 
 
+class FileArgumentTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.env = dict(os.environ, XDG_CONFIG_HOME=str(self.tmp / "cfg"))
+        self.env.pop("NOTES_DIR", None)
+        self.elsewhere = self.tmp / "elsewhere" / "meeting.md"
+        self.elsewhere.parent.mkdir()
+        self.elsewhere.write_text('# Meeting\n"call the vendor"(todo)\n- ask about pricing\n', encoding="utf-8")
+        self.root = self.tmp / "notes"
+        self.root.mkdir()
+        (self.root / "crew.md").write_text('# Crew\n"not this one"(todo)\n', encoding="utf-8")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_a_file_anywhere_needs_no_notes_folder(self):
+        result = run("export", "--file", self.elsewhere, "--repo", "me/tasks", "--out", self.tmp / "plans", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        plan = json.loads(result.stdout)["plans"][0]
+        self.assertEqual(plan["items"], ["call the vendor (1 scope item)"])
+        scan = json.loads(run("scan", "--file", self.elsewhere, "--json", env=self.env).stdout)
+        self.assertEqual([r["text"] for r in scan], ["call the vendor"])
+
+    def test_a_bare_name_is_looked_up_in_the_notes_folder(self):
+        result = run("--root", self.root, "scan", "--file", "crew.md", "--json", env=self.env)
+        self.assertEqual([r["text"] for r in json.loads(result.stdout)], ["not this one"])
+
+    def test_a_missing_file_is_bad_input(self):
+        result = run("--root", self.root, "export", "--file", "nope.md", "--repo", "me/t", "--out", self.tmp / "p",
+                     env=self.env)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("does not exist", result.stderr)
+
+    def test_filing_links_back_into_the_named_file_not_the_notes_folder(self):
+        out = self.tmp / "plans"
+        root, files = notes.select_files(str(self.root), str(self.elsewhere))
+        notes.write_plans(notes.export(root, ["todo"], None, "me/tasks", None, notes.DEFAULT_COLUMNS, "@me", files), out)
+
+        def fake_run(cmd, **kwargs):
+            plan = json.loads(Path(cmd[cmd.index("--plan") + 1]).read_text())
+            issues = [{"key": i["key"], "number": 9, "title": i["title"], "created": True} for i in plan["issues"]]
+            return mock.Mock(returncode=0, stdout=json.dumps({"created": 1, "skipped": 0, "issues": issues}), stderr="")
+
+        with mock.patch.object(notes.subprocess, "run", fake_run):
+            notes.file_plans(None, out)
+        self.assertIn('"call the vendor"(todo) → me/tasks#9', self.elsewhere.read_text(encoding="utf-8"))
+        self.assertNotIn("→", (self.root / "crew.md").read_text(encoding="utf-8"))
+
+
 class DefaultsTest(unittest.TestCase):
     def test_defaults_are_saved_beside_the_root_and_used_by_export(self):
         with tempfile.TemporaryDirectory() as tmp:

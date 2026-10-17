@@ -1,6 +1,6 @@
 ---
 description: What is open across your notes — in progress, TODO and not yet ticketed, per topic. Also sets the notes folder.
-argument_hint: "[topic, or --set-root <path> to change the notes folder]"
+argument_hint: "[topic or notes file path, or --set-root <path> to change the notes folder]"
 model: sonnet
 allowed_tools: Bash(python:*) Read
 ---
@@ -13,8 +13,9 @@ the folder now in use. Windows paths like `C:\Users\me\notes` are fine.
 
 Otherwise:
 
-1. Run `python {{PLUGIN_ROOT}}/skills/note-keeping/scripts/notes.py status` (add `--topic`
-   when one is named). If no folder is set, ask for the path and save it with
+1. Run `python {{PLUGIN_ROOT}}/skills/note-keeping/scripts/notes.py status`. Add `--topic`
+   when one is named, or `--file "<path>"` when a notes file is named. The file
+   may be anywhere, outside the notes folder too. If no folder is set, ask for the path and save it with
    `set-root`.
 2. Summarize one line per topic:
    - in progress, TODO and done;

@@ -4,14 +4,17 @@
     notes.py where                                   the notes folder in use, and why
     notes.py set-root PATH                           remember the notes folder (Windows paths are fine)
     notes.py add --topic T (--todo|--wip|--note) TEXT  capture into topics/<t>.md
-    notes.py status [--topic T]                      open items per topic
-    notes.py scan [--topic T] [--json]               every item: status, section, file:line, ticket
+    notes.py status [--topic T | --file F]           open items per topic
+    notes.py scan [--topic T | --file F] [--json]    every item: status, section, file:line, ticket
     notes.py organize --file F [--write]             regroup one file into the standard sections
     notes.py check BEFORE AFTER                      prove an edit lost or duplicated no line
     notes.py defaults [--repo O/R] [--board N|NAME] [--assignee LOGIN|@me|none]
                                                      where tickets go when a topic names nothing
-    notes.py export [--status todo,wip,done] [--topic T] [--repo O/R] [--board N] [--assignee A] --out DIR
+    notes.py export [--status todo,wip,done] [--topic T | --file F] [--repo O/R] [--board N] [--assignee A] --out DIR
     notes.py file --plans DIR [--yes]                create the tickets, then link them back
+
+`--file F` works on one notes file anywhere, inside the notes folder or not
+(a Windows path is fine); a bare name is looked up in the notes folder.
 
 Where the notes are, first match wins: --root, then $NOTES_DIR, then the folder
 saved by `set-root` (in $XDG_CONFIG_HOME/ai-agency/notes.json, by default
@@ -153,6 +156,26 @@ def notes_root(flag: Optional[str]) -> Path:
     if not root.is_dir():
         raise NotesError("the notes folder %s (from %s) does not exist" % (root, source))
     return root
+
+
+def select_files(root_flag: Optional[str], file_flag: Optional[str]) -> Tuple[Path, List[Path]]:
+    """The folder that file paths are relative to, and the note files to read: every file under the
+    notes folder, or the one named by --file (its own folder is then the root)."""
+    if not file_flag:
+        root = notes_root(root_flag)
+        return root, note_files(root)
+    path = normalize_path(file_flag)
+    if not path.is_file() and not path.is_absolute():
+        try:
+            inside = notes_root(root_flag) / file_flag
+        except NotesError:
+            inside = None
+        if inside is not None and inside.is_file():
+            path = inside
+    if not path.is_file():
+        raise NotesError("notes file %s does not exist" % path)
+    path = path.resolve()
+    return path.parent, [path]
 
 
 def note_files(root: Path) -> List[Path]:
@@ -456,13 +479,14 @@ def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
 
 
 def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional[str],
-           board: Optional[int], columns: Dict[str, str], assignee: Optional[str] = None) -> List[Dict[str, Any]]:
+           board: Optional[int], columns: Dict[str, str], assignee: Optional[str] = None,
+           files: Optional[List[Path]] = None) -> List[Dict[str, Any]]:
     """Group the unfiled items into one ticket plan per (repo, board, status).
 
     Open checkbox items and every inline marker are filed; a done checkbox item never is."""
     plans: Dict[Tuple[str, Optional[int], str], Dict[str, Any]] = {}
     problems = []
-    for path in note_files(root):
+    for path in (files if files is not None else note_files(root)):
         rel = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8")
         note = parse(text, path.name)
@@ -489,7 +513,7 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
             key = (target_repo, board_number, lane)
             plan = plans.setdefault(key, {"repo": target_repo, "board": board_number, "status": lane,
                                           "column": columns.get(lane, DEFAULT_COLUMNS[lane]),
-                                          "issues": [], "sources": {},
+                                          "issues": [], "sources": {}, "root": str(root.resolve()),
                                           "close": item["status"] == "done"})
             title = ticket_title(item["text"])
             if any(i["title"] == title for i in plan["issues"]):
@@ -517,7 +541,7 @@ def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
     for plan in plans:
         name = "%s-%s-%s" % (slug(plan["repo"]), plan["board"] or "noboard", plan["status"])
         (out / (name + ".json")).write_text(json.dumps({"issues": plan["issues"]}, indent=2) + "\n", encoding="utf-8")
-        meta = {k: plan[k] for k in ("repo", "board", "status", "column", "sources", "close")}
+        meta = {k: plan[k] for k in ("repo", "board", "status", "column", "sources", "close", "root")}
         (out / (name + ".meta.json")).write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
         summary.append({"plan": str(out / (name + ".json")), "repo": plan["repo"], "board": plan["board"],
                         "column": plan["column"], "closed_after": plan["close"],
@@ -574,7 +598,9 @@ def tickets_script() -> Path:
     raise NotesError("ticket-management/scripts/tickets.py is missing beside this skill")
 
 
-def file_plans(root: Path, plans_dir: Path) -> List[Dict[str, Any]]:
+def file_plans(root: Optional[Path], plans_dir: Path) -> List[Dict[str, Any]]:
+    """File every exported plan. Each plan names the folder its notes were read from, so a plan
+    exported with --file links back into that file; `root` serves plans that predate it."""
     results = []
     for plan in sorted(plans_dir.glob("*.json")):
         if plan.name.endswith(".meta.json"):
@@ -604,7 +630,7 @@ def file_plans(root: Path, plans_dir: Path) -> List[Dict[str, Any]]:
                         "created": report["created"], "skipped": report["skipped"], "closed": closed,
                         "issues": [{"number": i["number"], "title": i["title"], "created": i["created"]}
                                    for i in report["issues"]],
-                        "linked": link_back(root, meta, numbers)})
+                        "linked": link_back(Path(meta["root"]) if meta.get("root") else root, meta, numbers)})
     return results
 
 
@@ -682,9 +708,9 @@ def cmd_add(args) -> Any:
     return {"file": str(path.relative_to(root)), "added": kind, "text": entry}
 
 
-def scan_items(root: Path, topic: Optional[str]) -> List[Dict[str, Any]]:
+def scan_items(root: Path, topic: Optional[str], files: Optional[List[Path]] = None) -> List[Dict[str, Any]]:
     rows = []
-    for path in note_files(root):
+    for path in (files if files is not None else note_files(root)):
         rel = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8")
         note = parse(text, path.name)
@@ -699,11 +725,13 @@ def scan_items(root: Path, topic: Optional[str]) -> List[Dict[str, Any]]:
 
 
 def cmd_scan(args) -> Any:
-    return scan_items(notes_root(args.root), args.topic)
+    root, files = select_files(args.root, args.file)
+    return scan_items(root, args.topic, files)
 
 
 def cmd_status(args) -> Any:
-    rows = scan_items(notes_root(args.root), args.topic)
+    root, files = select_files(args.root, args.file)
+    rows = scan_items(root, args.topic, files)
     topics: Dict[str, Dict[str, Any]] = {}
     for r in rows:
         t = topics.setdefault(r["topic"], {"file": r["file"], "wip": 0, "todo": 0, "done": 0, "dropped": 0,
@@ -749,7 +777,8 @@ def cmd_export(args) -> Any:
     repo = args.repo or cfg.get("repo")
     board = args.board if args.board is not None else cfg.get("board")
     assignee = args.assignee or cfg.get("assignee", DEFAULT_ASSIGNEE)
-    plans = export(notes_root(args.root), statuses, args.topic, repo, board, columns, assignee)
+    root, files = select_files(args.root, args.file)
+    plans = export(root, statuses, args.topic, repo, board, columns, assignee, files)
     if not plans:
         return {"plans": [], "message": "nothing to file: every open item already has a ticket"}
     return {"plans": write_plans(plans, Path(args.out))}
@@ -758,7 +787,10 @@ def cmd_export(args) -> Any:
 def cmd_file(args) -> Any:
     if not args.yes:
         raise NotesError("filing creates GitHub issues; show the export to the user first, then pass --yes")
-    return file_plans(notes_root(args.root), Path(args.plans))
+    plans = Path(args.plans)
+    metas = [json.loads(m.read_text(encoding="utf-8")) for m in plans.glob("*.meta.json")]
+    root = None if metas and all(m.get("root") for m in metas) else notes_root(args.root)
+    return file_plans(root, plans)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -782,6 +814,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     for name in ("scan", "status"):
         p = sub.add_parser(name)
         p.add_argument("--topic")
+        p.add_argument("--file", help="one notes file, anywhere; instead of the whole notes folder")
         p.add_argument("--json", action="store_true")
     p = sub.add_parser("organize", help="regroup one file into the standard sections")
     p.add_argument("--file", required=True, help="path, or a name inside the notes folder")
@@ -796,6 +829,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p = sub.add_parser("export", help="unfiled items to ticket plans")
     p.add_argument("--status", default="todo,wip,done")
     p.add_argument("--topic")
+    p.add_argument("--file", help="one notes file, anywhere; instead of the whole notes folder")
     p.add_argument("--repo", help="owner/name for topics whose front matter names none")
     p.add_argument("--board", type=int, help="project number for topics whose front matter names none")
     p.add_argument("--todo-column", default=DEFAULT_COLUMNS["todo"])
