@@ -32,6 +32,10 @@ python ../ticket-management/scripts/board.py boards     # pick a board when none
   - `"text"(done)` or `"text"(+)` goes to Done, and `file` closes the ticket as
     completed.
 - The quoted text is the title. Done `- [x]` items are never filed.
+- A marker's scope is the bullet or dash lines straight after it, up to a
+  blank line or any other line. It becomes the ticket's task list and is never
+  filed as separate tickets. In the list you show, give the scope count, e.g.
+  `build the importer (3 scope items)`.
 - Every ticket is assigned to the saved assignee, `@me` unless changed.
   `--assignee none` files them unassigned.
 

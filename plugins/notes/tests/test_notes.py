@@ -186,6 +186,7 @@ Someday "add a dark mode"(Optional).
 Currently "wiring the board"(WIP) and "fixing the export"(wip); "shipped the notes plugin"(+) and
 "wrote the README"(DONE), also "made the board"(done).
 - [ ] "checkbox with a marker"(todo)
+
 - [ ] a plain checkbox
 - [x] old done checkbox
 
@@ -274,6 +275,49 @@ class InlineMarkerTest(unittest.TestCase):
         closes = [c[c.index("--issue") + 1] for c in calls if "close" in c]
         self.assertEqual(closes, ["71", "72"], "only newly created tickets are closed")
         self.assertEqual(result["closed"], [71, 72])
+
+
+SCOPED = """# Importer
+We need "build the importer"(todo) soon
+- parse the CSV
+\u2013 map the columns
+\u2022 [x] pick a library
+- [ ] write tests
+not a bullet, so the scope ended
+- [ ] a separate checkbox
+
+"second"(wip)
+- step one
+
+- after a blank line
+## Later
+- [ ] "move me"(todo)
+- with this step
+"""
+
+
+class ScopeTest(unittest.TestCase):
+    def test_bullet_and_dash_lines_after_a_marker_are_its_scope(self):
+        items = {i["text"]: i["scope"] for i in notes.inline_items(SCOPED)}
+        self.assertEqual(items["build the importer"],
+                         ["- parse the CSV", "\u2013 map the columns", "\u2022 [x] pick a library", "- [ ] write tests"])
+        self.assertEqual(items["second"], ["- step one"], "a blank line ends the scope")
+        self.assertEqual(items["move me"], ["- with this step"])
+
+    def test_scope_becomes_a_task_list_and_is_not_filed_on_its_own(self):
+        note = notes.parse(SCOPED, "importer.md")
+        plain = [i["text"] for i in notes.note_items(note, SCOPED) if not i["inline"]]
+        self.assertEqual(plain, ["a separate checkbox"])
+        body = notes.ticket_body("Importer", "importer.md", notes.inline_items(SCOPED)[0])
+        self.assertIn("**Scope**\n\n- [ ] parse the CSV\n- [ ] map the columns\n- [x] pick a library\n- [ ] write tests",
+                      body)
+
+    def test_organize_keeps_each_scope_under_its_marker(self):
+        after = notes.organize_text(SCOPED, "importer.md")
+        self.assertEqual(notes.compare(SCOPED, after), {"lost": [], "added": []})
+        self.assertIn('- [ ] "move me"(todo)\n- with this step', after)
+        self.assertEqual({i["text"]: i["scope"] for i in notes.inline_items(after)},
+                         {i["text"]: i["scope"] for i in notes.inline_items(SCOPED)})
 
 
 class DefaultsTest(unittest.TestCase):

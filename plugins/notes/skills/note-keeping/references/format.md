@@ -72,6 +72,26 @@ Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(o
   again.
 - A checkbox item whose text holds a marker is filed once, as the marker.
 - Markers inside a code fence (```` ``` ````) are ignored.
+- **Scope.** The lines straight after a marked line that start with a bullet
+  or a dash belong to it, as the things to do within it. Bullets are `-`,
+  `–`, `—`, `•`, `·` and `*`, and a `[ ]` or `[x]` box after the bullet is
+  kept. A blank line ends the scope, and so does any line that doesn't start
+  with a bullet or a dash. A scope line holding its own marker starts a new
+  item instead.
+
+  ```markdown
+  We need "build the importer"(todo):
+  - parse the CSV
+  – map the columns
+  • [x] pick a library
+
+  This line is not part of it.
+  ```
+
+  The scope becomes a task list in the ticket body. Its lines, checkboxes
+  included, are never filed as tickets of their own. When a line holds two
+  markers, the scope belongs to the last one. `organize` keeps a scope under
+  its marker.
 - Unlike inline `(done)` markers, `- [x]` items are never filed. They are
   history, not tasks.
 

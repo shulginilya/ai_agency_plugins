@@ -25,7 +25,9 @@ under an item belong to it. A filed item ends with `→ #N` or `→ owner/repo#N
 
 Inline markers count anywhere in a line, mid-sentence too: `"text"(todo)`,
 `"text"(optional)` (both go to the backlog), `"text"(wip)` and `"text"(done)`
-or `"text"(+)`, in any case. The quoted text is
+or `"text"(+)`, in any case. The bullet or dash lines straight after a marked
+line are its scope, up to a blank line or any other line. They become a task
+list in the ticket body and are never filed on their own. The quoted text is
 the ticket title. A filed marker is followed by `→ #N`. Inline done markers are
 filed into the Done column and closed; checkbox `- [x]` items never are.
 
@@ -69,6 +71,16 @@ INLINE_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\((todo|optio
                        r'(?:\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+))?', re.I)
 INLINE_STATUS = {"todo": "todo", "optional": "todo", "wip": "wip", "done": "done", "+": "done"}
 DEFAULT_ASSIGNEE = "@me"
+# A marked line's scope: the bullet or dash lines straight after it, up to a blank or any other line.
+SCOPE_RE = re.compile(r"^\s*[-\u2013\u2014\u2022\u00b7\u25cf\u25e6\u25aa*+]\s+(?:\[([ xX/~-])\]\s+)?(\S.*)$")
+
+
+def scope_end(lines: List[str], start: int) -> int:
+    """Index just past the scope lines that begin at `start`; a line holding its own marker ends the scope."""
+    end = start
+    while end < len(lines) and SCOPE_RE.match(lines[end]) and not INLINE_RE.search(lines[end]):
+        end += 1
+    return end
 
 
 class NotesError(Exception):
@@ -220,6 +232,11 @@ def parse(text: str, name: str = "") -> Dict[str, Any]:
                         break
                 children.append(body[j])
                 j += 1
+            if INLINE_RE.search(line):
+                # the marker's scope moves with its item, so organize never separates them
+                end = scope_end(body, j)
+                children += body[j:end]
+                j = end
             ticket = TICKET_RE.search(rest)
             items.append({
                 "status": status, "text": TICKET_RE.sub("", rest).strip(),
@@ -229,8 +246,9 @@ def parse(text: str, name: str = "") -> Dict[str, Any]:
             })
             i = j
             continue
-        blocks.append({"kind": "prose", "lines": [line], "group": group, "section": section, "line": number})
-        i += 1
+        end = scope_end(body, i + 1) if INLINE_RE.search(line) else i + 1
+        blocks.append({"kind": "prose", "lines": body[i:end], "group": group, "section": section, "line": number})
+        i = end
     topic = meta.get("topic") or title or Path(name).stem.replace("-", " ").replace("_", " ").strip() or "untitled"
     return {"front_matter": fm_lines, "meta": meta, "title": title, "topic": topic,
             "items": items, "blocks": blocks}
@@ -247,17 +265,22 @@ def inline_items(text: str) -> List[Dict[str, Any]]:
             continue
         if fenced:
             continue
-        for m in INLINE_RE.finditer(line):
+        markers = list(INLINE_RE.finditer(line))
+        scope = body[offset + 1:scope_end(body, offset + 1)] if markers else []
+        for n, m in enumerate(markers):
             found.append({"status": INLINE_STATUS[m.group(2).lower()], "text": m.group(1).strip(),
                           "ticket": m.group(3), "line": len(fm_lines) + offset + 1, "raw": line,
-                          "children": [], "section": None, "group": None, "loose": False,
+                          "children": [], "scope": scope if n == len(markers) - 1 else [],
+                          "section": None, "group": None, "loose": False,
                           "inline": True, "optional": m.group(2).lower() == "optional", "indent": 0})
     return found
 
 
 def note_items(note: Dict[str, Any], text: str) -> List[Dict[str, Any]]:
     """Checkbox and loose items, plus inline markers. A checkbox line holding a marker counts once, as the marker."""
-    plain = [dict(it, inline=False) for it in note["items"] if not INLINE_RE.search(it["raw"])]
+    scoped = {n for it in inline_items(text) for n in range(it["line"] + 1, it["line"] + 1 + len(it["scope"]))}
+    plain = [dict(it, inline=False) for it in note["items"]
+             if not INLINE_RE.search(it["raw"]) and it["line"] not in scoped]
     return sorted(plain + inline_items(text), key=lambda it: it["line"])
 
 
@@ -419,6 +442,12 @@ def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
         parts += ["", "> " + context]
     if item.get("optional"):
         parts += ["", "Marked optional: nice to have, not committed."]
+    if item.get("scope"):
+        tasks = []
+        for line in item["scope"]:
+            m = SCOPE_RE.match(line)
+            tasks.append("- [%s] %s" % ("x" if m.group(1) in ("x", "X") else " ", m.group(2).strip()))
+        parts += ["", "**Scope**", ""] + tasks
     if details:
         parts += ["", details]
     return "\n".join(parts) + "\n"

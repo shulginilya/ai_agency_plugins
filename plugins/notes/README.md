@@ -3,10 +3,13 @@
 Running notes on many topics, kept organized in plain Markdown. Capture a
 TODO, something you're working on, or a thought as it happens. Regroup a
 messy topic into In progress, TODO, Done, Dropped and Notes without losing a
-line. See what's open across every topic. Turn TODO, in-progress and done
-items, including inline `"text"(todo)`, `"text"(wip)` and `"text"(done)`
-markers, into GitHub tickets assigned to you on your default board. Each
-note is marked with its ticket, so nothing is filed twice.
+line. See what's open across every topic.
+
+Turn TODO and in-progress items into GitHub tickets assigned to you on your
+default board, and inline markers too: `"text"(todo)`, `"text"(optional)`,
+`"text"(wip)`, and `"text"(done)` or `"text"(+)`. The bullet lines under a
+marker become the ticket's task list. Each note is marked with its ticket, so
+nothing is filed twice.
 
 It's a Captain plugin, for your own sessions. It isn't in the firstmate crew
 (`crew_plugins`), and the crew brief doesn't route work to it.
@@ -16,11 +19,11 @@ It's a Captain plugin, for your own sessions. It isn't in the firstmate crew
 | Component | Name | Purpose |
 | --- | --- | --- |
 | Skill | `note-keeping` | Capture, organize (lossless, with a `.bak`), status, and the notes folder |
-| Skill | `notes-to-tickets` | Export open items, show the list, file them, link each note to its ticket |
-| Skill (shared) | `ticket-management` | Creates the issues and places them on the board. Source: `plugins/_shared/skills/` |
+| Skill | `notes-to-tickets` | Export items and inline markers, show the list, file them assigned to you (done ones closed), link each note to its ticket |
+| Skill (shared) | `ticket-management` | Creates and assigns the issues, places them on the board, closes the done ones. Source: `plugins/_shared/skills/` |
 | Command | `/add` | Capture a TODO, an in-progress item or a dated note |
 | Command | `/organize` | Regroup a topic, or all of them, into the standard sections |
-| Command | `/status` | What's open per topic; `--set-root <path>` changes the notes folder |
+| Command | `/status` | What's open per topic, inline markers included; `--set-root <path>` changes the notes folder |
 | Command | `/to-tickets` | Turn open items and inline markers into tickets on a board, assigned to you |
 
 No hooks, no agents, no MCP server. Everything runs when you ask.
@@ -40,25 +43,52 @@ by saving a new one.
 
 ## The format
 
-One `.md` file per topic. Front matter can name the topic's `repo` and
-`board`, so its tickets go to the right place. Items are `- [ ]` TODO,
+One `.md` file per topic. Front matter can name the topic's `repo`, `board`
+and `assignee`, so its tickets go to the right place. Items are `- [ ]` TODO,
 `- [/]` in progress, `- [x]` done and `- [-]` dropped. Loose `TODO:` and `WIP:`
 lines count too. Lines indented under an item belong to it. A filed item ends
 with `→ #N`.
 
-Inline markers work anywhere in a line:
-- `"add an error filter"(todo)` goes to Backlog;
-- `"maybe a dark mode"(optional)` goes to Backlog too, noted as optional;
-- `"wiring the board"(wip)` goes to In progress;
-- `"shipped it"(done)` or `"shipped it"(+)` goes to Done, and the ticket is
-  closed.
+### Inline markers
 
-Any case works, so `(TODO)`, `(OPTIONAL)`, `(WIP)` and `(DONE)` are the same. The full
-description, with an example, is in `skills/note-keeping/references/format.md`.
+A quoted phrase followed by a status in brackets is a task, anywhere in a
+line, mid-sentence included. The quoted text becomes the ticket title.
+
+| Marker | Ticket goes to |
+| --- | --- |
+| `"add an error filter"(todo)` | Backlog |
+| `"maybe a dark mode"(optional)` | Backlog, with "Marked optional" in its body |
+| `"wiring the board"(wip)` | In progress |
+| `"shipped it"(done)` or `"shipped it"(+)` | Done, and the ticket is closed as completed |
+
+Any case works, so `(TODO)`, `(OPTIONAL)`, `(WIP)` and `(DONE)` are the same.
+Markers inside code fences are ignored. Unlike these markers, `- [x]` items
+are never filed.
+
+### Scope
+
+The lines straight after a marked line that start with a bullet or a dash
+(`-`, `–`, `—`, `•`, `·`, `*`) are its scope: the things to do within it.
+They become the ticket's task list, keeping any `[x]`, and are never filed as
+tickets of their own. A blank line, or any line that doesn't start with a
+bullet or dash, ends the scope.
+
+```markdown
+We need "build the importer"(todo) soon
+- parse the CSV
+– map the columns
+• [x] pick a library
+
+This line is not part of it.
+```
+
+The full description is in `skills/note-keeping/references/format.md`.
 
 ## Where tickets go
 
-Front matter wins, then the command line, then the saved defaults:
+For each topic, first match wins: its front matter, then the command line,
+then the saved defaults. The defaults are kept in the same `notes.json` as the
+notes folder, and `set-root` leaves them alone.
 
 ```bash
 python skills/note-keeping/scripts/notes.py defaults --repo shulginilya/ai-common-tasks --board "AI common tasks" --assignee @me
@@ -73,11 +103,13 @@ python skills/note-keeping/scripts/notes.py defaults     # show them
 - **Nothing lost:** `organize` only regroups and refuses to write if a line
   would be lost or duplicated. `check before.md after.md` proves the same for
   any other edit.
-- **Nothing filed twice:** filed items are marked `→ #N` and never exported
-  again, and the batch skips titles that already exist.
+- **Nothing filed twice:** filed items are marked `→ #N`, at the end of the
+  line for an item and right after the marker for an inline one. Marked items
+  are never exported again, and the batch skips titles that already exist.
+  Scope lines are part of their marker's ticket, never tickets of their own.
 - **Nothing filed unseen:** `file` refuses without `--yes`, which the skill
-  passes only after you've seen the list. A topic with no repo is refused,
-  never guessed.
+  passes only after you've seen the list. A topic with no repo in its front
+  matter, on the command line or in the defaults is refused, never guessed.
 
 ## Try it
 
@@ -98,5 +130,5 @@ python -m tools.apkit test --plugin notes
 - **Codex CLI, Cursor, Gemini CLI and OpenCode** take the skills and commands.
 - **Generic `.agents/skills`** takes the skills only. Both skills carry their
   scripts.
-- Filing needs the shared `ticket-management` skill, which comes with #35's
-  shared-skills build. It needs an authenticated `gh` with the `project` scope.
+- Filing uses the shared `ticket-management` skill, which the build copies into
+  this plugin. It needs an authenticated `gh` with the `project` scope.
