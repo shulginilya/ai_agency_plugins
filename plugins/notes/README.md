@@ -8,8 +8,9 @@ line. See what's open across every topic.
 Turn TODO and in-progress items into GitHub tickets assigned to you on your
 default board, and inline markers too: `"text"(todo)`, `"text"(optional)`,
 `"text"(wip)`, and `"text"(done)` or `"text"(+)`. The bullet lines under a
-marker become the ticket's task list. Each note is marked with its ticket, so
-nothing is filed twice.
+marker become the ticket's task list. Once filed, an item is removed from the
+note, because it lives in its ticket now. A `.bak` keeps the previous
+version, and nothing is filed twice.
 
 It's a Captain plugin, for your own sessions. It isn't in the firstmate crew
 (`crew_plugins`), and the crew brief doesn't route work to it.
@@ -52,8 +53,8 @@ notes folder or not:
 python skills/note-keeping/scripts/notes.py export --file "C:\Users\Ilya Shulgin\Desktop\meeting.md" --out /tmp/plans
 ```
 
-`status`, `scan` and `export` all take `--file`. The tickets are linked back
-into that same file.
+`status`, `scan` and `export` all take `--file`. Filed items are removed from
+that same file, which keeps a `.bak`.
 
 ## The format
 
@@ -146,9 +147,19 @@ add an error filter to the timeline
 - [ ] keep the filter in the URL
 ```
 
-After filing, each marker carries its ticket, e.g.
-`"write the README"(TODO) → shulginilya/ai-common-tasks#5`, and is never filed
-again.
+After filing, all five come out of the note, scopes included. What's left:
+
+```markdown
+# Observatory
+
+This line has no bullet, so it is not part of anything.
+```
+
+The previous version is kept as `observatory.md.bak`. "Planning call today."
+and "Nice to have:" went too, because they were on marked lines; their
+tickets quote them. To keep items in the note, marked with their ticket
+(`"write the README"(TODO) → shulginilya/ai-common-tasks#5`), set
+`notes.py defaults --after-filing link`, or pass `export --keep` for one run.
 
 The full description is in `skills/note-keeping/references/format.md`.
 
@@ -165,16 +176,22 @@ python skills/note-keeping/scripts/notes.py defaults     # show them
 
 `--board` takes a number or the board's exact name. The assignee defaults to
 `@me`, meaning you. `--assignee none` files tickets unassigned.
+`--after-filing remove` (the default) takes filed items out of the note.
+`--after-filing link` keeps them, marked with their ticket.
 
 ## Guarantees
 
 - **Nothing lost:** `organize` only regroups and refuses to write if a line
   would be lost or duplicated. `check before.md after.md` proves the same for
   any other edit.
-- **Nothing filed twice:** filed items are marked `→ #N`, at the end of the
-  line for an item and right after the marker for an inline one. Marked items
-  are never exported again, and the batch skips titles that already exist.
-  Scope lines are part of their marker's ticket, never tickets of their own.
+  - A filed item is removed only after its ticket exists. Its ticket holds
+    its title, the quoted line, its details and its scope, and the note's
+    previous version is kept as `<file>.bak`.
+  - A line that still holds an unfiled marker is never removed.
+- **Nothing filed twice:** filed items leave the note, or in link mode are
+  marked `→ #N`. Either way they're never exported again, and the batch skips
+  titles that already exist. Scope lines are part of their marker's ticket,
+  never tickets of their own.
 - **Nothing filed unseen:** `file` refuses without `--yes`, which the skill
   passes only after you've seen the list. A topic with no repo in its front
   matter, on the command line or in the defaults is refused, never guessed.

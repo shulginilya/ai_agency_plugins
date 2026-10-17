@@ -44,9 +44,11 @@ Talked about the crew today. Deploy must not run under a live crew.
 
 - Lines indented under an item belong to it: details, sub-bullets, links.
   They move with it and go into its ticket's body.
-- A filed item ends with `→ #N` when the front matter names the repo, or
-  `→ owner/repo#N` when it doesn't. `->` works too. A linked item is never
-  filed again.
+- By default, a filed item is removed from the note once its ticket exists
+  (see `notes-to-tickets`). With `after_filing: link`, or for an item whose
+  line still holds an unfiled marker, it stays and ends with `→ #N` when the
+  front matter names the repo, or `→ owner/repo#N` when it doesn't. `->`
+  works too. A linked item is never filed again.
 
 ## Inline markers
 
@@ -67,9 +69,11 @@ Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(o
 
 - The quoted text becomes the ticket title. Straight `"…"` and curly
   `“…”` quotes both work, and so does any case of the status.
-- When filed, the marker gets its ticket right after it:
-  `"add an error filter"(todo) → #12`. A marker with a ticket is never filed
-  again.
+- When filed, the marker's whole line and its scope are removed from the
+  note, because the ticket now holds them. The exception is a line that
+  still holds an unfiled marker: there, and in link mode, the marker gets its
+  ticket right after it, `"add an error filter"(todo) → #12`. A marker with a
+  ticket is never filed again.
 - A checkbox item whose text holds a marker is filed once, as the marker.
 - Markers inside a code fence (```` ``` ````) are ignored.
 - **Scope.** The lines straight after a marked line that start with a bullet

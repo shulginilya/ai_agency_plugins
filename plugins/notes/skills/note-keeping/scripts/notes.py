@@ -11,7 +11,8 @@
     notes.py defaults [--repo O/R] [--board N|NAME] [--assignee LOGIN|@me|none]
                                                      where tickets go when a topic names nothing
     notes.py export [--status todo,wip,done] [--topic T | --file F] [--repo O/R] [--board N] [--assignee A] --out DIR
-    notes.py file --plans DIR [--yes]                create the tickets, then link them back
+    notes.py file --plans DIR [--yes]                create the tickets, then remove the filed items
+                                                     from the note (or, with after-filing "link", mark them)
 
 `--file F` works on one notes file anywhere, inside the notes folder or not
 (a Windows path is fine); a bare name is looked up in the notes folder.
@@ -37,6 +38,13 @@ filed into the Done column and closed; checkbox `- [x]` items never are.
 
 Defaults for topics whose front matter names no repo, board or assignee are
 saved in the same config file by `defaults`. The assignee defaults to @me.
+
+After filing, each filed item is removed from its note: a checkbox item with
+its indented details, an inline marker with its whole line and its scope (the
+ticket keeps the title, the quoted line and the scope). The note is first saved
+as <file>.bak. A line that also holds a marker that was not filed stays, and
+its filed marker gets `→ #N`. `defaults --after-filing link` keeps every item
+and marks it `→ #N` instead; `export --keep` does that for one run.
 
 Standard library only. Exit status: 0 done, 1 GitHub or a check failed, 2 bad input.
 """
@@ -75,6 +83,7 @@ INLINE_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\((todo|optio
                        r'(?:\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+))?', re.I)
 INLINE_STATUS = {"todo": "todo", "optional": "todo", "wip": "wip", "done": "done", "+": "done"}
 DEFAULT_ASSIGNEE = "@me"
+AFTER_FILING = ("remove", "link")
 # A marked line's scope: the bullet or dash lines straight after it, up to a blank or any other line.
 SCOPE_RE = re.compile(r"^\s*[-\u2013\u2014\u2022\u00b7\u25cf\u25e6\u25aa*+]\s+(?:\[([ xX/~-])\]\s+)?(\S.*)$")
 
@@ -480,7 +489,7 @@ def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
 
 def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional[str],
            board: Optional[int], columns: Dict[str, str], assignee: Optional[str] = None,
-           files: Optional[List[Path]] = None) -> List[Dict[str, Any]]:
+           files: Optional[List[Path]] = None, after_filing: str = "remove") -> List[Dict[str, Any]]:
     """Group the unfiled items into one ticket plan per (repo, board, status).
 
     Open checkbox items and every inline marker are filed; a done checkbox item never is."""
@@ -514,7 +523,7 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
             plan = plans.setdefault(key, {"repo": target_repo, "board": board_number, "status": lane,
                                           "column": columns.get(lane, DEFAULT_COLUMNS[lane]),
                                           "issues": [], "sources": {}, "root": str(root.resolve()),
-                                          "close": item["status"] == "done"})
+                                          "close": item["status"] == "done", "after_filing": after_filing})
             title = ticket_title(item["text"])
             if any(i["title"] == title for i in plan["issues"]):
                 title = ticket_title("%s (%s)" % (item["text"], note["topic"]))
@@ -541,7 +550,7 @@ def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
     for plan in plans:
         name = "%s-%s-%s" % (slug(plan["repo"]), plan["board"] or "noboard", plan["status"])
         (out / (name + ".json")).write_text(json.dumps({"issues": plan["issues"]}, indent=2) + "\n", encoding="utf-8")
-        meta = {k: plan[k] for k in ("repo", "board", "status", "column", "sources", "close", "root")}
+        meta = {k: plan[k] for k in ("repo", "board", "status", "column", "sources", "close", "root", "after_filing")}
         (out / (name + ".meta.json")).write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
         summary.append({"plan": str(out / (name + ".json")), "repo": plan["repo"], "board": plan["board"],
                         "column": plan["column"], "closed_after": plan["close"],
@@ -551,8 +560,47 @@ def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
     return summary
 
 
-def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int]) -> List[str]:
-    """Append `→ #N` to each filed item's line, found by its text even if the file moved lines around."""
+def block_end(lines: List[str], idx: int) -> int:
+    """Index past an item line's own block: its indented children, as `parse` reads them."""
+    base, j = indent(lines[idx]), idx + 1
+    while j < len(lines) and (not lines[j].strip() or indent(lines[j]) > base):
+        if not lines[j].strip():
+            k = j
+            while k < len(lines) and not lines[k].strip():
+                k += 1
+            if k >= len(lines) or indent(lines[k]) <= base:
+                break
+        j += 1
+    return j
+
+
+def remove_filed(lines: List[str], filed: List[int]) -> List[Tuple[int, int]]:
+    """Delete each filed line with what belongs to it, unless it still holds an unfiled marker.
+    Returns the (first, last) 1-based line ranges removed, in the original numbering."""
+    spans = []
+    for idx in sorted(set(filed)):
+        line = lines[idx]
+        if any(not m.group(3) for m in INLINE_RE.finditer(line)):
+            continue  # another marker on this line is not filed yet: keep the line, its link marks the filed one
+        end = block_end(lines, idx) if (ITEM_RE.match(line) or LOOSE_RE.match(line)) else idx + 1
+        if INLINE_RE.search(line):
+            end = scope_end(lines, end)
+        spans.append((idx, end))
+    for start, end in sorted(spans, reverse=True):
+        del lines[start:end]
+        if 0 < start < len(lines) and not lines[start - 1].strip() and not lines[start].strip():
+            del lines[start]  # no double blank line where the item was
+    return [(start + 1, end) for start, end in spans]
+
+
+def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int],
+              backed_up: Optional[set] = None) -> List[str]:
+    """Mark each filed item's line `→ #N`, found by its text even if the file moved lines around.
+    With after_filing "remove" (the default), then remove the filed items, keeping <file>.bak.
+    `backed_up` names the files already backed up in this run: a run files several plans (todo,
+    optional, wip, done) one after another, and the .bak must hold the note as it was before the run."""
+    backed_up = set() if backed_up is None else backed_up
+    remove = meta.get("after_filing", "remove") == "remove"
     linked = []
     by_file: Dict[str, List[Tuple[str, Dict[str, Any]]]] = {}
     for key, src in meta["sources"].items():
@@ -560,7 +608,9 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int]) -> List
             by_file.setdefault(src["file"], []).append((key, src))
     for rel, entries in by_file.items():
         path = root / rel
-        lines = path.read_text(encoding="utf-8").splitlines()
+        original = path.read_text(encoding="utf-8")
+        lines = original.splitlines()
+        filed: List[int] = []
         for key, src in entries:
             ref = "#%d" % numbers[key] if src["repo_in_file"] else "%s#%d" % (meta["repo"], numbers[key])
             at = None
@@ -582,8 +632,19 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int]) -> List
             if at is None:
                 linked.append("%s: could not find %r to link %s — add `→ %s` to it by hand" % (rel, src["text"], ref, ref))
                 continue
+            filed.append(at)
             linked.append("%s:%d → %s" % (rel, at + 1, ref))
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        if remove and filed:
+            if str(path) not in backed_up:
+                path.with_name(path.name + ".bak").write_text(original, encoding="utf-8")
+                backed_up.add(str(path))
+            for first, last in remove_filed(lines, filed):
+                linked.append("%s:%s removed from the note (now in its ticket; previous version in %s.bak)"
+                              % (rel, first if first == last else "%d-%d" % (first, last), path.name))
+        if remove and filed:
+            while lines and not lines[-1].strip():
+                lines.pop()  # removing the last item leaves no trailing blank line
+        path.write_text("\n".join(lines) + "\n" if lines else "", encoding="utf-8")
     return linked
 
 
@@ -602,6 +663,7 @@ def file_plans(root: Optional[Path], plans_dir: Path) -> List[Dict[str, Any]]:
     """File every exported plan. Each plan names the folder its notes were read from, so a plan
     exported with --file links back into that file; `root` serves plans that predate it."""
     results = []
+    backed_up: set = set()
     for plan in sorted(plans_dir.glob("*.json")):
         if plan.name.endswith(".meta.json"):
             continue
@@ -630,7 +692,8 @@ def file_plans(root: Optional[Path], plans_dir: Path) -> List[Dict[str, Any]]:
                         "created": report["created"], "skipped": report["skipped"], "closed": closed,
                         "issues": [{"number": i["number"], "title": i["title"], "created": i["created"]}
                                    for i in report["issues"]],
-                        "linked": link_back(Path(meta["root"]) if meta.get("root") else root, meta, numbers)})
+                        "linked": link_back(Path(meta["root"]) if meta.get("root") else root, meta, numbers,
+                                            backed_up)})
     return results
 
 
@@ -687,11 +750,16 @@ def cmd_defaults(args) -> Any:
             changes.update(board=found["number"], board_title=found["title"])
     if args.assignee:
         changes["assignee"] = None if args.assignee.lower() == "default" else args.assignee
+    if args.after_filing:
+        if args.after_filing not in AFTER_FILING:
+            raise NotesError("--after-filing is remove or link")
+        changes["after_filing"] = args.after_filing
     if changes:
         save_config(**changes)
         cfg = load_config()
     return {"repo": cfg.get("repo"), "board": cfg.get("board"), "board_title": cfg.get("board_title"),
-            "assignee": cfg.get("assignee", DEFAULT_ASSIGNEE), "saved_in": str(config_path())}
+            "assignee": cfg.get("assignee", DEFAULT_ASSIGNEE),
+            "after_filing": cfg.get("after_filing", "remove"), "saved_in": str(config_path())}
 
 
 def cmd_add(args) -> Any:
@@ -777,8 +845,9 @@ def cmd_export(args) -> Any:
     repo = args.repo or cfg.get("repo")
     board = args.board if args.board is not None else cfg.get("board")
     assignee = args.assignee or cfg.get("assignee", DEFAULT_ASSIGNEE)
+    after_filing = "link" if args.keep else cfg.get("after_filing", "remove")
     root, files = select_files(args.root, args.file)
-    plans = export(root, statuses, args.topic, repo, board, columns, assignee, files)
+    plans = export(root, statuses, args.topic, repo, board, columns, assignee, files, after_filing)
     if not plans:
         return {"plans": [], "message": "nothing to file: every open item already has a ticket"}
     return {"plans": write_plans(plans, Path(args.out))}
@@ -826,6 +895,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--repo", help="owner/name, or none")
     p.add_argument("--board", help="project number or exact board name, or none")
     p.add_argument("--assignee", help="login, @me, none (unassigned), or default (@me)")
+    p.add_argument("--after-filing", help="remove (default): take filed items out of the note; link: keep them, marked → #N")
     p = sub.add_parser("export", help="unfiled items to ticket plans")
     p.add_argument("--status", default="todo,wip,done")
     p.add_argument("--topic")
@@ -837,6 +907,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--wip-column", default=DEFAULT_COLUMNS["wip"])
     p.add_argument("--done-column", default=DEFAULT_COLUMNS["done"])
     p.add_argument("--assignee", help="login, @me or none; overrides the saved default")
+    p.add_argument("--keep", action="store_true", help="this run, keep filed items in the note, marked → #N")
     p.add_argument("--out", required=True)
     p = sub.add_parser("file", help="create the exported tickets and link them back into the notes")
     p.add_argument("--plans", required=True)

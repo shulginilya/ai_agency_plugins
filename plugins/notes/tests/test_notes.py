@@ -160,7 +160,7 @@ class ExportAndLinkTest(unittest.TestCase):
         self.assertEqual(plans[0]["repo"], "me/other")
 
     def test_link_back_marks_items_and_they_are_not_exported_again(self):
-        plans = notes.export(self.root, ["todo", "wip"], "crew", None, None, notes.DEFAULT_COLUMNS)
+        plans = notes.export(self.root, ["todo", "wip"], "crew", None, None, notes.DEFAULT_COLUMNS, after_filing="link")
         for n, plan in enumerate(plans):
             numbers = {k: 100 + 10 * n + i for i, k in enumerate(plan["sources"])}
             notes.link_back(self.root, plan, numbers)
@@ -170,7 +170,7 @@ class ExportAndLinkTest(unittest.TestCase):
         self.assertEqual(notes.export(self.root, ["todo", "wip"], "crew", None, None, notes.DEFAULT_COLUMNS), [])
 
     def test_link_uses_the_full_ref_when_the_repo_came_from_the_flag(self):
-        plan = notes.export(self.root, ["todo"], "loose", "me/other", None, notes.DEFAULT_COLUMNS)[0]
+        plan = notes.export(self.root, ["todo"], "loose", "me/other", None, notes.DEFAULT_COLUMNS, after_filing="link")[0]
         notes.link_back(self.root, plan, {k: 7 for k in plan["sources"]})
         self.assertIn("- [ ] needs a repo → me/other#7", (self.root / "loose.md").read_text(encoding="utf-8"))
 
@@ -206,8 +206,9 @@ class InlineMarkerTest(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def export(self, statuses=("todo", "wip", "done"), assignee="@me"):
-        return notes.export(self.root, list(statuses), None, "me/tasks", 5, notes.DEFAULT_COLUMNS, assignee)
+    def export(self, statuses=("todo", "wip", "done"), assignee="@me", after_filing="link"):
+        return notes.export(self.root, list(statuses), None, "me/tasks", 5, notes.DEFAULT_COLUMNS, assignee,
+                            after_filing=after_filing)
 
     def test_markers_found_mid_line_in_any_case_and_not_in_fences(self):
         found = [(i["status"], i["text"]) for i in notes.inline_items(INLINE)]
@@ -370,6 +371,7 @@ class FileArgumentTest(unittest.TestCase):
         out = self.tmp / "plans"
         root, files = notes.select_files(str(self.root), str(self.elsewhere))
         notes.write_plans(notes.export(root, ["todo"], None, "me/tasks", None, notes.DEFAULT_COLUMNS, "@me", files), out)
+        before = self.elsewhere.read_text(encoding="utf-8")
 
         def fake_run(cmd, **kwargs):
             plan = json.loads(Path(cmd[cmd.index("--plan") + 1]).read_text())
@@ -378,8 +380,105 @@ class FileArgumentTest(unittest.TestCase):
 
         with mock.patch.object(notes.subprocess, "run", fake_run):
             notes.file_plans(None, out)
-        self.assertIn('"call the vendor"(todo) → me/tasks#9', self.elsewhere.read_text(encoding="utf-8"))
+        self.assertEqual(self.elsewhere.read_text(encoding="utf-8"), "# Meeting\n", "item and scope removed")
+        self.assertEqual(Path(str(self.elsewhere) + ".bak").read_text(encoding="utf-8"), before)
         self.assertNotIn("→", (self.root / "crew.md").read_text(encoding="utf-8"))
+
+
+REMOVE = """# Planning
+
+Planning call today.
+We agreed to "add an error filter"(todo)
+- filter by status
+- filter by agent
+
+Nice to have: "dark mode"(optional) and "keep this"(todo)
+Prose that stays.
+
+## TODO
+- [ ] plain checkbox
+  - its detail
+- [ ] another checkbox
+- [x] done stays
+
+"shipped it"(+)
+"""
+
+
+class RemoveAfterFilingTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name) / "notes"
+        self.root.mkdir()
+        self.path = self.root / "planning.md"
+        self.path.write_text(REMOVE, encoding="utf-8")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def file(self, statuses, keep=None, after_filing="remove"):
+        """Simulate a successful filing: number every exported item, then settle the note."""
+        plans = notes.export(self.root, statuses, None, "me/tasks", 5, notes.DEFAULT_COLUMNS, "@me",
+                             after_filing=after_filing)
+        n = 20
+        backed_up = set()
+        for plan in plans:
+            numbers = {}
+            for key, src in plan["sources"].items():
+                if keep and src["text"] in keep:
+                    continue  # this one "failed": it must stay in the note untouched
+                numbers[key] = n
+                n += 1
+            notes.link_back(self.root, plan, numbers, backed_up)
+        return self.path.read_text(encoding="utf-8")
+
+    def test_filed_items_leave_the_note_and_the_rest_stays(self):
+        after = self.file(["todo", "wip", "done"], keep={"keep this"})
+        self.assertNotIn("add an error filter", after)
+        self.assertNotIn("filter by status", after, "scope lines go with their marker")
+        self.assertNotIn("plain checkbox", after)
+        self.assertNotIn("its detail", after, "indented details go with their item")
+        self.assertNotIn("another checkbox", after)
+        self.assertNotIn("shipped it", after)
+        self.assertIn('"dark mode"(optional) → me/tasks#', after,
+                      "a line with an unfiled marker stays; its filed marker is linked")
+        self.assertIn('and "keep this"(todo)\n', after, "the unfiled marker is untouched, not linked")
+        for kept in ("Planning call today.", "Prose that stays.", "- [x] done stays", "## TODO"):
+            self.assertIn(kept, after)
+        self.assertNotIn("\n\n\n", after)
+        self.assertEqual((self.root / "planning.md.bak").read_text(encoding="utf-8"), REMOVE,
+                         "the .bak is the note before the run, though four plans each changed it")
+        self.assertTrue(after.endswith("- [x] done stays\n"), "no trailing blank line once the last item is gone")
+
+    def test_the_line_goes_once_its_last_marker_is_filed(self):
+        first = self.file(["todo"], keep={"keep this"})   # "dark mode" filed, "keep this" not
+        self.assertIn('Nice to have: "dark mode"(optional) → me/tasks#', first)
+        after = self.file(["todo"])                         # now "keep this" is filed too
+        self.assertNotIn("Nice to have", after)
+        self.assertIn("Prose that stays.", after)
+
+    def test_link_mode_keeps_every_item(self):
+        after = self.file(["todo", "wip", "done"], after_filing="link")
+        self.assertIn('"add an error filter"(todo) → me/tasks#', after)
+        self.assertIn("- filter by status", after)
+        self.assertIn("- [ ] plain checkbox → me/tasks#", after)
+        self.assertFalse((self.root / "planning.md.bak").exists())
+
+    def test_after_filing_is_a_saved_setting_and_keep_overrides_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, XDG_CONFIG_HOME=tmp)
+            env.pop("NOTES_DIR", None)
+            self.assertEqual(json.loads(run("defaults", env=env).stdout)["after_filing"], "remove")
+            self.assertEqual(run("defaults", "--after-filing", "delete", env=env).returncode, 2)
+            run("defaults", "--after-filing", "link", "--repo", "me/tasks", env=env)
+            out = Path(tmp) / "p"
+            run("--root", self.root, "export", "--out", out, env=env)
+            metas = [json.loads(m.read_text()) for m in out.glob("*.meta.json")]
+            self.assertTrue(metas and all(m["after_filing"] == "link" for m in metas))
+            run("defaults", "--after-filing", "remove", env=env)
+            run("--root", self.root, "export", "--keep", "--out", Path(tmp) / "q", env=env)
+            metas = [json.loads(m.read_text()) for m in (Path(tmp) / "q").glob("*.meta.json")]
+            self.assertTrue(metas and all(m["after_filing"] == "link" for m in metas))
 
 
 class DefaultsTest(unittest.TestCase):
