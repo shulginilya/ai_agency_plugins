@@ -97,7 +97,7 @@ ticket in its column, and assigns it. Tickets created into Done are then
 closed as completed. Then it settles the note:
 
 - **remove** (the default): each filed item is replaced by one line linking
-  to its ticket, `→ [#N title](url)`, since it now lives there. A checkbox
+  to its ticket, `→ [#N title](https://github.com/owner/repo/issues/N)`, since it now lives there. A checkbox
   item is replaced together with its indented details. An inline marker is
   replaced with its whole line and its scope; a line with several filed
   markers becomes one link per ticket. The ticket already holds the title,

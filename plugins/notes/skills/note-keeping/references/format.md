@@ -45,7 +45,7 @@ Talked about the crew today. Deploy must not run under a live crew.
 - Lines indented under an item belong to it: details, sub-bullets, links.
   They move with it and go into its ticket's body.
 - By default, once its ticket exists, a filed item is replaced in the note by
-  a link to it, `→ [#N title](url)` (see `notes-to-tickets`). A link line is
+  a link to it, `→ [#N title](https://github.com/owner/repo/issues/N)` (see `notes-to-tickets`). A link line is
   never filed and never counts as a scope line. With `after_filing: link`, or for an item whose
   line still holds an unfiled marker, it stays and ends with `→ #N` when the
   front matter names the repo, or `→ owner/repo#N` when it doesn't. `->`
