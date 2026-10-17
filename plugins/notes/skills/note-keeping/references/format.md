@@ -48,6 +48,32 @@ Talked about the crew today. Deploy must not run under a live crew.
   `→ owner/repo#N` when it doesn't. `->` works too. A linked item is never
   filed again.
 
+## Inline markers
+
+Mark a task anywhere in a line, mid-sentence included, by quoting it and
+adding its status in brackets:
+
+```markdown
+Talked to the team: we should "add an error filter"(todo), and I'm already
+"wiring the board"(wip). Yesterday I "shipped the notes plugin"(+).
+```
+
+| Marker | Status | Ticket goes to |
+| --- | --- | --- |
+| `"text"(todo)` or `(TODO)` | TODO | Backlog |
+| `"text"(wip)` or `(WIP)` | In progress | In progress |
+| `"text"(done)`, `(DONE)` or `(+)` | Done | Done, and the ticket is closed as completed |
+
+- The quoted text becomes the ticket title. Straight `"…"` and curly
+  `“…”` quotes both work, and so does any case of the status.
+- When filed, the marker gets its ticket right after it:
+  `"add an error filter"(todo) → #12`. A marker with a ticket is never filed
+  again.
+- A checkbox item whose text holds a marker is filed once, as the marker.
+- Markers inside a code fence (```` ``` ````) are ignored.
+- Unlike inline `(done)` markers, `- [x]` items are never filed. They are
+  history, not tasks.
+
 ## Sections
 
 - The standard sections, in this order: `## In progress`, `## TODO`,

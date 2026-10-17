@@ -43,6 +43,10 @@ from `status` and say which you picked.
 - `--todo` and `--wip` add an item to the topic's TODO or In progress section.
 - `--note` appends to today's `### YYYY-MM-DD` entry under Notes.
 - A new topic gets its own file.
+- Inline markers need no command. A quoted phrase followed by `(todo)`,
+  `(wip)` or `(done)`/`(+)`, anywhere in a note, is a task of that status (see
+  the format reference). `status` counts the markers, and `notes-to-tickets`
+  files them.
 
 Keep the user's wording. Fix only obvious typos, and only if they ask.
 

@@ -3,9 +3,10 @@
 Running notes on many topics, kept organized in plain Markdown. Capture a
 TODO, something you're working on, or a thought as it happens. Regroup a
 messy topic into In progress, TODO, Done, Dropped and Notes without losing a
-line. See what's open across every topic. Turn TODO and in-progress items
-into GitHub tickets on the board you name, with each note marked by its
-ticket so nothing is filed twice.
+line. See what's open across every topic. Turn TODO, in-progress and done
+items, including inline `"text"(todo)`, `"text"(wip)` and `"text"(done)`
+markers, into GitHub tickets assigned to you on your default board. Each
+note is marked with its ticket, so nothing is filed twice.
 
 It's a Captain plugin, for your own sessions. It isn't in the firstmate crew
 (`crew_plugins`), and the crew brief doesn't route work to it.
@@ -20,7 +21,7 @@ It's a Captain plugin, for your own sessions. It isn't in the firstmate crew
 | Command | `/add` | Capture a TODO, an in-progress item or a dated note |
 | Command | `/organize` | Regroup a topic, or all of them, into the standard sections |
 | Command | `/status` | What's open per topic; `--set-root <path>` changes the notes folder |
-| Command | `/to-tickets` | Turn open items into tickets on a board |
+| Command | `/to-tickets` | Turn open items and inline markers into tickets on a board, assigned to you |
 
 No hooks, no agents, no MCP server. Everything runs when you ask.
 
@@ -43,8 +44,28 @@ One `.md` file per topic. Front matter can name the topic's `repo` and
 `board`, so its tickets go to the right place. Items are `- [ ]` TODO,
 `- [/]` in progress, `- [x]` done and `- [-]` dropped. Loose `TODO:` and `WIP:`
 lines count too. Lines indented under an item belong to it. A filed item ends
-with `→ #N`. The full description, with an example, is in
-`skills/note-keeping/references/format.md`.
+with `→ #N`.
+
+Inline markers work anywhere in a line:
+- `"add an error filter"(todo)` goes to Backlog;
+- `"wiring the board"(wip)` goes to In progress;
+- `"shipped it"(done)` or `"shipped it"(+)` goes to Done, and the ticket is
+  closed.
+
+Any case works, so `(TODO)`, `(WIP)` and `(DONE)` are the same. The full
+description, with an example, is in `skills/note-keeping/references/format.md`.
+
+## Where tickets go
+
+Front matter wins, then the command line, then the saved defaults:
+
+```bash
+python skills/note-keeping/scripts/notes.py defaults --repo shulginilya/ai-common-tasks --board "AI common tasks" --assignee @me
+python skills/note-keeping/scripts/notes.py defaults     # show them
+```
+
+`--board` takes a number or the board's exact name. The assignee defaults to
+`@me`, meaning you. `--assignee none` files tickets unassigned.
 
 ## Guarantees
 
@@ -65,7 +86,8 @@ python $N set-root "C:\Users\Ilya Shulgin\source\repos\tech_docs\notes"
 python $N add --topic "Observatory" --todo "add a timeline filter for errors"
 python $N status
 python $N organize --file observatory.md            # preview; add --write to apply
-python $N export --topic Observatory --repo me/app --board 3 --out /tmp/plans
+python $N defaults --repo me/tasks --board "AI common tasks"
+python $N export --out /tmp/plans                     # todo, wip and done, assigned to @me
 python -m tools.apkit test --plugin notes
 ```
 

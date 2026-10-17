@@ -131,6 +131,19 @@ class PlanTest(unittest.TestCase):
             with self.assertRaisesRegex(tickets.InputError, pattern):
                 tickets.load_plan(bad)
 
+    def test_assignees_are_a_list_of_logins(self):
+        items = tickets.load_plan({"issues": [{"key": "a", "title": "A", "assignees": ["@me"]}]})
+        self.assertEqual(items[0]["assignees"], ["@me"])
+        with self.assertRaisesRegex(tickets.InputError, "assignees"):
+            tickets.load_plan({"issues": [{"key": "a", "title": "A", "assignees": "@me"}]})
+
+    def test_create_passes_each_assignee_to_gh(self):
+        with mock.patch.object(tickets, "gh", return_value="https://github.com/me/app/issues/9\n") as gh:
+            made = tickets.create_issue("T", "B", ["bug"], ["@me", "pal"])
+        self.assertEqual(made["number"], 9)
+        args = gh.call_args[0]
+        self.assertEqual([args[i + 1] for i, a in enumerate(args) if a == "--assignee"], ["@me", "pal"])
+
     def test_rerun_skips_titles_that_already_exist(self):
         actions = tickets.plan_actions(tickets.load_plan(self.PLAN), {"Session timeline view": 12})
         self.assertEqual([(a["action"], a["number"]) for a in actions], [("exists", 12), ("create", None)])

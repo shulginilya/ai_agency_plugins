@@ -14,8 +14,8 @@ every write is shown before it is made, and each result is reported back with
 its link.
 
 ```bash
-python scripts/tickets.py create --title T --body-file F [--label L] [--project N --status Backlog]
-python scripts/tickets.py batch  --plan plan.json --project N --status Backlog [--dry-run]
+python scripts/tickets.py create --title T --body-file F [--label L] [--assignee @me] [--project N --status Backlog]
+python scripts/tickets.py batch  --plan plan.json --project N --status Backlog [--assignee @me] [--dry-run]
 python scripts/tickets.py edit   --issue I [--title T] [--body-file F] [--add-label L] [--remove-label L]
 python scripts/tickets.py close  --issue I [--reason completed|not-planned] [--comment C]
 python scripts/tickets.py delete --issue I --confirm I
@@ -55,6 +55,9 @@ Write the body to a file and run `create`.
 - Pass `--skip-existing` when the ticket may already exist: an issue with the
   exact same title is reused instead of duplicated.
 - Add `--project N --status <column>` to put it on a board in the same step.
+- Add `--assignee LOGIN` (or `@me`, the signed-in user) to assign it. Repeat
+  the flag for several people. In a batch plan, an item's `assignees` list
+  does the same per item.
 
 ## Create a backlog
 

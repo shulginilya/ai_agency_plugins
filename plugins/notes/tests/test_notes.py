@@ -180,5 +180,118 @@ class ExportAndLinkTest(unittest.TestCase):
         self.assertIn("show the export to the user first", result.stderr)
 
 
+INLINE = """# Ideas
+Talked to the team. We should "add an error filter"(todo) and maybe "try Neon branches"(TODO).
+Currently "wiring the board"(WIP) and "fixing the export"(wip); "shipped the notes plugin"(+) and
+"wrote the README"(DONE), also "made the board"(done).
+- [ ] "checkbox with a marker"(todo)
+- [ ] a plain checkbox
+- [x] old done checkbox
+
+```
+"inside a fence"(todo)
+```
+"""
+
+
+class InlineMarkerTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name) / "notes"
+        self.root.mkdir()
+        (self.root / "ideas.md").write_text(INLINE, encoding="utf-8")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def export(self, statuses=("todo", "wip", "done"), assignee="@me"):
+        return notes.export(self.root, list(statuses), None, "me/tasks", 5, notes.DEFAULT_COLUMNS, assignee)
+
+    def test_markers_found_mid_line_in_any_case_and_not_in_fences(self):
+        found = [(i["status"], i["text"]) for i in notes.inline_items(INLINE)]
+        self.assertEqual(found, [
+            ("todo", "add an error filter"), ("todo", "try Neon branches"),
+            ("wip", "wiring the board"), ("wip", "fixing the export"), ("done", "shipped the notes plugin"),
+            ("done", "wrote the README"), ("done", "made the board"), ("todo", "checkbox with a marker"),
+        ])
+
+    def test_columns_assignee_and_close_per_status(self):
+        plans = {p["status"]: p for p in self.export()}
+        self.assertEqual(plans["todo"]["column"], "Backlog")
+        self.assertEqual(plans["wip"]["column"], "In progress")
+        self.assertEqual(plans["done"]["column"], "Done")
+        self.assertTrue(plans["done"]["close"])
+        self.assertFalse(plans["todo"]["close"] or plans["wip"]["close"])
+        titles = [i["title"] for i in plans["todo"]["issues"]]
+        self.assertEqual(titles, ["add an error filter", "try Neon branches", "checkbox with a marker",
+                                  "a plain checkbox"], "a checkbox holding a marker is filed once")
+        self.assertNotIn("old done checkbox", [i["title"] for i in plans["done"]["issues"]])
+        self.assertTrue(all(i["assignees"] == ["@me"] for p in plans.values() for i in p["issues"]))
+        self.assertTrue(all(p["repo"] == "me/tasks" and p["board"] == 5 for p in plans.values()))
+
+    def test_no_assignee_when_set_to_none(self):
+        self.assertTrue(all("assignees" not in i for p in self.export(assignee="none") for i in p["issues"]))
+
+    def test_link_back_after_the_marker_and_never_filed_twice(self):
+        for n, plan in enumerate(self.export()):
+            notes.link_back(self.root, plan, {k: 50 + 10 * n + i for i, k in enumerate(plan["sources"])})
+        text = (self.root / "ideas.md").read_text(encoding="utf-8")
+        self.assertIn('We should "add an error filter"(todo) → me/tasks#50 and maybe', text)
+        self.assertIn('"wrote the README"(DONE) → me/tasks#', text)
+        self.assertIn('- [ ] "checkbox with a marker"(todo) → me/tasks#', text)
+        self.assertEqual(self.export(), [])
+        scan = notes.scan_items(self.root, None)
+        self.assertTrue(all(r["ticket"] for r in scan if r["status"] != "done" or r["inline"]))
+
+    def test_organize_keeps_every_marker(self):
+        after = notes.organize_text(INLINE, "ideas.md")
+        self.assertEqual(notes.compare(INLINE, after), {"lost": [], "added": []})
+        self.assertEqual(len(notes.inline_items(after)), len(notes.inline_items(INLINE)))
+
+    def test_file_closes_created_done_tickets(self):
+        out = Path(self._tmp.name) / "plans"
+        notes.write_plans(self.export(statuses=("done",)), out)
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            if "batch" in cmd:
+                plan = json.loads(Path(cmd[cmd.index("--plan") + 1]).read_text())
+                issues = [{"key": i["key"], "number": 70 + n, "title": i["title"], "created": n != 0}
+                          for n, i in enumerate(plan["issues"])]
+                return mock.Mock(returncode=0, stdout=json.dumps({"created": 2, "skipped": 1, "issues": issues}),
+                                 stderr="")
+            return mock.Mock(returncode=0, stdout="{}", stderr="")
+
+        with mock.patch.object(notes.subprocess, "run", fake_run):
+            result = notes.file_plans(self.root, out)[0]
+        batch = next(c for c in calls if "batch" in c)
+        self.assertEqual(batch[batch.index("--status") + 1], "Done")
+        closes = [c[c.index("--issue") + 1] for c in calls if "close" in c]
+        self.assertEqual(closes, ["71", "72"], "only newly created tickets are closed")
+        self.assertEqual(result["closed"], [71, 72])
+
+
+class DefaultsTest(unittest.TestCase):
+    def test_defaults_are_saved_beside_the_root_and_used_by_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "notes"
+            root.mkdir()
+            (root / "t.md").write_text('# T\n"do it"(todo)\n', encoding="utf-8")
+            env = dict(os.environ, XDG_CONFIG_HOME=tmp)
+            env.pop("NOTES_DIR", None)
+            self.assertEqual(run("set-root", root, env=env).returncode, 0)
+            shown = json.loads(run("defaults", env=env).stdout)
+            self.assertEqual((shown["repo"], shown["board"], shown["assignee"]), (None, None, "@me"))
+            self.assertEqual(run("defaults", "--repo", "me/tasks", "--board", "5", env=env).returncode, 0)
+            self.assertEqual(run("defaults", "--repo", "not a repo", env=env).returncode, 2)
+            self.assertEqual(run("set-root", root, env=env).returncode, 0, "set-root keeps the defaults")
+            out = Path(tmp) / "plans"
+            result = json.loads(run("export", "--out", out, env=env).stdout)
+            plan = result["plans"][0]
+            self.assertEqual((plan["repo"], plan["board"], plan["column"], plan["assignees"]),
+                             ("me/tasks", 5, "Backlog", ["@me"]))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

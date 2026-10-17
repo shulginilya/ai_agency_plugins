@@ -8,7 +8,9 @@
     notes.py scan [--topic T] [--json]               every item: status, section, file:line, ticket
     notes.py organize --file F [--write]             regroup one file into the standard sections
     notes.py check BEFORE AFTER                      prove an edit lost or duplicated no line
-    notes.py export [--status todo,wip] [--topic T] [--repo O/R] [--board N] --out DIR
+    notes.py defaults [--repo O/R] [--board N|NAME] [--assignee LOGIN|@me|none]
+                                                     where tickets go when a topic names nothing
+    notes.py export [--status todo,wip,done] [--topic T] [--repo O/R] [--board N] [--assignee A] --out DIR
     notes.py file --plans DIR [--yes]                create the tickets, then link them back
 
 Where the notes are, first match wins: --root, then $NOTES_DIR, then the folder
@@ -20,6 +22,14 @@ board), and the sections `## In progress`, `## TODO`, `## Done`, `## Dropped`
 and `## Notes`. Items: `- [ ]` todo, `- [/]` in progress, `- [x]` done,
 `- [-]` dropped. Loose `TODO:` / `WIP:` lines count as items. Indented lines
 under an item belong to it. A filed item ends with `→ #N` or `→ owner/repo#N`.
+
+Inline markers count anywhere in a line, mid-sentence too: `"text"(todo)`,
+`"text"(wip)` and `"text"(done)` or `"text"(+)`, in any case. The quoted text is
+the ticket title. A filed marker is followed by `→ #N`. Inline done markers are
+filed into the Done column and closed; checkbox `- [x]` items never are.
+
+Defaults for topics whose front matter names no repo, board or assignee are
+saved in the same config file by `defaults`. The assignee defaults to @me.
 
 Standard library only. Exit status: 0 done, 1 GitHub or a check failed, 2 bad input.
 """
@@ -53,7 +63,11 @@ LOOSE_RE = re.compile(r"^(\s*)(TODO|FIXME|WIP|DOING)\s*:\s*(.+)$", re.I)
 LOOSE_STATUS = {"todo": "todo", "fixme": "todo", "wip": "wip", "doing": "wip"}
 TICKET_RE = re.compile(r"\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+)\s*$")
 TITLE_MAX = 80
-DEFAULT_COLUMNS = {"todo": "Backlog", "wip": "In progress"}
+DEFAULT_COLUMNS = {"todo": "Backlog", "wip": "In progress", "done": "Done"}
+INLINE_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\((todo|wip|done|\+)\)'
+                       r'(?:\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+))?', re.I)
+INLINE_STATUS = {"todo": "todo", "wip": "wip", "done": "done", "+": "done"}
+DEFAULT_ASSIGNEE = "@me"
 
 
 class NotesError(Exception):
@@ -84,19 +98,39 @@ def normalize_path(text: str) -> Path:
     return Path(os.path.expanduser(text))
 
 
+def load_config() -> Dict[str, Any]:
+    cfg = config_path()
+    if not cfg.is_file():
+        return {}
+    try:
+        data = json.loads(cfg.read_text(encoding="utf-8"))
+    except ValueError:
+        raise NotesError("%s is not valid JSON; fix it or delete it and run `set-root` again" % cfg)
+    return data if isinstance(data, dict) else {}
+
+
+def save_config(**changes: Any) -> Path:
+    """Merge changes into the config file; a None value removes the key."""
+    data = load_config()
+    for key, value in changes.items():
+        if value is None:
+            data.pop(key, None)
+        else:
+            data[key] = value
+    cfg = config_path()
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return cfg
+
+
 def resolve_root(flag: Optional[str]) -> Tuple[Path, str]:
     if flag:
         return normalize_path(flag), "--root"
     if os.environ.get("NOTES_DIR"):
         return normalize_path(os.environ["NOTES_DIR"]), "$NOTES_DIR"
-    cfg = config_path()
-    if cfg.is_file():
-        try:
-            saved = json.loads(cfg.read_text(encoding="utf-8")).get("root")
-        except ValueError:
-            raise NotesError("%s is not valid JSON; run `notes.py set-root PATH` again" % cfg)
-        if saved:
-            return normalize_path(saved), str(cfg)
+    saved = load_config().get("root")
+    if saved:
+        return normalize_path(saved), str(config_path())
     raise NotesError("no notes folder set. Run `notes.py set-root PATH`, set $NOTES_DIR, or pass --root")
 
 
@@ -199,6 +233,31 @@ def parse(text: str, name: str = "") -> Dict[str, Any]:
     topic = meta.get("topic") or title or Path(name).stem.replace("-", " ").replace("_", " ").strip() or "untitled"
     return {"front_matter": fm_lines, "meta": meta, "title": title, "topic": topic,
             "items": items, "blocks": blocks}
+
+
+def inline_items(text: str) -> List[Dict[str, Any]]:
+    """Every inline `"text"(todo|wip|done|+)` marker, outside front matter and code fences."""
+    lines = text.splitlines()
+    fm_lines, _, body = split_front_matter(lines)
+    found, fenced = [], False
+    for offset, line in enumerate(body):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        for m in INLINE_RE.finditer(line):
+            found.append({"status": INLINE_STATUS[m.group(2).lower()], "text": m.group(1).strip(),
+                          "ticket": m.group(3), "line": len(fm_lines) + offset + 1, "raw": line,
+                          "children": [], "section": None, "group": None, "loose": False,
+                          "inline": True, "indent": 0})
+    return found
+
+
+def note_items(note: Dict[str, Any], text: str) -> List[Dict[str, Any]]:
+    """Checkbox and loose items, plus inline markers. A checkbox line holding a marker counts once, as the marker."""
+    plain = [dict(it, inline=False) for it in note["items"] if not INLINE_RE.search(it["raw"])]
+    return sorted(plain + inline_items(text), key=lambda it: it["line"])
 
 
 def item_line(item: Dict[str, Any]) -> str:
@@ -335,7 +394,8 @@ def add_to(text: str, topic: str, kind: str, entry: str, today: str) -> str:
 
 
 def item_key(rel: str, item: Dict[str, Any]) -> str:
-    digest = hashlib.sha1(("%s\0%s" % (rel, item["text"])).encode("utf-8")).hexdigest()[:10]
+    kind = "inline" if item.get("inline") else ""
+    digest = hashlib.sha1(("%s\0%s\0%s" % (rel, item["text"], kind)).encode("utf-8")).hexdigest()[:10]
     return "n-%s" % digest
 
 
@@ -353,25 +413,36 @@ def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
                         for c in item["children"] if c.strip())
     parts = ["From my notes: **%s** (`%s`, line %d, %s)." % (topic, rel, item["line"], SECTION[item["status"]]),
              "", item["text"]]
+    context = INLINE_RE.sub(lambda m: m.group(1), item["raw"]).strip() if item.get("inline") else ""
+    if context and context != item["text"]:
+        parts += ["", "> " + context]
     if details:
         parts += ["", details]
     return "\n".join(parts) + "\n"
 
 
 def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional[str],
-           board: Optional[int], columns: Dict[str, str]) -> List[Dict[str, Any]]:
-    """Group the open, unfiled items into one ticket plan per (repo, board, status)."""
+           board: Optional[int], columns: Dict[str, str], assignee: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Group the unfiled items into one ticket plan per (repo, board, status).
+
+    Open checkbox items and every inline marker are filed; a done checkbox item never is."""
     plans: Dict[Tuple[str, Optional[int], str], Dict[str, Any]] = {}
     problems = []
     for path in note_files(root):
         rel = path.relative_to(root).as_posix()
-        note = parse(path.read_text(encoding="utf-8"), path.name)
+        text = path.read_text(encoding="utf-8")
+        note = parse(text, path.name)
         if topic and slug(topic) not in (slug(note["topic"]), slug(path.stem)):
             continue
         target_repo = note["meta"].get("repo") or repo
         target_board = note["meta"].get("board") or board
-        for item in note["items"]:
+        target_assignee = note["meta"].get("assignee") or assignee
+        if target_assignee and target_assignee.lower() == "none":
+            target_assignee = None
+        for item in note_items(note, text):
             if item["status"] not in statuses or item["ticket"]:
+                continue
+            if item["status"] == "done" and not item["inline"]:
                 continue
             if not target_repo:
                 problems.append("%s: no repo — add `repo: owner/name` to its front matter or pass --repo" % rel)
@@ -382,14 +453,18 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
                 raise NotesError("%s: board %r is not a project number" % (rel, target_board))
             key = (target_repo, board_number, item["status"])
             plan = plans.setdefault(key, {"repo": target_repo, "board": board_number, "status": item["status"],
-                                          "column": columns[item["status"]], "issues": [], "sources": {}})
+                                          "column": columns[item["status"]], "issues": [], "sources": {},
+                                          "close": item["status"] == "done"})
             title = ticket_title(item["text"])
             if any(i["title"] == title for i in plan["issues"]):
                 title = ticket_title("%s (%s)" % (item["text"], note["topic"]))
             k = item_key(rel, item)
-            plan["issues"].append({"key": k, "title": title, "body": ticket_body(note["topic"], rel, item)})
+            issue = {"key": k, "title": title, "body": ticket_body(note["topic"], rel, item)}
+            if target_assignee:
+                issue["assignees"] = [target_assignee]
+            plan["issues"].append(issue)
             plan["sources"][k] = {"file": rel, "line": item["line"], "text": item["text"],
-                                  "repo_in_file": bool(note["meta"].get("repo"))}
+                                  "repo_in_file": bool(note["meta"].get("repo")), "inline": item["inline"]}
     if problems:
         raise NotesError("cannot export:\n  " + "\n  ".join(dict.fromkeys(problems)))
     return list(plans.values())
@@ -401,10 +476,12 @@ def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
     for plan in plans:
         name = "%s-%s-%s" % (slug(plan["repo"]), plan["board"] or "noboard", plan["status"])
         (out / (name + ".json")).write_text(json.dumps({"issues": plan["issues"]}, indent=2) + "\n", encoding="utf-8")
-        meta = {k: plan[k] for k in ("repo", "board", "status", "column", "sources")}
+        meta = {k: plan[k] for k in ("repo", "board", "status", "column", "sources", "close")}
         (out / (name + ".meta.json")).write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
         summary.append({"plan": str(out / (name + ".json")), "repo": plan["repo"], "board": plan["board"],
-                        "column": plan["column"], "items": [i["title"] for i in plan["issues"]]})
+                        "column": plan["column"], "closed_after": plan["close"],
+                        "assignees": sorted({a for i in plan["issues"] for a in i.get("assignees", [])}),
+                        "items": [i["title"] for i in plan["issues"]]})
     return summary
 
 
@@ -422,14 +499,23 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int]) -> List
             ref = "#%d" % numbers[key] if src["repo_in_file"] else "%s#%d" % (meta["repo"], numbers[key])
             at = None
             for idx, line in enumerate(lines):
+                if src.get("inline"):
+                    hit = next((m for m in INLINE_RE.finditer(line)
+                                if m.group(1).strip() == src["text"] and not m.group(3)), None)
+                    if hit:
+                        lines[idx] = "%s → %s%s" % (line[:hit.end()], ref, line[hit.end():])
+                        at = idx
+                        break
+                    continue
                 m = ITEM_RE.match(line) or LOOSE_RE.match(line)
-                if m and TICKET_RE.sub("", m.group(3)).strip() == src["text"] and not TICKET_RE.search(m.group(3)):
+                if m and TICKET_RE.sub("", m.group(3)).strip() == src["text"] and not TICKET_RE.search(m.group(3)) \
+                        and not INLINE_RE.search(line):
+                    lines[idx] = "%s → %s" % (line.rstrip(), ref)
                     at = idx
                     break
             if at is None:
                 linked.append("%s: could not find %r to link %s — add `→ %s` to it by hand" % (rel, src["text"], ref, ref))
                 continue
-            lines[at] = "%s → %s" % (lines[at].rstrip(), ref)
             linked.append("%s:%d → %s" % (rel, at + 1, ref))
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return linked
@@ -461,8 +547,21 @@ def file_plans(root: Path, plans_dir: Path) -> List[Dict[str, Any]]:
             raise CheckFailed("filing %s into %s failed: %s" % (plan.name, meta["repo"], run.stderr.strip()))
         report = json.loads(run.stdout)
         numbers = {i["key"]: i["number"] for i in report["issues"]}
+        closed = []
+        if meta.get("close"):
+            for issue in report["issues"]:
+                if not issue["created"]:
+                    continue
+                done = subprocess.run([sys.executable, str(tickets_script()), "close", "--issue", str(issue["number"]),
+                                       "--reason", "completed"], capture_output=True, text=True, env=env, check=False)
+                if done.returncode != 0:
+                    raise CheckFailed("#%d was created in %s but could not be closed: %s"
+                                      % (issue["number"], meta["repo"], done.stderr.strip()))
+                closed.append(issue["number"])
         results.append({"repo": meta["repo"], "board": meta["board"], "column": meta["column"],
-                        "created": report["created"], "skipped": report["skipped"],
+                        "created": report["created"], "skipped": report["skipped"], "closed": closed,
+                        "issues": [{"number": i["number"], "title": i["title"], "created": i["created"]}
+                                   for i in report["issues"]],
                         "linked": link_back(root, meta, numbers)})
     return results
 
@@ -479,10 +578,52 @@ def cmd_set_root(args) -> Any:
     root = normalize_path(args.path)
     if not root.is_dir():
         raise NotesError("%s does not exist; create it first" % root)
-    cfg = config_path()
-    cfg.parent.mkdir(parents=True, exist_ok=True)
-    cfg.write_text(json.dumps({"root": args.path}, indent=2) + "\n", encoding="utf-8")
-    return {"root": str(root), "saved_in": str(cfg)}
+    return {"root": str(root), "saved_in": str(save_config(root=args.path))}
+
+
+def find_board(owner: str, wanted: str) -> Dict[str, Any]:
+    """A board of `owner` by exact title (case-insensitive), through board.py's GraphQL plumbing."""
+    sys.path.insert(0, str(tickets_script().parent))
+    import board  # type: ignore
+    nodes = "projectsV2(first:50){nodes{number title closed}}"
+    data = board.graphql("query($owner:String!){repositoryOwner(login:$owner){... on User{%s} ... on Organization{%s}}}"
+                         % (nodes, nodes), owner=owner)
+    boards = (((data.get("repositoryOwner") or {}).get("projectsV2") or {}).get("nodes")) or []
+    match = [b for b in boards if not b["closed"] and b["title"].strip().lower() == wanted.strip().lower()]
+    if not match:
+        raise NotesError("%s has no open board named %r. Boards: %s"
+                         % (owner, wanted, ", ".join("#%d %s" % (b["number"], b["title"]) for b in boards) or "none"))
+    return match[0]
+
+
+def cmd_defaults(args) -> Any:
+    cfg = load_config()
+    changes: Dict[str, Any] = {}
+    if args.repo:
+        if args.repo.lower() == "none":
+            changes["repo"] = None
+        elif not re.match(r"^[\w.-]+/[\w.-]+$", args.repo):
+            raise NotesError("--repo is owner/name, not %r" % args.repo)
+        else:
+            changes["repo"] = args.repo
+    if args.board:
+        if args.board.lower() == "none":
+            changes.update(board=None, board_title=None)
+        elif args.board.isdigit():
+            changes.update(board=int(args.board), board_title=None)
+        else:
+            repo = changes.get("repo") or cfg.get("repo")
+            if not repo:
+                raise NotesError("set --repo first: a board is found by name among its owner's boards")
+            found = find_board(repo.split("/")[0], args.board)
+            changes.update(board=found["number"], board_title=found["title"])
+    if args.assignee:
+        changes["assignee"] = None if args.assignee.lower() == "default" else args.assignee
+    if changes:
+        save_config(**changes)
+        cfg = load_config()
+    return {"repo": cfg.get("repo"), "board": cfg.get("board"), "board_title": cfg.get("board_title"),
+            "assignee": cfg.get("assignee", DEFAULT_ASSIGNEE), "saved_in": str(config_path())}
 
 
 def cmd_add(args) -> Any:
@@ -503,13 +644,15 @@ def scan_items(root: Path, topic: Optional[str]) -> List[Dict[str, Any]]:
     rows = []
     for path in note_files(root):
         rel = path.relative_to(root).as_posix()
-        note = parse(path.read_text(encoding="utf-8"), path.name)
+        text = path.read_text(encoding="utf-8")
+        note = parse(text, path.name)
         if topic and slug(topic) not in (slug(note["topic"]), slug(path.stem)):
             continue
-        for it in note["items"]:
+        for it in note_items(note, text):
             rows.append({"topic": note["topic"], "file": rel, "line": it["line"], "status": it["status"],
                          "text": it["text"], "ticket": it["ticket"], "group": it["group"],
-                         "loose": it["loose"], "repo": note["meta"].get("repo"), "board": note["meta"].get("board")})
+                         "loose": it["loose"], "inline": it["inline"],
+                         "repo": note["meta"].get("repo"), "board": note["meta"].get("board")})
     return rows
 
 
@@ -522,9 +665,10 @@ def cmd_status(args) -> Any:
     topics: Dict[str, Dict[str, Any]] = {}
     for r in rows:
         t = topics.setdefault(r["topic"], {"file": r["file"], "wip": 0, "todo": 0, "done": 0, "dropped": 0,
-                                            "unfiled_open": 0, "loose": 0})
+                                            "unfiled_open": 0, "unfiled_done_markers": 0, "loose": 0})
         t[r["status"]] += 1
         t["unfiled_open"] += r["status"] in ("todo", "wip") and not r["ticket"]
+        t["unfiled_done_markers"] += r["status"] == "done" and r["inline"] and not r["ticket"]
         t["loose"] += r["loose"]
     return topics
 
@@ -554,11 +698,15 @@ def cmd_check(args) -> Any:
 
 def cmd_export(args) -> Any:
     statuses = [s.strip() for s in args.status.split(",") if s.strip()]
-    bad = [s for s in statuses if s not in ("todo", "wip")]
+    bad = [s for s in statuses if s not in ("todo", "wip", "done")]
     if bad:
-        raise NotesError("--status takes todo and/or wip, not %s" % ", ".join(bad))
-    columns = {"todo": args.todo_column, "wip": args.wip_column}
-    plans = export(notes_root(args.root), statuses, args.topic, args.repo, args.board, columns)
+        raise NotesError("--status takes todo, wip and/or done, not %s" % ", ".join(bad))
+    columns = {"todo": args.todo_column, "wip": args.wip_column, "done": args.done_column}
+    cfg = load_config()
+    repo = args.repo or cfg.get("repo")
+    board = args.board if args.board is not None else cfg.get("board")
+    assignee = args.assignee or cfg.get("assignee", DEFAULT_ASSIGNEE)
+    plans = export(notes_root(args.root), statuses, args.topic, repo, board, columns, assignee)
     if not plans:
         return {"plans": [], "message": "nothing to file: every open item already has a ticket"}
     return {"plans": write_plans(plans, Path(args.out))}
@@ -598,13 +746,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     p = sub.add_parser("check", help="prove an edit lost or duplicated no line")
     p.add_argument("before")
     p.add_argument("after")
-    p = sub.add_parser("export", help="open, unfiled items to ticket plans")
-    p.add_argument("--status", default="todo,wip")
+    p = sub.add_parser("defaults", help="show or set where tickets go when a topic names nothing")
+    p.add_argument("--repo", help="owner/name, or none")
+    p.add_argument("--board", help="project number or exact board name, or none")
+    p.add_argument("--assignee", help="login, @me, none (unassigned), or default (@me)")
+    p = sub.add_parser("export", help="unfiled items to ticket plans")
+    p.add_argument("--status", default="todo,wip,done")
     p.add_argument("--topic")
     p.add_argument("--repo", help="owner/name for topics whose front matter names none")
     p.add_argument("--board", type=int, help="project number for topics whose front matter names none")
     p.add_argument("--todo-column", default=DEFAULT_COLUMNS["todo"])
     p.add_argument("--wip-column", default=DEFAULT_COLUMNS["wip"])
+    p.add_argument("--done-column", default=DEFAULT_COLUMNS["done"])
+    p.add_argument("--assignee", help="login, @me or none; overrides the saved default")
     p.add_argument("--out", required=True)
     p = sub.add_parser("file", help="create the exported tickets and link them back into the notes")
     p.add_argument("--plans", required=True)
@@ -612,7 +766,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
     handlers = {"where": cmd_where, "set-root": cmd_set_root, "add": cmd_add, "scan": cmd_scan,
                 "status": cmd_status, "organize": cmd_organize, "check": cmd_check,
-                "export": cmd_export, "file": cmd_file}
+                "defaults": cmd_defaults, "export": cmd_export, "file": cmd_file}
     try:
         result = handlers[args.cmd](args)
     except NotesError as exc:
