@@ -48,11 +48,12 @@ with `→ #N`.
 
 Inline markers work anywhere in a line:
 - `"add an error filter"(todo)` goes to Backlog;
+- `"maybe a dark mode"(optional)` goes to Backlog too, noted as optional;
 - `"wiring the board"(wip)` goes to In progress;
 - `"shipped it"(done)` or `"shipped it"(+)` goes to Done, and the ticket is
   closed.
 
-Any case works, so `(TODO)`, `(WIP)` and `(DONE)` are the same. The full
+Any case works, so `(TODO)`, `(OPTIONAL)`, `(WIP)` and `(DONE)` are the same. The full
 description, with an example, is in `skills/note-keeping/references/format.md`.
 
 ## Where tickets go

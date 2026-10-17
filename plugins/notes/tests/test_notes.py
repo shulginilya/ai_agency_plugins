@@ -182,6 +182,7 @@ class ExportAndLinkTest(unittest.TestCase):
 
 INLINE = """# Ideas
 Talked to the team. We should "add an error filter"(todo) and maybe "try Neon branches"(TODO).
+Someday "add a dark mode"(Optional).
 Currently "wiring the board"(WIP) and "fixing the export"(wip); "shipped the notes plugin"(+) and
 "wrote the README"(DONE), also "made the board"(done).
 - [ ] "checkbox with a marker"(todo)
@@ -210,7 +211,7 @@ class InlineMarkerTest(unittest.TestCase):
     def test_markers_found_mid_line_in_any_case_and_not_in_fences(self):
         found = [(i["status"], i["text"]) for i in notes.inline_items(INLINE)]
         self.assertEqual(found, [
-            ("todo", "add an error filter"), ("todo", "try Neon branches"),
+            ("todo", "add an error filter"), ("todo", "try Neon branches"), ("todo", "add a dark mode"),
             ("wip", "wiring the board"), ("wip", "fixing the export"), ("done", "shipped the notes plugin"),
             ("done", "wrote the README"), ("done", "made the board"), ("todo", "checkbox with a marker"),
         ])
@@ -223,8 +224,11 @@ class InlineMarkerTest(unittest.TestCase):
         self.assertTrue(plans["done"]["close"])
         self.assertFalse(plans["todo"]["close"] or plans["wip"]["close"])
         titles = [i["title"] for i in plans["todo"]["issues"]]
-        self.assertEqual(titles, ["add an error filter", "try Neon branches", "checkbox with a marker",
-                                  "a plain checkbox"], "a checkbox holding a marker is filed once")
+        self.assertEqual(titles, ["add an error filter", "try Neon branches", "add a dark mode",
+                                  "checkbox with a marker", "a plain checkbox"], "a checkbox holding a marker is filed once")
+        bodies = {i["title"]: i["body"] for i in plans["todo"]["issues"]}
+        self.assertIn("Marked optional", bodies["add a dark mode"])
+        self.assertNotIn("Marked optional", bodies["add an error filter"])
         self.assertNotIn("old done checkbox", [i["title"] for i in plans["done"]["issues"]])
         self.assertTrue(all(i["assignees"] == ["@me"] for p in plans.values() for i in p["issues"]))
         self.assertTrue(all(p["repo"] == "me/tasks" and p["board"] == 5 for p in plans.values()))

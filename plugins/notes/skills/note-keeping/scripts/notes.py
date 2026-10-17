@@ -24,7 +24,8 @@ and `## Notes`. Items: `- [ ]` todo, `- [/]` in progress, `- [x]` done,
 under an item belong to it. A filed item ends with `→ #N` or `→ owner/repo#N`.
 
 Inline markers count anywhere in a line, mid-sentence too: `"text"(todo)`,
-`"text"(wip)` and `"text"(done)` or `"text"(+)`, in any case. The quoted text is
+`"text"(optional)` (both go to the backlog), `"text"(wip)` and `"text"(done)`
+or `"text"(+)`, in any case. The quoted text is
 the ticket title. A filed marker is followed by `→ #N`. Inline done markers are
 filed into the Done column and closed; checkbox `- [x]` items never are.
 
@@ -64,9 +65,9 @@ LOOSE_STATUS = {"todo": "todo", "fixme": "todo", "wip": "wip", "doing": "wip"}
 TICKET_RE = re.compile(r"\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+)\s*$")
 TITLE_MAX = 80
 DEFAULT_COLUMNS = {"todo": "Backlog", "wip": "In progress", "done": "Done"}
-INLINE_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\((todo|wip|done|\+)\)'
+INLINE_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\((todo|optional|wip|done|\+)\)'
                        r'(?:\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+))?', re.I)
-INLINE_STATUS = {"todo": "todo", "wip": "wip", "done": "done", "+": "done"}
+INLINE_STATUS = {"todo": "todo", "optional": "todo", "wip": "wip", "done": "done", "+": "done"}
 DEFAULT_ASSIGNEE = "@me"
 
 
@@ -236,7 +237,7 @@ def parse(text: str, name: str = "") -> Dict[str, Any]:
 
 
 def inline_items(text: str) -> List[Dict[str, Any]]:
-    """Every inline `"text"(todo|wip|done|+)` marker, outside front matter and code fences."""
+    """Every inline `"text"(todo|optional|wip|done|+)` marker, outside front matter and code fences."""
     lines = text.splitlines()
     fm_lines, _, body = split_front_matter(lines)
     found, fenced = [], False
@@ -250,7 +251,7 @@ def inline_items(text: str) -> List[Dict[str, Any]]:
             found.append({"status": INLINE_STATUS[m.group(2).lower()], "text": m.group(1).strip(),
                           "ticket": m.group(3), "line": len(fm_lines) + offset + 1, "raw": line,
                           "children": [], "section": None, "group": None, "loose": False,
-                          "inline": True, "indent": 0})
+                          "inline": True, "optional": m.group(2).lower() == "optional", "indent": 0})
     return found
 
 
@@ -416,6 +417,8 @@ def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
     context = INLINE_RE.sub(lambda m: m.group(1), item["raw"]).strip() if item.get("inline") else ""
     if context and context != item["text"]:
         parts += ["", "> " + context]
+    if item.get("optional"):
+        parts += ["", "Marked optional: nice to have, not committed."]
     if details:
         parts += ["", details]
     return "\n".join(parts) + "\n"

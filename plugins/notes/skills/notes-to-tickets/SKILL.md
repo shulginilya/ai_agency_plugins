@@ -1,6 +1,6 @@
 ---
 name: notes-to-tickets
-description: Turns items in running notes — TODO and in-progress items, and inline "text"(todo), "text"(wip) and "text"(done) markers, from every topic or one — into GitHub issues assigned to the user on the saved default board, TODO into Backlog, in-progress into In progress, done into Done and closed, then marks each item with its ticket number so it is never filed twice. Use when asked to turn notes, TODOs or work in progress into tickets or issues, push notes to a board, or file what is open in the notes.
+description: Turns items in running notes — TODO and in-progress items, and inline "text"(todo), "text"(optional), "text"(wip) and "text"(done) markers, from every topic or one — into GitHub issues assigned to the user on the saved default board, TODO and optional into Backlog, in-progress into In progress, done into Done and closed, then marks each item with its ticket number so it is never filed twice. Use when asked to turn notes, TODOs or work in progress into tickets or issues, push notes to a board, or file what is open in the notes.
 license: MIT
 metadata:
   author: ilya-shulgin
@@ -26,7 +26,8 @@ python ../ticket-management/scripts/board.py boards     # pick a board when none
 - Open checkbox items: `- [ ]` and loose `TODO:` lines go to Backlog;
   `- [/]` and `WIP:` lines go to In progress.
 - Inline markers anywhere in the text (see the format reference):
-  - `"text"(todo)` goes to Backlog;
+  - `"text"(todo)` and `"text"(optional)` go to Backlog. An optional
+    ticket's body says it was marked optional;
   - `"text"(wip)` goes to In progress;
   - `"text"(done)` or `"text"(+)` goes to Done, and `file` closes the ticket as
     completed.

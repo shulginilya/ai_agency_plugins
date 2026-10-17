@@ -1,5 +1,5 @@
 ---
-description: Turn TODO, in-progress and done items from your notes — checkboxes and inline "text"(todo|wip|done) markers — into tickets assigned to you, and mark each note with its ticket.
+description: Turn TODO, in-progress and done items from your notes — checkboxes and inline "text"(todo|optional|wip|done) markers — into tickets assigned to you, and mark each note with its ticket.
 argument_hint: "[topic, board number or repo; nothing for every topic]"
 model: claude-opus-5-5
 effort: medium
@@ -18,7 +18,7 @@ Follow the `notes-to-tickets` skill:
 2. Export to a scratch folder:
    `python {{PLUGIN_ROOT}}/skills/note-keeping/scripts/notes.py export --out <dir> [--topic T] [--repo R] [--board N] [--assignee A]`.
    Show the list per repo, board and column, with the assignee:
-   - TODO and `(todo)` go to Backlog;
+   - TODO, `(todo)` and `(optional)` go to Backlog;
    - in progress and `(wip)` go to In progress;
    - `(done)` and `(+)` go to Done and are closed.
 

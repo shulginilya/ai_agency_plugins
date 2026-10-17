@@ -54,13 +54,14 @@ Mark a task anywhere in a line, mid-sentence included, by quoting it and
 adding its status in brackets:
 
 ```markdown
-Talked to the team: we should "add an error filter"(todo), and I'm already
+Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(optional), and I'm already
 "wiring the board"(wip). Yesterday I "shipped the notes plugin"(+).
 ```
 
 | Marker | Status | Ticket goes to |
 | --- | --- | --- |
 | `"text"(todo)` or `(TODO)` | TODO | Backlog |
+| `"text"(optional)` or `(OPTIONAL)` | TODO, marked optional | Backlog, with "Marked optional" in its body |
 | `"text"(wip)` or `(WIP)` | In progress | In progress |
 | `"text"(done)`, `(DONE)` or `(+)` | Done | Done, and the ticket is closed as completed |
 
