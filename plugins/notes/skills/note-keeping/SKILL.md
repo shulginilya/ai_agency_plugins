@@ -19,6 +19,7 @@ python scripts/notes.py set-root "C:\Users\me\notes"          # remember a folde
 python scripts/notes.py add --topic "Firstmate crew" --todo "add designer to the diagram"
 python scripts/notes.py add --topic "Observatory" --note "Neon branch per PR looks cheap"
 python scripts/notes.py status                                # open items per topic
+python scripts/notes.py status --file "C:\Users\me\meeting.md"  # one notes file, anywhere
 python scripts/notes.py scan --topic "Observatory"            # every item with file:line
 python scripts/notes.py organize --file observatory.md        # preview the regroup
 python scripts/notes.py organize --file observatory.md --write
@@ -43,6 +44,10 @@ from `status` and say which you picked.
 - `--todo` and `--wip` add an item to the topic's TODO or In progress section.
 - `--note` appends to today's `### YYYY-MM-DD` entry under Notes.
 - A new topic gets its own file.
+- Inline markers need no command. A quoted phrase followed by `(todo)`,
+  `(optional)`, `(wip)` or `(done)`/`(+)`, anywhere in a note, is a task of that status (see
+  the format reference). `status` counts the markers, and `notes-to-tickets`
+  files them.
 
 Keep the user's wording. Fix only obvious typos, and only if they ask.
 

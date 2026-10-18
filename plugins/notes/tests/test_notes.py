@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import os
 import subprocess
 import sys
@@ -160,7 +161,7 @@ class ExportAndLinkTest(unittest.TestCase):
         self.assertEqual(plans[0]["repo"], "me/other")
 
     def test_link_back_marks_items_and_they_are_not_exported_again(self):
-        plans = notes.export(self.root, ["todo", "wip"], "crew", None, None, notes.DEFAULT_COLUMNS)
+        plans = notes.export(self.root, ["todo", "wip"], "crew", None, None, notes.DEFAULT_COLUMNS, after_filing="link")
         for n, plan in enumerate(plans):
             numbers = {k: 100 + 10 * n + i for i, k in enumerate(plan["sources"])}
             notes.link_back(self.root, plan, numbers)
@@ -170,7 +171,7 @@ class ExportAndLinkTest(unittest.TestCase):
         self.assertEqual(notes.export(self.root, ["todo", "wip"], "crew", None, None, notes.DEFAULT_COLUMNS), [])
 
     def test_link_uses_the_full_ref_when_the_repo_came_from_the_flag(self):
-        plan = notes.export(self.root, ["todo"], "loose", "me/other", None, notes.DEFAULT_COLUMNS)[0]
+        plan = notes.export(self.root, ["todo"], "loose", "me/other", None, notes.DEFAULT_COLUMNS, after_filing="link")[0]
         notes.link_back(self.root, plan, {k: 7 for k in plan["sources"]})
         self.assertIn("- [ ] needs a repo → me/other#7", (self.root / "loose.md").read_text(encoding="utf-8"))
 
@@ -178,6 +179,337 @@ class ExportAndLinkTest(unittest.TestCase):
         result = run("--root", self.root, "file", "--plans", self.root)
         self.assertEqual(result.returncode, 2)
         self.assertIn("show the export to the user first", result.stderr)
+
+
+INLINE = """# Ideas
+Talked to the team. We should "add an error filter"(todo) and maybe "try Neon branches"(TODO).
+Someday "add a dark mode"(Optional).
+Currently "wiring the board"(WIP) and "fixing the export"(wip); "shipped the notes plugin"(+) and
+"wrote the README"(DONE), also "made the board"(done).
+- [ ] "checkbox with a marker"(todo)
+
+- [ ] a plain checkbox
+- [x] old done checkbox
+
+```
+"inside a fence"(todo)
+```
+"""
+
+
+class InlineMarkerTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name) / "notes"
+        self.root.mkdir()
+        (self.root / "ideas.md").write_text(INLINE, encoding="utf-8")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def export(self, statuses=("todo", "wip", "done"), assignee="@me", after_filing="link"):
+        return notes.export(self.root, list(statuses), None, "me/tasks", 5, notes.DEFAULT_COLUMNS, assignee,
+                            after_filing=after_filing)
+
+    def test_markers_found_mid_line_in_any_case_and_not_in_fences(self):
+        found = [(i["status"], i["text"]) for i in notes.inline_items(INLINE)]
+        self.assertEqual(found, [
+            ("todo", "add an error filter"), ("todo", "try Neon branches"), ("todo", "add a dark mode"),
+            ("wip", "wiring the board"), ("wip", "fixing the export"), ("done", "shipped the notes plugin"),
+            ("done", "wrote the README"), ("done", "made the board"), ("todo", "checkbox with a marker"),
+        ])
+
+    def test_columns_assignee_and_close_per_status(self):
+        plans = {p["status"]: p for p in self.export()}
+        self.assertEqual(plans["todo"]["column"], "Backlog")
+        self.assertEqual(plans["optional"]["column"], "In Definition")
+        self.assertEqual([i["title"] for i in plans["optional"]["issues"]], ["add a dark mode"])
+        self.assertIn("Marked optional", plans["optional"]["issues"][0]["body"])
+        self.assertIn("line 3, Optional)", plans["optional"]["issues"][0]["body"])
+        self.assertEqual(plans["wip"]["column"], "In progress")
+        self.assertEqual(plans["done"]["column"], "Done")
+        self.assertTrue(plans["done"]["close"])
+        self.assertFalse(plans["todo"]["close"] or plans["optional"]["close"] or plans["wip"]["close"])
+        titles = [i["title"] for i in plans["todo"]["issues"]]
+        self.assertEqual(titles, ["add an error filter", "try Neon branches",
+                                  "checkbox with a marker", "a plain checkbox"], "a checkbox holding a marker is filed once")
+        self.assertNotIn("Marked optional", plans["todo"]["issues"][0]["body"])
+        self.assertNotIn("old done checkbox", [i["title"] for i in plans["done"]["issues"]])
+        self.assertTrue(all(i["assignees"] == ["@me"] for p in plans.values() for i in p["issues"]))
+        self.assertTrue(all(p["repo"] == "me/tasks" and p["board"] == 5 for p in plans.values()))
+
+    def test_no_assignee_when_set_to_none(self):
+        self.assertTrue(all("assignees" not in i for p in self.export(assignee="none") for i in p["issues"]))
+
+    def test_link_back_after_the_marker_and_never_filed_twice(self):
+        for n, plan in enumerate(self.export()):
+            notes.link_back(self.root, plan, {k: 50 + 10 * n + i for i, k in enumerate(plan["sources"])})
+        text = (self.root / "ideas.md").read_text(encoding="utf-8")
+        self.assertIn('We should "add an error filter"(todo) → me/tasks#50 and maybe', text)
+        self.assertIn('"wrote the README"(DONE) → me/tasks#', text)
+        self.assertIn('- [ ] "checkbox with a marker"(todo) → me/tasks#', text)
+        self.assertEqual(self.export(), [])
+        scan = notes.scan_items(self.root, None)
+        self.assertTrue(all(r["ticket"] for r in scan if r["status"] != "done" or r["inline"]))
+
+    def test_organize_keeps_every_marker(self):
+        after = notes.organize_text(INLINE, "ideas.md")
+        self.assertEqual(notes.compare(INLINE, after), {"lost": [], "added": []})
+        self.assertEqual(len(notes.inline_items(after)), len(notes.inline_items(INLINE)))
+
+    def test_file_closes_created_done_tickets(self):
+        out = Path(self._tmp.name) / "plans"
+        notes.write_plans(self.export(statuses=("done",)), out)
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            if "batch" in cmd:
+                plan = json.loads(Path(cmd[cmd.index("--plan") + 1]).read_text())
+                issues = [{"key": i["key"], "number": 70 + n, "title": i["title"], "created": n != 0}
+                          for n, i in enumerate(plan["issues"])]
+                return mock.Mock(returncode=0, stdout=json.dumps({"created": 2, "skipped": 1, "issues": issues}),
+                                 stderr="")
+            return mock.Mock(returncode=0, stdout="{}", stderr="")
+
+        with mock.patch.object(notes.subprocess, "run", fake_run):
+            result = notes.file_plans(self.root, out)[0]
+        batch = next(c for c in calls if "batch" in c)
+        self.assertEqual(batch[batch.index("--status") + 1], "Done")
+        closes = [c[c.index("--issue") + 1] for c in calls if "close" in c]
+        self.assertEqual(closes, ["71", "72"], "only newly created tickets are closed")
+        self.assertEqual(result["closed"], [71, 72])
+
+
+SCOPED = """# Importer
+We need "build the importer"(todo) soon
+- parse the CSV
+\u2013 map the columns
+\u2022 [x] pick a library
+- [ ] write tests
+not a bullet, so the scope ended
+- [ ] a separate checkbox
+
+"second"(wip)
+- step one
+
+- after a blank line
+## Later
+- [ ] "move me"(todo)
+- with this step
+"""
+
+
+class ScopeTest(unittest.TestCase):
+    def test_bullet_and_dash_lines_after_a_marker_are_its_scope(self):
+        items = {i["text"]: i["scope"] for i in notes.inline_items(SCOPED)}
+        self.assertEqual(items["build the importer"],
+                         ["- parse the CSV", "\u2013 map the columns", "\u2022 [x] pick a library", "- [ ] write tests"])
+        self.assertEqual(items["second"], ["- step one"], "a blank line ends the scope")
+        self.assertEqual(items["move me"], ["- with this step"])
+
+    def test_scope_becomes_a_task_list_and_is_not_filed_on_its_own(self):
+        note = notes.parse(SCOPED, "importer.md")
+        plain = [i["text"] for i in notes.note_items(note, SCOPED) if not i["inline"]]
+        self.assertEqual(plain, ["a separate checkbox"])
+        body = notes.ticket_body("Importer", "importer.md", notes.inline_items(SCOPED)[0])
+        self.assertIn("**Scope**\n\n- [ ] parse the CSV\n- [ ] map the columns\n- [x] pick a library\n- [ ] write tests",
+                      body)
+
+    def test_organize_keeps_each_scope_under_its_marker(self):
+        after = notes.organize_text(SCOPED, "importer.md")
+        self.assertEqual(notes.compare(SCOPED, after), {"lost": [], "added": []})
+        self.assertIn('- [ ] "move me"(todo)\n- with this step', after)
+        self.assertEqual({i["text"]: i["scope"] for i in notes.inline_items(after)},
+                         {i["text"]: i["scope"] for i in notes.inline_items(SCOPED)})
+
+    def test_export_lists_the_scope_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "n"
+            root.mkdir()
+            (root / "importer.md").write_text(SCOPED, encoding="utf-8")
+            plans = notes.export(root, ["todo"], None, "me/tasks", 5, notes.DEFAULT_COLUMNS, "@me")
+            items = notes.write_plans(plans, Path(tmp) / "plans")[0]["items"]
+        self.assertIn("build the importer (4 scope items)", items)
+        self.assertIn("a separate checkbox", items)
+
+
+class FileArgumentTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.env = dict(os.environ, XDG_CONFIG_HOME=str(self.tmp / "cfg"))
+        self.env.pop("NOTES_DIR", None)
+        self.elsewhere = self.tmp / "elsewhere" / "meeting.md"
+        self.elsewhere.parent.mkdir()
+        self.elsewhere.write_text('# Meeting\n"call the vendor"(todo)\n- ask about pricing\n', encoding="utf-8")
+        self.root = self.tmp / "notes"
+        self.root.mkdir()
+        (self.root / "crew.md").write_text('# Crew\n"not this one"(todo)\n', encoding="utf-8")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_a_file_anywhere_needs_no_notes_folder(self):
+        result = run("export", "--file", self.elsewhere, "--repo", "me/tasks", "--out", self.tmp / "plans", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        plan = json.loads(result.stdout)["plans"][0]
+        self.assertEqual(plan["items"], ["call the vendor (1 scope item)"])
+        scan = json.loads(run("scan", "--file", self.elsewhere, "--json", env=self.env).stdout)
+        self.assertEqual([r["text"] for r in scan], ["call the vendor"])
+
+    def test_a_bare_name_is_looked_up_in_the_notes_folder(self):
+        result = run("--root", self.root, "scan", "--file", "crew.md", "--json", env=self.env)
+        self.assertEqual([r["text"] for r in json.loads(result.stdout)], ["not this one"])
+
+    def test_a_missing_file_is_bad_input(self):
+        result = run("--root", self.root, "export", "--file", "nope.md", "--repo", "me/t", "--out", self.tmp / "p",
+                     env=self.env)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("does not exist", result.stderr)
+
+    def test_filing_links_back_into_the_named_file_not_the_notes_folder(self):
+        out = self.tmp / "plans"
+        root, files = notes.select_files(str(self.root), str(self.elsewhere))
+        notes.write_plans(notes.export(root, ["todo"], None, "me/tasks", None, notes.DEFAULT_COLUMNS, "@me", files), out)
+        before = self.elsewhere.read_text(encoding="utf-8")
+
+        def fake_run(cmd, **kwargs):
+            plan = json.loads(Path(cmd[cmd.index("--plan") + 1]).read_text())
+            issues = [{"key": i["key"], "number": 9, "title": i["title"], "created": True} for i in plan["issues"]]
+            return mock.Mock(returncode=0, stdout=json.dumps({"created": 1, "skipped": 0, "issues": issues}), stderr="")
+
+        with mock.patch.object(notes.subprocess, "run", fake_run):
+            notes.file_plans(None, out)
+        self.assertEqual(self.elsewhere.read_text(encoding="utf-8"),
+                         "# Meeting\n→ [#9 call the vendor](https://github.com/me/tasks/issues/9)\n",
+                         "item and scope replaced by a link to the ticket")
+        self.assertEqual(Path(str(self.elsewhere) + ".bak").read_text(encoding="utf-8"), before)
+        self.assertNotIn("→", (self.root / "crew.md").read_text(encoding="utf-8"))
+
+
+REMOVE = """# Planning
+
+Planning call today.
+We agreed to "add an error filter"(todo)
+- filter by status
+- filter by agent
+
+Nice to have: "dark mode"(optional) and "keep this"(todo)
+Prose that stays.
+
+## TODO
+- [ ] plain checkbox
+  - its detail
+- [ ] another checkbox
+- [x] done stays
+
+"shipped it"(+)
+"""
+
+
+class RemoveAfterFilingTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name) / "notes"
+        self.root.mkdir()
+        self.path = self.root / "planning.md"
+        self.path.write_text(REMOVE, encoding="utf-8")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def file(self, statuses, keep=None, after_filing="remove"):
+        """Simulate a successful filing: number every exported item, then settle the note."""
+        plans = notes.export(self.root, statuses, None, "me/tasks", 5, notes.DEFAULT_COLUMNS, "@me",
+                             after_filing=after_filing)
+        n = 20
+        backed_up = set()
+        for plan in plans:
+            numbers = {}
+            for key, src in plan["sources"].items():
+                if keep and src["text"] in keep:
+                    continue  # this one "failed": it must stay in the note untouched
+                numbers[key] = n
+                n += 1
+            notes.link_back(self.root, plan, numbers, backed_up)
+        return self.path.read_text(encoding="utf-8")
+
+    def test_filed_items_are_replaced_by_a_link_and_the_rest_stays(self):
+        after = self.file(["todo", "wip", "done"], keep={"keep this"})
+        link = r"→ \[#\d+ %s\]\(https://github\.com/me/tasks/issues/\d+\)"
+        for title in ("add an error filter", "plain checkbox", "another checkbox", "shipped it"):
+            self.assertRegex(after, "(?m)^" + link % re.escape(title) + "$")
+        self.assertNotIn("We agreed to", after, "the marked line itself goes")
+        self.assertNotIn("filter by status", after, "scope lines go with their marker")
+        self.assertNotIn("its detail", after, "indented details go with their item")
+        self.assertNotIn("- [ ] plain checkbox", after)
+        self.assertEqual(notes.export(self.root, ["todo", "wip", "done"], None, "me/tasks", 5, notes.DEFAULT_COLUMNS,
+                                      "@me")[0]["sources"].__len__(), 1, "only 'keep this' is left to file; links never are")
+        self.assertIn('"dark mode"(optional) → me/tasks#', after,
+                      "a line with an unfiled marker stays; its filed marker is linked")
+        self.assertIn('and "keep this"(todo)\n', after, "the unfiled marker is untouched, not linked")
+        for kept in ("Planning call today.", "Prose that stays.", "- [x] done stays", "## TODO"):
+            self.assertIn(kept, after)
+        self.assertNotIn("\n\n\n", after)
+        self.assertEqual((self.root / "planning.md.bak").read_text(encoding="utf-8"), REMOVE,
+                         "the .bak is the note before the run, though four plans each changed it")
+        self.assertRegex(after, r"- \[x\] done stays\n\n→ \[#\d+ shipped it\]\([^)]+\)\n$",
+                         "the last item's link ends the note, with no trailing blank line")
+
+    def test_the_line_goes_once_its_last_marker_is_filed(self):
+        first = self.file(["todo"], keep={"keep this"})   # "dark mode" filed, "keep this" not
+        self.assertIn('Nice to have: "dark mode"(optional) → me/tasks#', first)
+        after = self.file(["todo"])                         # now "keep this" is filed too
+        self.assertNotIn("Nice to have", after)
+        self.assertRegex(after, r"→ \[#\d+ dark mode\]\(https://github\.com/me/tasks/issues/\d+\)\n"
+                                r"→ \[#\d+ keep this\]\(https://github\.com/me/tasks/issues/\d+\)\n",
+                         "a line with two filed markers becomes one link per ticket")
+        self.assertIn("Prose that stays.", after)
+
+    def test_link_mode_keeps_every_item(self):
+        after = self.file(["todo", "wip", "done"], after_filing="link")
+        self.assertIn('"add an error filter"(todo) → me/tasks#', after)
+        self.assertIn("- filter by status", after)
+        self.assertIn("- [ ] plain checkbox → me/tasks#", after)
+        self.assertFalse((self.root / "planning.md.bak").exists())
+
+    def test_after_filing_is_a_saved_setting_and_keep_overrides_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, XDG_CONFIG_HOME=tmp)
+            env.pop("NOTES_DIR", None)
+            self.assertEqual(json.loads(run("defaults", env=env).stdout)["after_filing"], "remove")
+            self.assertEqual(run("defaults", "--after-filing", "delete", env=env).returncode, 2)
+            run("defaults", "--after-filing", "link", "--repo", "me/tasks", env=env)
+            out = Path(tmp) / "p"
+            run("--root", self.root, "export", "--out", out, env=env)
+            metas = [json.loads(m.read_text()) for m in out.glob("*.meta.json")]
+            self.assertTrue(metas and all(m["after_filing"] == "link" for m in metas))
+            run("defaults", "--after-filing", "remove", env=env)
+            run("--root", self.root, "export", "--keep", "--out", Path(tmp) / "q", env=env)
+            metas = [json.loads(m.read_text()) for m in (Path(tmp) / "q").glob("*.meta.json")]
+            self.assertTrue(metas and all(m["after_filing"] == "link" for m in metas))
+
+
+class DefaultsTest(unittest.TestCase):
+    def test_defaults_are_saved_beside_the_root_and_used_by_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "notes"
+            root.mkdir()
+            (root / "t.md").write_text('# T\n"do it"(todo)\n', encoding="utf-8")
+            env = dict(os.environ, XDG_CONFIG_HOME=tmp)
+            env.pop("NOTES_DIR", None)
+            self.assertEqual(run("set-root", root, env=env).returncode, 0)
+            shown = json.loads(run("defaults", env=env).stdout)
+            self.assertEqual((shown["repo"], shown["board"], shown["assignee"]), (None, None, "@me"))
+            self.assertEqual(run("defaults", "--repo", "me/tasks", "--board", "5", env=env).returncode, 0)
+            self.assertEqual(run("defaults", "--repo", "not a repo", env=env).returncode, 2)
+            self.assertEqual(run("set-root", root, env=env).returncode, 0, "set-root keeps the defaults")
+            out = Path(tmp) / "plans"
+            result = json.loads(run("export", "--out", out, env=env).stdout)
+            plan = result["plans"][0]
+            self.assertEqual((plan["repo"], plan["board"], plan["column"], plan["assignees"]),
+                             ("me/tasks", 5, "Backlog", ["@me"]))
 
 
 if __name__ == "__main__":

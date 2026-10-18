@@ -44,9 +44,63 @@ Talked about the crew today. Deploy must not run under a live crew.
 
 - Lines indented under an item belong to it: details, sub-bullets, links.
   They move with it and go into its ticket's body.
-- A filed item ends with `→ #N` when the front matter names the repo, or
-  `→ owner/repo#N` when it doesn't. `->` works too. A linked item is never
-  filed again.
+- By default, once its ticket exists, a filed item is replaced in the note by
+  a link to it, `→ [#N title](https://github.com/owner/repo/issues/N)` (see `notes-to-tickets`). A link line is
+  never filed and never counts as a scope line. With `after_filing: link`, or for an item whose
+  line still holds an unfiled marker, it stays and ends with `→ #N` when the
+  front matter names the repo, or `→ owner/repo#N` when it doesn't. `->`
+  works too. A linked item is never filed again.
+
+## Inline markers
+
+Mark a task anywhere in a line, mid-sentence included, by quoting it and
+adding its status in brackets:
+
+```markdown
+Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(optional), and I'm already
+"wiring the board"(wip). Yesterday I "shipped the notes plugin"(+).
+```
+
+| Marker | Status | Ticket goes to |
+| --- | --- | --- |
+| `"text"(todo)` or `(TODO)` | TODO | Backlog |
+| `"text"(optional)` or `(OPTIONAL)` | TODO, marked optional | In Definition, with "Marked optional" in its body |
+| `"text"(wip)` or `(WIP)` | In progress | In progress |
+| `"text"(done)`, `(DONE)` or `(+)` | Done | Done, and the ticket is closed as completed |
+
+- The quoted text becomes the ticket title. Straight `"…"` and curly
+  `“…”` quotes both work, and so does any case of the status.
+- When filed, the marker's whole line and its scope are replaced by a link to
+  the ticket, `→ [#12 add an error filter](https://github.com/owner/repo/issues/12)`,
+  because the ticket now holds them. A line with two filed markers becomes
+  two links. The exception is a line that still holds an unfiled marker:
+  there, and in link mode, the marker gets its ticket right after it,
+  `"add an error filter"(todo) → #12`. A marker with a
+  ticket is never filed again.
+- A checkbox item whose text holds a marker is filed once, as the marker.
+- Markers inside a code fence (```` ``` ````) are ignored.
+- **Scope.** The lines straight after a marked line that start with a bullet
+  or a dash belong to it, as the things to do within it. Bullets are `-`,
+  `–`, `—`, `•`, `·` and `*`, and a `[ ]` or `[x]` box after the bullet is
+  kept. A blank line ends the scope, and so does any line that doesn't start
+  with a bullet or a dash. A scope line holding its own marker starts a new
+  item instead.
+
+  ```markdown
+  We need "build the importer"(todo):
+  - parse the CSV
+  – map the columns
+  • [x] pick a library
+
+  This line is not part of it.
+  ```
+
+  The scope becomes a task list in the ticket body. Its lines, checkboxes
+  included, are never filed as tickets of their own. When a line holds two
+  markers, the scope belongs to the last one. `organize` keeps a scope under
+  its marker.
+- Unlike inline `(done)` markers, `- [x]` items are never filed. They are
+  history, not tasks.
 
 ## Sections
 

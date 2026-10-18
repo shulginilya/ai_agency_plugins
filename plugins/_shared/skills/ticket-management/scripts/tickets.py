@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """GitHub issue lifecycle for the crew: create, batch, edit, close, delete.
 
-    tickets.py create --title T --body-file F [--label L ...] [--create-missing-labels] [--project N [--status S]] [--skip-existing]
-    tickets.py batch  --plan plan.json [--project N] [--status Backlog] [--dry-run]
+    tickets.py create --title T --body-file F [--label L ...] [--assignee @me] [--create-missing-labels] [--project N [--status S]] [--skip-existing]
+    tickets.py batch  --plan plan.json [--project N] [--status Backlog] [--assignee @me] [--dry-run]
     tickets.py edit   --issue 12 [--title T] [--body-file F] [--add-label L ...] [--remove-label L ...]
     tickets.py close  --issue 12 [--reason completed|not-planned] [--comment C]
     tickets.py delete --issue 12 --confirm 12
@@ -12,7 +12,8 @@ exists in the repository (open or closed) is reported and skipped, never
 created twice, so a run that fails halfway is finished by running it again.
 A plan item may name a `parent` (another item's `key`): the child is linked as
 a sub-issue of that epic, or, where the repository has no sub-issues, listed in
-the epic's body as a task-list line.
+the epic's body as a task-list line. A plan item may also name `assignees`
+(logins, or `@me`); `--assignee` assigns every item the plan does not.
 
 `delete` cannot be undone on GitHub, so it refuses unless `--confirm` repeats
 the issue number. Closing as not planned keeps the history and is the default
@@ -36,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import board  # noqa: E402  (the shared gh/GraphQL plumbing lives there)
 from board import BoardError, InputError, gh, graphql  # noqa: E402
 
-PLAN_KEYS = {"key", "title", "body", "labels", "parent"}
+PLAN_KEYS = {"key", "title", "body", "labels", "parent", "assignees"}
 CLOSE_REASONS = {"completed": "completed", "not-planned": "not_planned"}
 
 
@@ -75,10 +76,13 @@ def load_plan(data: Any) -> List[Dict[str, Any]]:
         labels = raw.get("labels") or []
         if not isinstance(labels, list) or not all(isinstance(l, str) for l in labels):
             raise InputError("%s: labels must be a list of strings" % where)
+        assignees = raw.get("assignees") or []
+        if not isinstance(assignees, list) or not all(isinstance(a, str) and a.strip() for a in assignees):
+            raise InputError("%s: assignees must be a list of logins (or \"@me\")" % where)
         seen[key] = index
         titles.add(title)
         items.append({"key": key, "title": title, "body": str(raw.get("body") or ""),
-                      "labels": labels, "parent": parent})
+                      "labels": labels, "parent": parent, "assignees": assignees})
     return items
 
 
@@ -127,10 +131,12 @@ def ensure_labels(labels: List[str]) -> List[str]:
     return created
 
 
-def create_issue(title: str, body: str, labels: List[str]) -> Dict[str, Any]:
+def create_issue(title: str, body: str, labels: List[str], assignees: Optional[List[str]] = None) -> Dict[str, Any]:
     args = ["issue", "create", "--title", title, "--body", body or " "]
     for label in labels:
         args += ["--label", label]
+    for login in assignees or []:
+        args += ["--assignee", login]
     url = gh(*args).strip().splitlines()[-1]
     return {"number": int(url.rstrip("/").rsplit("/", 1)[-1]), "url": url}
 
@@ -181,7 +187,7 @@ def cmd_create(args: argparse.Namespace) -> Dict[str, Any]:
         if number:
             return {"number": number, "created": False, "board": place_on_board(args.project, args.status, number)}
     created_labels = ensure_labels(args.label or []) if args.create_missing_labels else []
-    made = create_issue(args.title, read_body(args) or "", args.label or [])
+    made = create_issue(args.title, read_body(args) or "", args.label or [], args.assignee or [])
     made["created"] = True
     if created_labels:
         made["labels_created"] = created_labels
@@ -202,7 +208,8 @@ def cmd_batch(args: argparse.Namespace) -> Dict[str, Any]:
     report = []
     for item in actions:
         if item["action"] == "create":
-            item["number"] = create_issue(item["title"], item["body"], item["labels"])["number"]
+            assignees = item["assignees"] or ([args.assignee] if args.assignee else [])
+            item["number"] = create_issue(item["title"], item["body"], item["labels"], assignees)["number"]
         numbers[item["key"]] = item["number"]
         entry = {"key": item["key"], "number": item["number"], "title": item["title"],
                  "created": item["action"] == "create"}
@@ -265,6 +272,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     group.add_argument("--body-file")
     group.add_argument("--body")
     p.add_argument("--label", action="append")
+    p.add_argument("--assignee", action="append", help="login, or @me; repeat for several")
     p.add_argument("--project", type=int, help="also put it on this board")
     p.add_argument("--status", help="board column, with --project")
     p.add_argument("--skip-existing", action="store_true", help="reuse an issue with the same title")
@@ -273,6 +281,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p = sub.add_parser("batch", help="create a backlog from a plan file; safe to rerun")
     p.add_argument("--plan", required=True)
     p.add_argument("--project", type=int)
+    p.add_argument("--assignee", help="login, or @me, for every item that names no assignees")
     p.add_argument("--status", default=None)
     p.add_argument("--dry-run", action="store_true")
 
