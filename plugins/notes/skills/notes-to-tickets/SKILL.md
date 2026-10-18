@@ -17,6 +17,7 @@ python ../note-keeping/scripts/notes.py defaults                # where tickets 
 python ../note-keeping/scripts/notes.py defaults --repo owner/name --board "AI common tasks" --assignee @me
 python ../note-keeping/scripts/notes.py export [--topic T | --file F] [--status todo,wip,done] \
     [--repo owner/name] [--board N] [--assignee @me|LOGIN|none] --out PLANS_DIR
+python ../note-keeping/scripts/notes.py retitle --plans PLANS_DIR --key K --title "Short title"
 python ../note-keeping/scripts/notes.py file --plans PLANS_DIR --yes
 python ../ticket-management/scripts/board.py boards     # pick a board when none is named
 ```
@@ -34,7 +35,7 @@ python ../ticket-management/scripts/board.py boards     # pick a board when none
     completed.
 - The quoted text is the title. Done `- [x]` items are never filed.
 - A marker's scope is the bullet or dash lines straight after it, up to a
-  blank line or any other line. It becomes the ticket's task list and is never
+  blank line or any other line. It becomes the ticket's checklist and is never
   filed as separate tickets. `export` lists such a ticket with its scope count,
   e.g. `build the importer (3 scope items)`. Show it that way.
 - Every ticket is assigned to the saved assignee, `@me` unless changed.
@@ -81,10 +82,32 @@ shulginilya/ai-common-tasks · AI common tasks (#5) · assigned to @me
   Done:           shipped the notes plugin        (closed after filing)
 ```
 
-Each ticket's body says where it came from (topic, file and line) and
-carries the item's indented details. If a title reads badly out of context,
-offer a better one. To use it, change the note itself, then export again, so
-the note and the ticket keep the same wording. Tell the user that each filed
+Each ticket's body says where it came from (topic, file and line), then has
+the item's full text as its description and a checklist: the scope lines, or
+when there are none, the item's full text as the one thing to do. The
+item's indented details come after it. No ticket has an empty description or
+checklist.
+
+### Short titles for long items
+
+`export` lists every item whose text is longer than a title can be (80
+characters) under `needs_short_title`, with its `key`. For each one:
+
+1. Write a short title of 80 characters or fewer that keeps the point, in the
+   style of the repo's other tickets. For example, "We need to add another
+   team member: a DevOps agent. General DevOps, plus …" becomes "Add a DevOps
+   agent: CI/CD per repo and PR review links".
+2. Set it: `notes.py retitle --plans PLANS_DIR --key K --title "<short title>"`.
+   The full text stays in the description and the checklist, so nothing is
+   lost. The link left in the note uses the short title.
+3. In the list you show, give the short title with the full text under it,
+   so the user approves both.
+
+Never file a title that ends in "…". That cut is only a fallback for when no
+short title was set.
+
+If a title reads badly out of context, offer a better one the same way, with
+`retitle`. Tell the user that each filed
 item will be replaced in the note by a link to its ticket, unless `defaults` shows `after_filing:
 link` or they ask to keep them (`export --keep`). Stop here until the user
 says yes.

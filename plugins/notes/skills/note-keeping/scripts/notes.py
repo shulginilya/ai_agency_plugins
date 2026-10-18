@@ -11,6 +11,7 @@
     notes.py defaults [--repo O/R] [--board N|NAME] [--assignee LOGIN|@me|none]
                                                      where tickets go when a topic names nothing
     notes.py export [--status todo,wip,done] [--topic T | --file F] [--repo O/R] [--board N] [--assignee A] --out DIR
+    notes.py retitle --plans DIR --key K --title T   give an exported item whose text is too long a short title
     notes.py file --plans DIR [--yes]                create the tickets, then remove the filed items
                                                      from the note (or, with after-filing "link", mark them)
 
@@ -457,9 +458,20 @@ def item_key(rel: str, item: Dict[str, Any]) -> str:
     return "n-%s" % digest
 
 
+def clean_text(text: str) -> str:
+    """An item's text as a title would read it: no inline #tags, single spaces, no closing period."""
+    text = re.sub(r"\s+#[\w-]+", "", text)
+    return re.sub(r"\s+", " ", text).strip().rstrip(".")
+
+
+def too_long(text: str) -> bool:
+    return len(clean_text(text)) > TITLE_MAX
+
+
 def ticket_title(text: str) -> str:
-    text = re.sub(r"\s+#[\w-]+", "", text)  # drop inline #tags
-    text = re.sub(r"\s+", " ", text).strip().rstrip(".")
+    """The title for an item's text. Text over TITLE_MAX is cut at a word with "…" -- only a fallback:
+    export flags such items, and the skill gives each a short title with `retitle` before filing."""
+    text = clean_text(text)
     if len(text) <= TITLE_MAX:
         return text
     cut = text[:TITLE_MAX - 1].rsplit(" ", 1)[0]
@@ -477,12 +489,14 @@ def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
         parts += ["", "> " + context]
     if item.get("optional"):
         parts += ["", "Marked optional: nice to have, not committed."]
-    if item.get("scope"):
-        tasks = []
-        for line in item["scope"]:
-            m = SCOPE_RE.match(line)
-            tasks.append("- [%s] %s" % ("x" if m.group(1) in ("x", "X") else " ", m.group(2).strip()))
-        parts += ["", "**Scope**", ""] + tasks
+    tasks = []
+    for line in item.get("scope") or []:
+        m = SCOPE_RE.match(line)
+        tasks.append("- [%s] %s" % ("x" if m.group(1) in ("x", "X") else " ", m.group(2).strip()))
+    if not tasks:
+        # never an empty checklist: without scope lines, the item itself is the one thing to do
+        tasks = ["- [%s] %s" % ("x" if item["status"] == "done" else " ", clean_text(item["text"]))]
+    parts += ["", "**Checklist**", ""] + tasks
     if details:
         parts += ["", details]
     return "\n".join(parts) + "\n"
@@ -534,7 +548,8 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
             if target_assignee:
                 issue["assignees"] = [target_assignee]
             plan["issues"].append(issue)
-            plan["sources"][k] = {"file": rel, "line": item["line"], "text": item["text"],
+            plan["sources"][k] = {"file": rel, "line": item["line"], "text": item["text"], "title": title,
+                                  "too_long": too_long(item["text"]),
                                   "repo_in_file": bool(note["meta"].get("repo")), "inline": item["inline"]}
     if problems:
         raise NotesError("cannot export:\n  " + "\n  ".join(dict.fromkeys(problems)))
@@ -557,7 +572,10 @@ def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
                         "column": plan["column"], "closed_after": plan["close"],
                         "assignees": sorted({a for i in plan["issues"] for a in i.get("assignees", [])}),
                         "items": [i["title"] + scope_note(plan.get("scope_counts", {}).get(i["key"], 0))
-                                  for i in plan["issues"]]})
+                                  for i in plan["issues"]],
+                        "needs_short_title": [{"key": k, "chars": len(clean_text(src["text"])), "text": src["text"],
+                                               "title_now": src["title"]}
+                                              for k, src in plan["sources"].items() if src.get("too_long")]})
     return summary
 
 
@@ -581,7 +599,7 @@ def ticket_url(ref: str, repo: str) -> Tuple[int, str]:
     return int(number), "https://github.com/%s/issues/%s" % (where or repo, number)
 
 
-def ticket_links(line: str, repo: str) -> List[str]:
+def ticket_links(line: str, repo: str, titles: Optional[Dict[str, str]] = None) -> List[str]:
     """The link lines that replace a filed line: one per ticket it carries, as `→ [#N title](url)`.
     A link line is neither an item nor a scope bullet, so it is never filed and never joins a scope."""
     pad = line[:indent(line)]
@@ -594,11 +612,12 @@ def ticket_links(line: str, repo: str) -> List[str]:
     out = []
     for text, ref in pairs:
         number, url = ticket_url(ref, repo)
-        out.append("%s→ [#%d %s](%s)" % (pad, number, ticket_title(text), url))
+        out.append("%s→ [#%d %s](%s)" % (pad, number, (titles or {}).get(text) or ticket_title(text), url))
     return out
 
 
-def remove_filed(lines: List[str], filed: List[int], repo: str = "") -> List[Tuple[int, int]]:
+def remove_filed(lines: List[str], filed: List[int], repo: str = "",
+                 titles: Optional[Dict[str, str]] = None) -> List[Tuple[int, int]]:
     """Replace each filed line, and what belongs to it, with a link to its ticket, unless the line
     still holds an unfiled marker. Returns the (first, last) 1-based line ranges replaced."""
     spans = []
@@ -611,7 +630,7 @@ def remove_filed(lines: List[str], filed: List[int], repo: str = "") -> List[Tup
             end = scope_end(lines, end)
         spans.append((idx, end))
     for start, end in sorted(spans, reverse=True):
-        lines[start:end] = ticket_links(lines[start], repo)
+        lines[start:end] = ticket_links(lines[start], repo, titles)
     return [(start + 1, end) for start, end in spans]
 
 
@@ -660,7 +679,8 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int],
             if str(path) not in backed_up:
                 path.with_name(path.name + ".bak").write_text(original, encoding="utf-8")
                 backed_up.add(str(path))
-            for first, last in remove_filed(lines, filed, meta["repo"]):
+            titles = {src["text"]: src["title"] for src in meta["sources"].values() if src.get("title")}
+            for first, last in remove_filed(lines, filed, meta["repo"], titles):
                 linked.append("%s:%s replaced by a link to its ticket (previous version in %s.bak)"
                               % (rel, first if first == last else "%d-%d" % (first, last), path.name))
         if remove and filed:
@@ -668,6 +688,33 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int],
                 lines.pop()  # removing the last item leaves no trailing blank line
         path.write_text("\n".join(lines) + "\n" if lines else "", encoding="utf-8")
     return linked
+
+
+def retitle(plans_dir: Path, key: str, title: str) -> Dict[str, Any]:
+    """Set the title of one exported item, in its plan and its meta, before `file` runs."""
+    title = re.sub(r"\s+", " ", title).strip()
+    if not title:
+        raise NotesError("the title is empty")
+    if len(title) > TITLE_MAX:
+        raise NotesError("the title is %d characters; keep it to %d" % (len(title), TITLE_MAX))
+    for plan_path in sorted(plans_dir.glob("*.json")):
+        if plan_path.name.endswith(".meta.json"):
+            continue
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        issue = next((i for i in plan["issues"] if i["key"] == key), None)
+        if issue is None:
+            continue
+        if any(i["title"] == title and i["key"] != key for i in plan["issues"]):
+            raise NotesError("another ticket in this plan already has the title %r" % title)
+        old, issue["title"] = issue["title"], title
+        plan_path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+        meta_path = plan_path.with_name(plan_path.stem + ".meta.json")
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta["sources"][key]["title"] = title
+        meta["sources"][key]["too_long"] = False
+        meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+        return {"key": key, "title": title, "was": old, "plan": str(plan_path)}
+    raise NotesError("no exported item with key %r in %s" % (key, plans_dir))
 
 
 def tickets_script() -> Path:
@@ -931,13 +978,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--assignee", help="login, @me or none; overrides the saved default")
     p.add_argument("--keep", action="store_true", help="this run, keep filed items in the note, marked → #N")
     p.add_argument("--out", required=True)
+    p = sub.add_parser("retitle", help="give an exported item a short title before filing")
+    p.add_argument("--plans", required=True)
+    p.add_argument("--key", required=True, help="the item's key, from export's needs_short_title")
+    p.add_argument("--title", required=True)
     p = sub.add_parser("file", help="create the exported tickets and link them back into the notes")
     p.add_argument("--plans", required=True)
     p.add_argument("--yes", action="store_true", help="the user approved the exported list")
     args = parser.parse_args(argv)
     handlers = {"where": cmd_where, "set-root": cmd_set_root, "add": cmd_add, "scan": cmd_scan,
                 "status": cmd_status, "organize": cmd_organize, "check": cmd_check,
-                "defaults": cmd_defaults, "export": cmd_export, "file": cmd_file}
+                "defaults": cmd_defaults, "export": cmd_export, "file": cmd_file,
+                "retitle": lambda a: retitle(Path(a.plans), a.key, a.title)}
     try:
         result = handlers[args.cmd](args)
     except NotesError as exc:

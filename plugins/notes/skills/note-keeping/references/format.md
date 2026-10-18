@@ -68,7 +68,9 @@ Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(o
 | `"text"(wip)` or `(WIP)` | In progress | In progress |
 | `"text"(done)`, `(DONE)` or `(+)` | Done | Done, and the ticket is closed as completed |
 
-- The quoted text becomes the ticket title. Straight `"…"` and curly
+- The quoted text becomes the ticket title. When it is longer than 80
+  characters, a short title is written for it before filing, and the full
+  text goes in the ticket's description and checklist. Straight `"…"` and curly
   `“…”` quotes both work, and so does any case of the status.
 - When filed, the marker's whole line and its scope are replaced by a link to
   the ticket, `→ [#12 add an error filter](https://github.com/owner/repo/issues/12)`,
@@ -95,7 +97,8 @@ Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(o
   This line is not part of it.
   ```
 
-  The scope becomes a task list in the ticket body. Its lines, checkboxes
+  The scope becomes the checklist in the ticket body. An item with no scope
+  gets a one-line checklist: its own text. Its lines, checkboxes
   included, are never filed as tickets of their own. When a line holds two
   markers, the scope belongs to the last one. `organize` keeps a scope under
   its marker.

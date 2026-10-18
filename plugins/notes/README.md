@@ -8,7 +8,7 @@ line. See what's open across every topic.
 Turn TODO and in-progress items into GitHub tickets assigned to you on your
 default board, and inline markers too: `"text"(todo)`, `"text"(optional)`,
 `"text"(wip)`, and `"text"(done)` or `"text"(+)`. The bullet lines under a
-marker become the ticket's task list. Once filed, an item is replaced in the
+marker become the ticket's checklist. Once filed, an item is replaced in the
 note by a link to its ticket, because it lives there now. A `.bak` keeps the
 previous version, and nothing is filed twice.
 
@@ -80,11 +80,20 @@ Any case works, so `(TODO)`, `(OPTIONAL)`, `(WIP)` and `(DONE)` are the same.
 Markers inside code fences are ignored. Unlike these markers, `- [x]` items
 are never filed.
 
+### Titles and checklists
+
+- **Long text:** when a marker's text is longer than a title can be (80
+  characters), `/notes:to-tickets` writes a short title for it. You see it
+  next to the full text before anything is filed. The full text goes in the
+  ticket's description and its checklist.
+- **No scope:** a ticket without scope lines still gets a one-line checklist,
+  its own text. No ticket has an empty description or checklist.
+
 ### Scope
 
 The lines straight after a marked line that start with a bullet or a dash
 (`-`, `–`, `—`, `•`, `·`, `*`) are its scope: the things to do within it.
-They become the ticket's task list, keeping any `[x]`, and are never filed as
+They become the ticket's checklist, keeping any `[x]`, and are never filed as
 tickets of their own. A blank line, or any line that doesn't start with a
 bullet or dash, ends the scope.
 
@@ -120,13 +129,13 @@ This line has no bullet, so it is not part of anything.
 
 `/notes:to-tickets` turns it into five tickets, all assigned to you:
 
-| Ticket | Column | Body extras |
+| Ticket | Column | Checklist and extras |
 | --- | --- | --- |
-| add an error filter to the timeline | Backlog | Scope: filter by status code, filter by agent name, keep the filter in the URL |
-| write the README | Backlog | none |
-| dark mode for the dashboard | In Definition | "Marked optional", scope: follow the OS setting |
-| wiring the Neon branch per PR | In progress | none |
-| shipped the session list | Done, closed as completed | none |
+| add an error filter to the timeline | Backlog | Checklist: filter by status code, filter by agent name, keep the filter in the URL |
+| write the README | Backlog | Checklist: write the README |
+| dark mode for the dashboard | In Definition | "Marked optional", checklist: follow the OS setting |
+| wiring the Neon branch per PR | In progress | Checklist: wiring the Neon branch per PR |
+| shipped the session list | Done, closed as completed | Checklist: shipped the session list, ticked |
 
 The bullets aren't tickets of their own: each scope becomes its ticket's task
 list. The blank line ends the first scope, so "Nice to have…" starts afresh.
@@ -140,7 +149,7 @@ add an error filter to the timeline
 
 > Planning call today. We agreed to add an error filter to the timeline
 
-**Scope**
+**Checklist**
 
 - [ ] filter by status code
 - [ ] filter by agent name
