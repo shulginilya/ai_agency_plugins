@@ -27,6 +27,12 @@ Follow the `notes-to-tickets` skill:
    - in progress and `(wip)` go to In progress;
    - `(done)` and `(+)` go to Done and are closed.
 
+   For every item under `needs_short_title`, write a short title (80
+   characters or fewer) that keeps the point, and set it with
+   `python {{PLUGIN_ROOT}}/skills/note-keeping/scripts/notes.py retitle --plans <dir> --key <key> --title "<short>"`.
+   Show the short title with the full text under it. The full text stays in
+   the ticket's description and checklist. Never file a title ending in "…".
+
    Say that each filed item will then be replaced in the note by a link to its
    ticket, with a `.bak` kept, unless `defaults` shows `after_filing: link`. If the user wants
    to keep them this time, add `--keep`, so they stay marked `→ #N`.

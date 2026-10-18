@@ -313,7 +313,7 @@ class ScopeTest(unittest.TestCase):
         plain = [i["text"] for i in notes.note_items(note, SCOPED) if not i["inline"]]
         self.assertEqual(plain, ["a separate checkbox"])
         body = notes.ticket_body("Importer", "importer.md", notes.inline_items(SCOPED)[0])
-        self.assertIn("**Scope**\n\n- [ ] parse the CSV\n- [ ] map the columns\n- [x] pick a library\n- [ ] write tests",
+        self.assertIn("**Checklist**\n\n- [ ] parse the CSV\n- [ ] map the columns\n- [x] pick a library\n- [ ] write tests",
                       body)
 
     def test_organize_keeps_each_scope_under_its_marker(self):
@@ -489,6 +489,79 @@ class RemoveAfterFilingTest(unittest.TestCase):
             run("--root", self.root, "export", "--keep", "--out", Path(tmp) / "q", env=env)
             metas = [json.loads(m.read_text()) for m in (Path(tmp) / "q").glob("*.meta.json")]
             self.assertTrue(metas and all(m["after_filing"] == "link" for m in metas))
+
+
+LONG = ("We need to add another team member: a DevOps agent. General DevOps, plus ability to set up a full "
+        "CI/CD workflow for each given repo, including a review link builder for each PR")
+TITLES = '# AI\n1.2. "%s" (todo)\n\n2.1. "Introduce plugin evals" (todo)\n\n"shipped it"(+)\n' % LONG
+
+
+class TitleAndChecklistTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.note = self.tmp / "ai.txt"
+        self.note.write_text(TITLES, encoding="utf-8")
+        self.out = self.tmp / "plans"
+        root, files = notes.select_files(None, str(self.note))
+        self.summary = notes.write_plans(notes.export(root, ["todo", "done"], None, "me/tasks", 5,
+                                                      notes.DEFAULT_COLUMNS, "@me", files), self.out)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def issues(self):
+        return {i["key"]: i for f in self.out.glob("*.json") if not f.name.endswith(".meta.json")
+                for i in json.loads(f.read_text())["issues"]}
+
+    def test_export_flags_text_too_long_for_a_title(self):
+        flagged = [n for plan in self.summary for n in plan["needs_short_title"]]
+        self.assertEqual([n["text"] for n in flagged], [LONG])
+        self.assertEqual(flagged[0]["chars"], len(LONG))
+        self.assertTrue(flagged[0]["title_now"].endswith("…"), "the cut stays only as a fallback")
+
+    def test_retitle_sets_a_short_title_and_keeps_the_full_text_in_the_body(self):
+        key = next(n["key"] for plan in self.summary for n in plan["needs_short_title"])
+        notes.retitle(self.out, key, "Add a DevOps agent with CI/CD and PR review links")
+        issue = self.issues()[key]
+        self.assertEqual(issue["title"], "Add a DevOps agent with CI/CD and PR review links")
+        self.assertIn(LONG, issue["body"], "full text in the description")
+        self.assertIn("**Checklist**\n\n- [ ] " + LONG, issue["body"], "and as the checklist")
+        meta = json.loads(next(self.out.glob("*todo.meta.json")).read_text())
+        self.assertEqual(meta["sources"][key]["title"], "Add a DevOps agent with CI/CD and PR review links")
+
+    def test_retitle_refuses_long_empty_duplicate_or_unknown(self):
+        key = next(n["key"] for plan in self.summary for n in plan["needs_short_title"])
+        for title, pattern in (("x" * 81, "keep it to 80"), ("  ", "empty"),
+                               ("Introduce plugin evals", "already has the title")):
+            with self.assertRaisesRegex(notes.NotesError, pattern):
+                notes.retitle(self.out, key, title)
+        with self.assertRaisesRegex(notes.NotesError, "no exported item"):
+            notes.retitle(self.out, "n-nope", "fine")
+
+    def test_a_short_item_without_scope_gets_its_title_as_the_checklist(self):
+        bodies = {i["title"]: i["body"] for i in self.issues().values()}
+        self.assertIn("**Checklist**\n\n- [ ] Introduce plugin evals", bodies["Introduce plugin evals"])
+        self.assertIn("**Checklist**\n\n- [x] shipped it", bodies["shipped it"], "a done item is checked")
+
+    def test_the_link_left_in_the_note_uses_the_short_title(self):
+        key = next(n["key"] for plan in self.summary for n in plan["needs_short_title"])
+        notes.retitle(self.out, key, "Add a DevOps agent")
+
+        def fake_run(cmd, **kwargs):
+            if "--plan" not in cmd:
+                return mock.Mock(returncode=0, stdout="{}", stderr="")
+            plan = json.loads(Path(cmd[cmd.index("--plan") + 1]).read_text())
+            issues = [{"key": i["key"], "number": 40 + n, "title": i["title"], "created": True}
+                      for n, i in enumerate(plan["issues"])]
+            return mock.Mock(returncode=0, stdout=json.dumps({"created": len(issues), "skipped": 0, "issues": issues}),
+                             stderr="")
+
+        with mock.patch.object(notes.subprocess, "run", fake_run):
+            notes.file_plans(None, self.out)
+        text = self.note.read_text(encoding="utf-8")
+        self.assertRegex(text, r"→ \[#\d+ Add a DevOps agent\]\(https://github\.com/me/tasks/issues/\d+\)")
+        self.assertNotIn("…", text)
 
 
 class DefaultsTest(unittest.TestCase):
