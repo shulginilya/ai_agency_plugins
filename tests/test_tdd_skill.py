@@ -114,7 +114,9 @@ class RealRunTest(unittest.TestCase):
                     self.assertEqual(code, tdd.EXIT[state])
                     if how:
                         self.assertEqual(result["failed_how"], how)
-                        self.assertEqual(result["failing"], ["test_total (tests.test_calc.CartTest)"])
+                        # 3.11+ appends the method name: "test_total (tests.test_calc.CartTest.test_total)"
+                        self.assertEqual(len(result["failing"]), 1, result["failing"])
+                        self.assertTrue(result["failing"][0].startswith("test_total (tests.test_calc.CartTest"))
 
     def test_expect_gates_each_step(self):
         with tempfile.TemporaryDirectory() as tmp:
