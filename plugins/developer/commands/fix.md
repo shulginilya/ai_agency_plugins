@@ -14,12 +14,15 @@ guess that makes the next diagnosis harder.
 
 Follow steps 5 and 6 of the `root-cause-analysis` skill.
 
-1. Write the regression test first. Run it and confirm it fails, for the
-   reported reason. A test that passes against the broken code tests nothing.
+1. Write the regression test first, per the `test-driven-development` skill's
+   bug-fix cycle. Confirm it fails for the reported reason, on its assertion:
+   `python "{{PLUGIN_ROOT}}/skills/test-driven-development/scripts/tdd.py" check --cmd "<the test>" --expect red`.
+   A test that passes against the broken code tests nothing, and an import
+   error is not a red.
 2. Make the smallest change that removes the mechanism. Nothing else travels in
    this change — no rename, no refactor, no drive-by cleanup.
-3. Confirm the two-way proof: revert the fix, the test fails; reapply it, the
-   test passes.
+3. Confirm the two-way proof with the same command: revert the fix and
+   `--expect red` holds, reapply it and `--expect green` holds.
 4. Run the repo's own checks:
 
    ```bash
