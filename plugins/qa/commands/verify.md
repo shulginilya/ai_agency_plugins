@@ -13,7 +13,9 @@ Follow the `acceptance-testing` skill:
 1. Get the criteria with
    `python {{PLUGIN_ROOT}}/skills/test-planning/scripts/criteria.py --issue <n>`, and the
    change and its commit (`gh pr view`, `git rev-parse --short HEAD`). Without a test plan,
-   write one first with the `test-planning` skill.
+   write one first with the `test-planning` skill. For a PR, find its review link with
+   `python {{PLUGIN_ROOT}}/skills/preview-link/scripts/preview_link.py --pr <n> --wait 600 --check`,
+   and test on it only when it's current (deployed from the head commit).
 2. Run the repository's checks (`/developer:verify`). If they fail, the verdict is reject.
 3. Execute every case against the running result and record status and evidence. Explore
    for about 15 minutes beyond the plan. Hand the main flow to the `acceptance-checker`

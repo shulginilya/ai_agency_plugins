@@ -1,0 +1,18 @@
+{
+  "name": "devops",
+  "displayName": "DevOps Engineer",
+  "version": "0.1.0",
+  "description": "CI/CD for the crew: sets up GitHub Actions that run a repo's own checks, gives every pull request a review link (a preview deployment on Cloudflare Pages or Render, published as a GitHub Deployment), and triages failing runs to a cause and an owner. Never handles secret values. Use when asked to set up CI or CI/CD, add PR previews or review links, fix a workflow, or find why CI is red.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "license": "MIT",
+  "shared_skills": ["preview-link"],
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "keywords": ["devops", "ci", "cd", "github-actions", "preview", "deploy"],
+  "targets": {
+    "exclude": [],
+    "overrides": {}
+  }
+}

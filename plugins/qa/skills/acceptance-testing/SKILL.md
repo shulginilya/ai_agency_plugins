@@ -28,6 +28,13 @@ python scripts/qa_report.py results.json                     # the verdict; exit
   be. The criteria decide that.
 - **The build:** the exact commit you test (`git rev-parse --short HEAD`).
   Record it, because a verdict on the wrong commit is worthless.
+- **The review link:** for a PR, run
+  `python ../preview-link/scripts/preview_link.py --pr N --wait 600 --check`.
+  Test on the link only when it's **current**, meaning it was deployed from
+  the PR's head commit. Record the URL and its commit. Stale, pending or
+  failed means the running build isn't the code under test: wait, or test
+  locally the way the README says. A failed preview deploy is itself a
+  finding. With no preview at all, run the app locally.
 
 ## 2. Gate on the repository's own checks
 
@@ -37,7 +44,7 @@ features on top of a red build.
 
 ## 3. Execute every case
 
-Run the app the way the README says, and work through the plan. For each
+Run the app on the current review link, or the way the README says, and work through the plan. For each
 case record `status` (pass, fail, blocked or skipped) and `evidence`: the
 command and output, a screenshot path, a response, a log line.
 

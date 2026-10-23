@@ -17,6 +17,12 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   verdict means done; on reject or blocked, fix and verify again, or report what blocks it.
 - Bug found while testing: `/qa:bug` writes the report and files it as a ticket labelled
   "QA testing"; never patch it from the QA step.
+- CI/CD: `/devops:ci` sets up or fixes a repo's CI; `/devops:preview` gives every PR a review
+  link; `/devops:triage` says why a run is red and whose fix it is (a code failure goes to the
+  developer step). A PR's review link: `preview_link.py` from the `preview-link` skill, and test
+  on it only when it is current. Never ask for, print or write a secret value: list the secret
+  names in your report with a `gh secret set NAME -R <owner>/<repo>` line for the Captain.
+  Done means a green run on a real PR (and, for previews, a link that answers), not YAML.
 - Scout (read-only) tasks: use `/developer:diagnose`, `/designer:review` or `/qa:plan` without
   changing code, and put the findings in the report this brief names.
 - Backlog or issue grooming: `/scrum-master:refine`, then file the stories with the
@@ -25,11 +31,11 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   tickets and move board cards with their `ticket-management` skill when the task calls for
   it. QA creates and edits tickets only, never closes or deletes one, and labels every
   ticket it creates "QA testing". List each ticket you write with its link in your report.
-  A designer finding that needs a ticket, or a designer spec for a ticket, goes in your
-  report for the developer or scrum-master step to file or attach. Delete a ticket only when this brief
+  A designer or devops finding that needs a ticket, or a designer spec for a ticket, goes in
+  your report for the developer or scrum-master step to file or attach. Delete a ticket only when this brief
   names it for deletion; otherwise close it as not planned.
 - New project board: `/scrum-master:create-board`, only when this brief asks for a board.
-- Only the developer, scrum-master, designer and qa plugins are for crew work.
+- Only the developer, scrum-master, designer, qa and devops plugins are for crew work.
   Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, notes, pair-programmer,
   prompt-engineer, recruiter-inbox or skill-trainer) belongs to the Captain: never invoke its commands,
   skills or subagents, even if one looks relevant.
