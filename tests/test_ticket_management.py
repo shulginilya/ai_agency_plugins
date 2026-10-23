@@ -229,6 +229,51 @@ class BoardTest(unittest.TestCase):
             with self.assertRaises(board.InputError):
                 board.current_repo()
 
+    def test_linked_issues_are_the_closing_references_plus_the_body_keywords(self):
+        repo = {"owner": "me", "name": "app"}
+        closing = [{"number": 63, "repository": {"nameWithOwner": "me/app"}}]
+        body = "Closes #63\nFixes: #70, resolves other/repo#5\nRefs me/tasks#22 and see #9"
+        self.assertEqual(board.linked_issues(body, closing, repo),
+                         [("me", "app", 63), ("me", "app", 70), ("other", "repo", 5)])
+        self.assertEqual(board.linked_issues("Refs #22, part of #9", [], repo), [])
+
+    def review(self, body, closing, items_by_issue, project=None):
+        args = mock.Mock(pr=64, project=project, status="In review", attempts=1, settle=0)
+        pr = {"url": "https://github.com/me/app/pull/64", "state": "OPEN", "body": body,
+              "closingIssuesReferences": {"nodes": closing}}
+        moves = []
+
+        def settle(repo, proj, number, status, attempts, wait):
+            moves.append((number, proj["number"], status))
+            return {"board": proj["title"], "status": status, "attempts": 1, "reads": [status] * 3}
+
+        def issue_node(repo, number):
+            return {"projectItems": {"nodes": [{"project": {"number": b}} for b in items_by_issue[number]]}}
+
+        with mock.patch.dict(os.environ, {"GH_REPO": "me/app"}), \
+             mock.patch.object(board, "graphql", return_value={"repository": {"pullRequest": pr}}), \
+             mock.patch.object(board, "issue_node", side_effect=issue_node), \
+             mock.patch.object(board, "project", side_effect=lambda o, n: {"number": n, "title": "board %d" % n}), \
+             mock.patch.object(board, "settle", side_effect=settle):
+            return board.cmd_review(args), moves
+
+    def test_review_moves_every_closed_ticket_on_every_board(self):
+        result, moves = self.review("Closes #63\nFixes #70", [], {63: [1, 5], 70: [1]})
+        self.assertEqual(moves, [(63, 1, "In review"), (63, 5, "In review"), (70, 1, "In review")])
+        self.assertEqual([m["ticket"] for m in result["moved"]], ["me/app#63", "me/app#63", "me/app#70"])
+        _, only_one = self.review("Closes #63", [], {63: [1, 5]}, project=5)
+        self.assertEqual(only_one, [(63, 5, "In review")])
+
+    def test_review_without_a_linked_ticket_moves_nothing_and_fails(self):
+        with self.assertRaises(board.BoardError) as caught:
+            self.review("Refs #22", [], {})
+        self.assertIn("links no ticket", str(caught.exception))
+
+    def test_review_fails_when_a_ticket_is_on_no_board(self):
+        with mock.patch("sys.stdout"), self.assertRaises(board.BoardError) as caught:
+            self.review("Closes #63", [], {63: []})
+        self.assertIn("1 ticket(s)", str(caught.exception))
+
     def test_missing_gh_is_a_clean_failure(self):
         result = run(SCRIPTS / "board.py", "boards", env={**os.environ, "PATH": ""})
         self.assertEqual(result.returncode, 1)

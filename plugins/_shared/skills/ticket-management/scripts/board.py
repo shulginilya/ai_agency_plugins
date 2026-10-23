@@ -6,6 +6,8 @@
     board.py move   --project N --issue 21 [--status "In review"]
                                             set the Status column and confirm it stuck
     board.py branch --issue 21              the branch name for an issue: <number>-<type>-<slug>
+    board.py review --pr 42 [--project N]   move every ticket PR 42 closes to In review, on every
+                                            board it is on, and confirm each move stuck
 
 `move` re-reads the card after setting it, because board automations fire
 asynchronously: the built-in "Pull request linked to issue" workflow moves the
@@ -26,12 +28,13 @@ import re
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 TYPES = ("feat", "fix", "docs", "chore", "refactor", "test", "perf", "ci", "build", "style", "revert")
 SLUG_WORDS = 4
 SETTLE_READS = 3
 SETTLE_SECONDS = 6.0
+CLOSING = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?:([\w.-]+/[\w.-]+))?#(\d+)", re.I)
 
 
 class BoardError(Exception):
@@ -71,6 +74,23 @@ def match_option(options: List[Dict[str, str]], wanted: str) -> Dict[str, str]:
     if partial:
         raise InputError("'%s' matches more than one column: %s" % (wanted, names))
     raise InputError("no column matches '%s'; the board has: %s" % (wanted, names))
+
+
+def linked_issues(body: str, closing: List[Dict[str, Any]], repo: Dict[str, str]) -> List[Tuple[str, str, int]]:
+    """The tickets a PR closes, as (owner, name, number): GitHub's closing references first,
+    then any `Closes #N` / `Fixes owner/repo#N` in the body that GitHub has not linked (yet)."""
+    found: List[Tuple[str, str, int]] = []
+    for ref in closing:
+        owner, name = ref["repository"]["nameWithOwner"].split("/", 1)
+        found.append((owner, name, int(ref["number"])))
+    for match in CLOSING.finditer(body or ""):
+        owner, name = match.group(1).split("/", 1) if match.group(1) else (repo["owner"], repo["name"])
+        found.append((owner, name, int(match.group(2))))
+    unique: List[Tuple[str, str, int]] = []
+    for item in found:
+        if item not in unique:
+            unique.append(item)
+    return unique
 
 
 # --- gh plumbing -------------------------------------------------------------
@@ -188,16 +208,16 @@ def cmd_add(args: argparse.Namespace) -> Dict[str, Any]:
     return {"board": proj["title"], "item": data["addProjectV2ItemById"]["item"]["id"], "added": True}
 
 
-def cmd_move(args: argparse.Namespace) -> Dict[str, Any]:
-    repo = current_repo()
-    proj = project(repo["owner"], args.project)
-    option = match_option(proj["field"]["options"], args.status)
+def settle(repo: Dict[str, str], proj: Dict[str, Any], number: int, status: str,
+           attempts: int, wait: float) -> Dict[str, Any]:
+    """Set the card's Status, then re-read it until it holds against the board's automations."""
+    option = match_option(proj["field"]["options"], status)
     history: List[str] = []
-    for attempt in range(1, args.attempts + 1):
-        issue = issue_node(repo, args.issue)
+    for attempt in range(1, attempts + 1):
+        issue = issue_node(repo, number)
         item = item_on(issue, proj["id"])
         if not item:
-            raise BoardError("issue #%d is not on '%s'; run `add` first" % (args.issue, proj["title"]))
+            raise BoardError("issue #%d is not on '%s'; run `add` first" % (number, proj["title"]))
         graphql(
             """mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){updateProjectV2ItemFieldValue(input:{
               projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){projectV2Item{id}}}""",
@@ -205,8 +225,8 @@ def cmd_move(args: argparse.Namespace) -> Dict[str, Any]:
         )
         held = True
         for _ in range(SETTLE_READS):
-            time.sleep(args.settle)
-            now = (item_on(issue_node(repo, args.issue), proj["id"]) or {}).get("fieldValueByName") or {}
+            time.sleep(wait)
+            now = (item_on(issue_node(repo, number), proj["id"]) or {}).get("fieldValueByName") or {}
             history.append(now.get("name") or "(none)")
             if now.get("name") != option["name"]:
                 held = False  # an automation moved it back; set it again
@@ -215,8 +235,52 @@ def cmd_move(args: argparse.Namespace) -> Dict[str, Any]:
             return {"board": proj["title"], "status": option["name"], "attempts": attempt, "reads": history}
     raise BoardError(
         "'%s' did not hold on '%s' after %d attempts (reads: %s); a board workflow keeps moving it"
-        % (option["name"], proj["title"], args.attempts, ", ".join(history))
+        % (option["name"], proj["title"], attempts, ", ".join(history))
     )
+
+
+def cmd_move(args: argparse.Namespace) -> Dict[str, Any]:
+    repo = current_repo()
+    return settle(repo, project(repo["owner"], args.project), args.issue, args.status, args.attempts, args.settle)
+
+
+def cmd_review(args: argparse.Namespace) -> Dict[str, Any]:
+    """After a PR opens: every ticket it closes goes to In review, on every board it is on."""
+    repo = current_repo()
+    data = graphql(
+        """query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){
+          pullRequest(number:$number){url state body
+            closingIssuesReferences(first:20){nodes{number repository{nameWithOwner}}}}}}""",
+        owner=repo["owner"], name=repo["name"], number=args.pr,
+    )
+    pr = (data.get("repository") or {}).get("pullRequest")
+    if not pr:
+        raise InputError("PR #%d not found in %s/%s" % (args.pr, repo["owner"], repo["name"]))
+    tickets = linked_issues(pr["body"], pr["closingIssuesReferences"]["nodes"], repo)
+    if not tickets:
+        raise BoardError("PR #%d links no ticket: add `Closes #N` to its body, then run review again" % args.pr)
+    moved: List[Dict[str, Any]] = []
+    not_moved: List[Dict[str, Any]] = []
+    for owner, name, number in tickets:
+        where = {"owner": owner, "name": name}
+        ref = "%s/%s#%d" % (owner, name, number)
+        try:
+            boards = [n["project"]["number"] for n in issue_node(where, number)["projectItems"]["nodes"]]
+            if args.project:
+                boards = [b for b in boards if b == args.project]
+            if not boards:
+                not_moved.append({"ticket": ref, "why": "not on %s" % ("board #%d" % args.project if args.project
+                                                                      else "any board")})
+            for board_number in boards:
+                result = settle(where, project(owner, board_number), number, args.status, args.attempts, args.settle)
+                moved.append(dict(result, ticket=ref))
+        except BoardError as exc:
+            not_moved.append({"ticket": ref, "why": str(exc)})
+    result = {"pr": pr["url"], "moved": moved, "not_moved": not_moved}
+    if not_moved:
+        print(json.dumps(result, indent=2))
+        raise BoardError("%d ticket(s) of PR #%d not in %s" % (len(not_moved), args.pr, args.status))
+    return result
 
 
 def cmd_branch(args: argparse.Namespace) -> Dict[str, Any]:
@@ -239,12 +303,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--status", default="In review")
     p.add_argument("--attempts", type=int, default=3)
     p.add_argument("--settle", type=float, default=SETTLE_SECONDS, help="seconds between confirming reads")
+    p = sub.add_parser("review", help="move every ticket a PR closes to In review, and confirm it held")
+    p.add_argument("--pr", type=int, required=True)
+    p.add_argument("--project", type=int, help="only this board (default: every board the ticket is on)")
+    p.add_argument("--status", default="In review")
+    p.add_argument("--attempts", type=int, default=3)
+    p.add_argument("--settle", type=float, default=SETTLE_SECONDS, help="seconds between confirming reads")
     p = sub.add_parser("branch", help="branch name for an issue")
     p.add_argument("--issue", type=int, required=True)
     p.add_argument("--title", help="use this title instead of fetching the issue")
     args = parser.parse_args(argv)
 
-    handlers = {"boards": cmd_boards, "add": cmd_add, "move": cmd_move, "branch": cmd_branch}
+    handlers = {"boards": cmd_boards, "add": cmd_add, "move": cmd_move, "review": cmd_review, "branch": cmd_branch}
     try:
         print(json.dumps(handlers[args.cmd](args), indent=2))
     except BoardError as exc:

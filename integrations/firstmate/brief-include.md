@@ -28,6 +28,10 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   A designer finding that needs a ticket, or a designer spec for a ticket, goes in your
   report for the developer or scrum-master step to file or attach. Delete a ticket only when this brief
   names it for deletion; otherwise close it as not planned.
+- Every pull request you open, from any plugin or role (QA included): right after
+  `gh pr create`, run `board.py review --pr <N>` from the `ticket-management` skill. It moves
+  each ticket the PR closes to In review and confirms it held. Put `Closes #<ticket>` in the PR
+  body, and report the move or why it failed.
 - New project board: `/scrum-master:create-board`, only when this brief asks for a board.
 - Only the developer, scrum-master, designer and qa plugins are for crew work.
   Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, notes, pair-programmer,

@@ -1,10 +1,10 @@
 ---
 name: ticket-management
-description: Creates, edits, closes and deletes GitHub issues, creates a whole backlog from a plan in one rerunnable batch with epics linked to their slices, and puts issues on a GitHub Projects board or moves them between its columns. Use when asked to create, file, open or raise a ticket or issue, create a backlog, edit, retitle, relabel, close or delete a ticket, add tickets to a board, or move a card to another column.
+description: Creates, edits, closes and deletes GitHub issues, creates a whole backlog from a plan in one rerunnable batch with epics linked to their slices, and puts issues on a GitHub Projects board or moves them between its columns. Use when asked to create, file, open or raise a ticket or issue, create a backlog, edit, retitle, relabel, close or delete a ticket, add tickets to a board, move a card to another column, or open a pull request (every opened PR moves its tickets to In review).
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Ticket management
@@ -23,7 +23,31 @@ python scripts/tickets.py delete --issue I --confirm I
 python scripts/board.py boards                                  # open boards, most used first
 python scripts/board.py add  --project N --issue I              # card on a board
 python scripts/board.py move --project N --issue I --status S   # change column, confirm it held
+python scripts/board.py review --pr P [--project N]             # after opening a PR: its tickets to In review
 ```
+
+## Every pull request moves its tickets to In review
+
+**Whenever you open a pull request, in any repository and for any reason, run
+`board.py review --pr P` right after `gh pr create` returns.** This holds in a
+conversation and under a crew brief alike, whichever skill or command opened
+the PR, and it needs no separate approval: it's part of opening the PR.
+
+- It reads the tickets the PR closes (GitHub's closing references, plus any
+  `Closes #N` or `Fixes owner/repo#N` in the body) and moves each one to In
+  review on every board it's on. Pass `--project N` to touch one board only.
+- It must run **after** the PR exists. The board's "Pull request linked to
+  issue" automation moves the card to In progress a few seconds after a PR
+  opens, and `review` re-reads each card until In review holds.
+- **No linked ticket** exits 1 and moves nothing. Put `Closes #N` in the PR
+  body (`gh pr edit P --body-file F`) and run it again. If the work really has
+  no ticket, say so in your report.
+- If a ticket isn't on any board, or the column won't hold, it exits 1 and
+  lists the ticket. Report that. Never claim the move.
+- A PR that is reopened, or a draft marked ready for review, gets the same
+  step.
+
+Report it as `In review: #N on <board> (PR <url>)`.
 
 ## Who decides
 
@@ -116,5 +140,6 @@ column will not hold. Report that failure instead of claiming the move.
 Created:  #N <title> — <url>   (on <board>, <column>)
 Skipped:  #N <title> — already existed
 Edited / Closed / Deleted:  #N — <what changed>
+In review: #N on <board> — PR <url>
 Not done: <anything proposed but not written, and why>
 ```

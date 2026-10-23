@@ -25,7 +25,8 @@ Follow the `ship-change` skill:
    **Push** with `-u`. Never force-push and never push to the default branch.
 5. **Open the PR** against the default branch: `Closes #<issue>`, then What
    changed / Why / Checks.
-6. **Then** run `board.py move` to put the card in In review. It must run after
-   the PR exists, because the board's PR-linked automation moves the card to
-   In progress.
+6. **Then** run `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py review --pr <pr> --project N`
+   to put every ticket the PR closes in In review. It must run after the PR
+   exists, because the board's PR-linked automation moves the card to In
+   progress.
 7. Report in the skill's format, with the PR link on its own line.

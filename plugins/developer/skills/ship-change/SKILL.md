@@ -21,7 +21,7 @@ this plugin too. Its scripts are in `../ticket-management/scripts/`:
 python ../ticket-management/scripts/board.py boards                       # open boards, most used first
 python ../ticket-management/scripts/tickets.py create --title T --body-file F --project N
 python ../ticket-management/scripts/board.py branch --issue I             # <number>-<type>-<slug>
-python ../ticket-management/scripts/board.py move   --project N --issue I # to "In review", and confirm it held
+python ../ticket-management/scripts/board.py review --pr P [--project N]  # the PR's tickets to "In review", confirmed
 ```
 
 Below, `board.py` and `tickets.py` mean those two scripts.
@@ -91,13 +91,15 @@ Do not merge it and do not approve it. Review is the point.
 
 ## 5. Move the card — after the PR exists
 
-`board.py move --project N --issue I` (the default column is `In review`; pass
-`--status` for another name).
+`board.py review --pr P --project N`. It moves every ticket the PR closes
+to In review. Run it every time you open a PR, including one opened outside
+this flow. Use `board.py move --project N --issue I` only for a single card
+that the PR doesn't close.
 
 Order matters. Linking a PR to an issue triggers the board's
 "Pull request linked to issue" workflow. It moves the card to In progress
 asynchronously, seconds later, and undoes any earlier move to review. So
-`move` sets the column only after the PR exists, re-reads it several times, and
+`review` sets the column only after the PR exists, re-reads it several times, and
 sets it again if an automation moved it. It exits 1 if the column will not
 hold. Report that failure; do not claim the card is in review.
 
