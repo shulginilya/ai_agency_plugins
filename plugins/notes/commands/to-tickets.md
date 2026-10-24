@@ -1,5 +1,5 @@
 ---
-description: Turn TODO, in-progress and done items from your notes — checkboxes and inline "text"(todo|optional|wip|done) markers — into tickets assigned to you, then replace each filed item in the note with a link to its ticket.
+description: Turn TODO, in-progress and done items from your notes — checkboxes and inline "text"(todo|optional|wip|done) markers, with "text"(outcome) as acceptance criteria — into tickets assigned to you, then replace each filed item in the note with a link to its ticket.
 argument_hint: "[a notes file path, a topic, a board number or a repo; nothing for every topic]"
 model: claude-opus-5-5
 effort: medium
@@ -25,7 +25,11 @@ Follow the `notes-to-tickets` skill:
    - TODO and `(todo)` go to Backlog;
    - `(optional)` goes to In Definition;
    - in progress and `(wip)` go to In progress;
-   - `(done)` and `(+)` go to Done and are closed.
+   - `(done)` and `(+)` go to Done and are closed;
+   - `(outcome)` is no ticket: it is an acceptance criterion of its item,
+     counted next to it, e.g. `(2 scope items, 1 outcome)`.
+
+   Show every line of `outcome_warnings`: those outcomes reach no ticket.
 
    For every item under `needs_short_title`, write a short title (80
    characters or fewer) that keeps the point, and set it with

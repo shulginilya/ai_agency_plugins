@@ -37,6 +37,11 @@ list in the ticket body and are never filed on their own. The quoted text is
 the ticket title. A filed marker is followed by `→ #N`. Inline done markers are
 filed into the Done column and closed; checkbox `- [x]` items never are.
 
+`"text"(outcome)` is an acceptance criterion, never a ticket: it belongs to the
+marker on its line, else to the item whose scope or details hold it, else to
+the closest item above it before a blank line. Its item's ticket lists it under
+"Acceptance criteria"; `export` warns about one no ticket will get.
+
 Defaults for topics whose front matter names no repo, board or assignee are
 saved in the same config file by `defaults`. The assignee defaults to @me.
 
@@ -88,12 +93,42 @@ DEFAULT_ASSIGNEE = "@me"
 AFTER_FILING = ("remove", "link")
 # A marked line's scope: the bullet or dash lines straight after it, up to a blank or any other line.
 SCOPE_RE = re.compile(r"^\s*[-\u2013\u2014\u2022\u00b7\u25cf\u25e6\u25aa*+]\s+(?:\[([ xX/~-])\]\s+)?(\S.*)$")
+# An outcome is an acceptance criterion of the item it belongs to; it never files a ticket of its own.
+OUTCOME_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\(outcome\)'
+                        r'(?:\s*(?:\u2192|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+))?', re.I)
+BARE_RE = re.compile(r"(?:[-\u2013\u2014\u2022\u00b7\u25cf\u25e6\u25aa*+]\s*)?(?:\[[ xX/~-]\]\s*)?[.,;:]*")
 
 
 def scope_end(lines: List[str], start: int) -> int:
     """Index just past the scope lines that begin at `start`; a line holding its own marker ends the scope."""
     end = start
     while end < len(lines) and SCOPE_RE.match(lines[end]) and not INLINE_RE.search(lines[end]):
+        end += 1
+    return end
+
+
+def strip_outcomes(text: str) -> str:
+    """Text with its outcome markers taken out; empty when only a bullet or a checkbox is left."""
+    if not OUTCOME_RE.search(text):
+        return text.strip()
+    rest = re.sub(r"\s+", " ", OUTCOME_RE.sub("", text)).strip()
+    return "" if BARE_RE.fullmatch(rest) else rest
+
+
+def outcome_line(line: str) -> bool:
+    """A line that holds outcomes and nothing to file: never an item, never a task."""
+    if not OUTCOME_RE.search(line) or INLINE_RE.search(line):
+        return False
+    m = ITEM_RE.match(line) or LOOSE_RE.match(line)
+    return not strip_outcomes(TICKET_RE.sub("", m.group(3)) if m else line)
+
+
+def outcome_end(lines: List[str], start: int) -> int:
+    """Index past the lines holding outcomes straight after an item, prose like `Done when "x"(outcome)`
+    too, but no line that is an item of its own. They move and are removed with the item."""
+    end = start
+    while end < len(lines) and OUTCOME_RE.search(lines[end]) and not INLINE_RE.search(lines[end]) \
+            and (outcome_line(lines[end]) or not (ITEM_RE.match(lines[end]) or LOOSE_RE.match(lines[end]))):
         end += 1
     return end
 
@@ -249,6 +284,8 @@ def parse(text: str, name: str = "") -> Dict[str, Any]:
             continue
         item = ITEM_RE.match(line)
         loose = None if item else LOOSE_RE.match(line)
+        if (item or loose) and outcome_line(line):
+            item = loose = None  # a line holding only outcomes is not an item
         if item or loose:
             base = indent(line)
             if item:
@@ -272,16 +309,19 @@ def parse(text: str, name: str = "") -> Dict[str, Any]:
                 end = scope_end(body, j)
                 children += body[j:end]
                 j = end
+            end = outcome_end(body, j)  # its outcomes move with it too
+            children += body[j:end]
+            j = end
             ticket = TICKET_RE.search(rest)
             items.append({
-                "status": status, "text": TICKET_RE.sub("", rest).strip(),
+                "status": status, "text": strip_outcomes(TICKET_RE.sub("", rest)),
                 "ticket": ticket.group(1) if ticket else None, "line": number,
                 "raw": line, "children": children, "section": section, "group": group,
                 "loose": bool(loose), "indent": base,
             })
             i = j
             continue
-        end = scope_end(body, i + 1) if INLINE_RE.search(line) else i + 1
+        end = outcome_end(body, scope_end(body, i + 1)) if INLINE_RE.search(line) else i + 1
         blocks.append({"kind": "prose", "lines": body[i:end], "group": group, "section": section, "line": number})
         i = end
     topic = meta.get("topic") or title or Path(name).stem.replace("-", " ").replace("_", " ").strip() or "untitled"
@@ -307,8 +347,51 @@ def inline_items(text: str) -> List[Dict[str, Any]]:
                           "ticket": m.group(3), "line": len(fm_lines) + offset + 1, "raw": line,
                           "children": [], "scope": scope if n == len(markers) - 1 else [],
                           "section": None, "group": None, "loose": False,
-                          "inline": True, "optional": m.group(2).lower() == "optional", "indent": 0})
+                          "inline": True, "optional": m.group(2).lower() == "optional", "indent": 0,
+                          "col": m.start()})
     return found
+
+
+def attach_outcomes(text: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Give each item, as `outcomes`, the outcome markers that belong to it: the marker on the
+    outcome's own line (the last one before it), else the item whose line, scope or details hold
+    it, else the nearest item above it before a blank line or a heading. Returns the outcomes
+    that belong to no item."""
+    lines = text.splitlines()
+    floor = len(split_front_matter(lines)[0])
+    owner: Dict[int, List[Dict[str, Any]]] = {}
+    for it in items:
+        it["outcomes"] = []
+        start = it["line"] - 1
+        for n in range(start, start + 1 + len(it.get("scope") or []) + len(it.get("children") or [])):
+            owner.setdefault(n, []).append(it)
+    orphans, fenced = [], False
+    for idx in range(floor, len(lines)):
+        if lines[idx].lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        for m in OUTCOME_RE.finditer(lines[idx]):
+            entry = {"text": m.group(1).strip(), "line": idx + 1, "ticket": m.group(2)}
+            it = outcome_owner(lines, idx, m.start(), owner, floor)
+            (it["outcomes"] if it else orphans).append(entry)
+    return orphans
+
+
+def outcome_owner(lines: List[str], idx: int, col: int, owner: Dict[int, List[Dict[str, Any]]],
+                  floor: int) -> Optional[Dict[str, Any]]:
+    k = idx
+    while k >= floor and lines[k].strip() and not re.match(r"^#{1,6}\s", lines[k]) \
+            and not (k < idx and lines[k].lstrip().startswith("```")):
+        mine = owner.get(k)
+        if mine:
+            if k == idx and len(mine) > 1:
+                before = [it for it in mine if it.get("col", 0) < col]
+                return before[-1] if before else mine[0]
+            return mine[-1]
+        k -= 1
+    return None
 
 
 def note_items(note: Dict[str, Any], text: str) -> List[Dict[str, Any]]:
@@ -479,12 +562,12 @@ def ticket_title(text: str) -> str:
 
 
 def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
-    details = "\n".join(c.strip() if not c.strip().startswith(("-", "*", "+")) else c.strip()
-                        for c in item["children"] if c.strip())
+    # outcomes go to Acceptance criteria, so details and tasks never repeat them
+    details = "\n".join(filter(None, (strip_outcomes(c) for c in item["children"] if c.strip())))
     label = "Optional" if item.get("optional") else SECTION[item["status"]]
     parts = ["From my notes: **%s** (`%s`, line %d, %s)." % (topic, rel, item["line"], label),
              "", item["text"]]
-    context = INLINE_RE.sub(lambda m: m.group(1), item["raw"]).strip() if item.get("inline") else ""
+    context = strip_outcomes(INLINE_RE.sub(lambda m: m.group(1), item["raw"])) if item.get("inline") else ""
     if context and context != item["text"]:
         parts += ["", "> " + context]
     if item.get("optional"):
@@ -492,11 +575,15 @@ def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
     tasks = []
     for line in item.get("scope") or []:
         m = SCOPE_RE.match(line)
-        tasks.append("- [%s] %s" % ("x" if m.group(1) in ("x", "X") else " ", m.group(2).strip()))
+        task = strip_outcomes(m.group(2))
+        if task:
+            tasks.append("- [%s] %s" % ("x" if m.group(1) in ("x", "X") else " ", task))
     if not tasks:
         # never an empty checklist: without scope lines, the item itself is the one thing to do
         tasks = ["- [%s] %s" % ("x" if item["status"] == "done" else " ", clean_text(item["text"]))]
     parts += ["", "**Checklist**", ""] + tasks
+    if item.get("outcomes"):
+        parts += ["", "**Acceptance criteria**", ""] + ["- [ ] %s" % o["text"] for o in item["outcomes"]]
     if details:
         parts += ["", details]
     return "\n".join(parts) + "\n"
@@ -504,10 +591,13 @@ def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
 
 def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional[str],
            board: Optional[int], columns: Dict[str, str], assignee: Optional[str] = None,
-           files: Optional[List[Path]] = None, after_filing: str = "remove") -> List[Dict[str, Any]]:
+           files: Optional[List[Path]] = None, after_filing: str = "remove",
+           warnings: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """Group the unfiled items into one ticket plan per (repo, board, status).
 
-    Open checkbox items and every inline marker are filed; a done checkbox item never is."""
+    Open checkbox items and every inline marker are filed; a done checkbox item never is.
+    Outcomes that cannot reach a ticket (no item, or an item already filed) go to `warnings`."""
+    warnings = [] if warnings is None else warnings
     plans: Dict[Tuple[str, Optional[int], str], Dict[str, Any]] = {}
     problems = []
     for path in (files if files is not None else note_files(root)):
@@ -521,7 +611,16 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
         target_assignee = note["meta"].get("assignee") or assignee
         if target_assignee and target_assignee.lower() == "none":
             target_assignee = None
-        for item in note_items(note, text):
+        items = note_items(note, text)
+        for o in attach_outcomes(text, items):
+            warnings.append("%s:%d: outcome %r belongs to no item — put it under the item it is for"
+                            % (rel, o["line"], o["text"]))
+        for item in items:
+            if item["ticket"] and item["status"] in statuses:
+                for o in item["outcomes"]:
+                    if not o["ticket"] and o["line"] != item["line"]:
+                        warnings.append("%s:%d: outcome %r is under %s, which is already filed — add it to "
+                                        "that ticket by hand" % (rel, o["line"], o["text"], item["ticket"]))
             if item["status"] not in statuses or item["ticket"]:
                 continue
             if item["status"] == "done" and not item["inline"]:
@@ -544,20 +643,26 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
                 title = ticket_title("%s (%s)" % (item["text"], note["topic"]))
             k = item_key(rel, item)
             issue = {"key": k, "title": title, "body": ticket_body(note["topic"], rel, item)}
-            plan.setdefault("scope_counts", {})[k] = len(item.get("scope") or [])
+            plan.setdefault("scope_counts", {})[k] = sum(1 for line in item.get("scope") or []
+                                                         if strip_outcomes(SCOPE_RE.match(line).group(2)))
+            plan.setdefault("outcome_counts", {})[k] = len(item["outcomes"])
             if target_assignee:
                 issue["assignees"] = [target_assignee]
             plan["issues"].append(issue)
             plan["sources"][k] = {"file": rel, "line": item["line"], "text": item["text"], "title": title,
                                   "too_long": too_long(item["text"]),
-                                  "repo_in_file": bool(note["meta"].get("repo")), "inline": item["inline"]}
+                                  "repo_in_file": bool(note["meta"].get("repo")), "inline": item["inline"],
+                                  "outcomes": [{"text": o["text"], "offset": o["line"] - item["line"]}
+                                               for o in item["outcomes"]]}
     if problems:
         raise NotesError("cannot export:\n  " + "\n  ".join(dict.fromkeys(problems)))
     return list(plans.values())
 
 
-def scope_note(count: int) -> str:
-    return " (%d scope item%s)" % (count, "" if count == 1 else "s") if count else ""
+def scope_note(count: int, outcomes: int = 0) -> str:
+    said = ["%d scope item%s" % (count, "" if count == 1 else "s")] if count else []
+    said += ["%d outcome%s" % (outcomes, "" if outcomes == 1 else "s")] if outcomes else []
+    return " (%s)" % ", ".join(said) if said else ""
 
 
 def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
@@ -571,7 +676,8 @@ def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
         summary.append({"plan": str(out / (name + ".json")), "repo": plan["repo"], "board": plan["board"],
                         "column": plan["column"], "closed_after": plan["close"],
                         "assignees": sorted({a for i in plan["issues"] for a in i.get("assignees", [])}),
-                        "items": [i["title"] + scope_note(plan.get("scope_counts", {}).get(i["key"], 0))
+                        "items": [i["title"] + scope_note(plan.get("scope_counts", {}).get(i["key"], 0),
+                                                          plan.get("outcome_counts", {}).get(i["key"], 0))
                                   for i in plan["issues"]],
                         "needs_short_title": [{"key": k, "chars": len(clean_text(src["text"])), "text": src["text"],
                                                "title_now": src["title"]}
@@ -608,7 +714,7 @@ def ticket_links(line: str, repo: str, titles: Optional[Dict[str, str]] = None) 
         m = ITEM_RE.match(line) or LOOSE_RE.match(line)
         ref = TICKET_RE.search(m.group(3)) if m else None
         if ref:
-            pairs = [(TICKET_RE.sub("", m.group(3)).strip(), ref.group(1))]
+            pairs = [(strip_outcomes(TICKET_RE.sub("", m.group(3))), ref.group(1))]
     out = []
     for text, ref in pairs:
         number, url = ticket_url(ref, repo)
@@ -617,9 +723,12 @@ def ticket_links(line: str, repo: str, titles: Optional[Dict[str, str]] = None) 
 
 
 def remove_filed(lines: List[str], filed: List[int], repo: str = "",
-                 titles: Optional[Dict[str, str]] = None) -> List[Tuple[int, int]]:
+                 titles: Optional[Dict[str, str]] = None,
+                 outcomes: Optional[List[int]] = None) -> List[Tuple[int, int]]:
     """Replace each filed line, and what belongs to it, with a link to its ticket, unless the line
-    still holds an unfiled marker. Returns the (first, last) 1-based line ranges replaced."""
+    still holds an unfiled marker. `outcomes` are lines whose outcomes went into a filed ticket;
+    one not already replaced with its item is removed, since the ticket now holds it.
+    Returns the (first, last, linked) 1-based line ranges replaced, linked False for a removed outcome line."""
     spans = []
     for idx in sorted(set(filed)):
         line = lines[idx]
@@ -628,10 +737,14 @@ def remove_filed(lines: List[str], filed: List[int], repo: str = "",
         end = block_end(lines, idx) if (ITEM_RE.match(line) or LOOSE_RE.match(line)) else idx + 1
         if INLINE_RE.search(line):
             end = scope_end(lines, end)
-        spans.append((idx, end))
-    for start, end in sorted(spans, reverse=True):
-        lines[start:end] = ticket_links(lines[start], repo, titles)
-    return [(start + 1, end) for start, end in spans]
+        spans.append((idx, outcome_end(lines, end), True))
+    for idx in sorted(set(outcomes or [])):
+        if not any(start <= idx < end for start, end, _ in spans) and not INLINE_RE.search(lines[idx]) \
+                and all(m.group(2) for m in OUTCOME_RE.finditer(lines[idx])):
+            spans.append((idx, idx + 1, False))
+    for start, end, link in sorted(spans, reverse=True):
+        lines[start:end] = ticket_links(lines[start], repo, titles) if link else []
+    return sorted((start + 1, end, link) for start, end, link in spans)
 
 
 def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int],
@@ -652,6 +765,7 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int],
         original = path.read_text(encoding="utf-8")
         lines = original.splitlines()
         filed: List[int] = []
+        outcome_at: List[int] = []
         for key, src in entries:
             ref = "#%d" % numbers[key] if src["repo_in_file"] else "%s#%d" % (meta["repo"], numbers[key])
             at = None
@@ -665,8 +779,8 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int],
                         break
                     continue
                 m = ITEM_RE.match(line) or LOOSE_RE.match(line)
-                if m and TICKET_RE.sub("", m.group(3)).strip() == src["text"] and not TICKET_RE.search(m.group(3)) \
-                        and not INLINE_RE.search(line):
+                if m and strip_outcomes(TICKET_RE.sub("", m.group(3))) == src["text"] \
+                        and not TICKET_RE.search(m.group(3)) and not INLINE_RE.search(line):
                     lines[idx] = "%s → %s" % (line.rstrip(), ref)
                     at = idx
                     break
@@ -675,19 +789,43 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int],
                 continue
             filed.append(at)
             linked.append("%s:%d → %s" % (rel, at + 1, ref))
+            outcome_at += mark_outcomes(lines, at, src.get("outcomes") or [], ref)
         if remove and filed:
             if str(path) not in backed_up:
                 path.with_name(path.name + ".bak").write_text(original, encoding="utf-8")
                 backed_up.add(str(path))
             titles = {src["text"]: src["title"] for src in meta["sources"].values() if src.get("title")}
-            for first, last in remove_filed(lines, filed, meta["repo"], titles):
-                linked.append("%s:%s replaced by a link to its ticket (previous version in %s.bak)"
-                              % (rel, first if first == last else "%d-%d" % (first, last), path.name))
+            for first, last, link in remove_filed(lines, filed, meta["repo"], titles, outcome_at):
+                linked.append("%s:%s %s (previous version in %s.bak)"
+                              % (rel, first if first == last else "%d-%d" % (first, last),
+                                 "replaced by a link to its ticket" if link else "removed: its outcome is in the ticket",
+                                 path.name))
         if remove and filed:
             while lines and not lines[-1].strip():
                 lines.pop()  # removing the last item leaves no trailing blank line
         path.write_text("\n".join(lines) + "\n" if lines else "", encoding="utf-8")
     return linked
+
+
+def mark_outcomes(lines: List[str], at: int, outcomes: List[Dict[str, Any]], ref: str) -> List[int]:
+    """Mark the outcomes of the item filed at line `at` with `→ ref`, each found at its offset from
+    the item or, if the note moved, as the first unmarked outcome with its text below the item.
+    One on the item's own line is marked by the item's link. Returns the lines marked."""
+    marked = []
+    for o in outcomes:
+        if not o["offset"]:
+            continue
+        guess = at + o["offset"]
+        for idx in [guess] + list(range(at + 1, len(lines))):
+            if not 0 <= idx < len(lines):
+                continue
+            hit = next((m for m in OUTCOME_RE.finditer(lines[idx])
+                        if m.group(1).strip() == o["text"] and not m.group(2)), None)
+            if hit:
+                lines[idx] = "%s → %s%s" % (lines[idx][:hit.end()], ref, lines[idx][hit.end():])
+                marked.append(idx)
+                break
+    return marked
 
 
 def retitle(plans_dir: Path, key: str, title: str) -> Dict[str, Any]:
@@ -916,10 +1054,14 @@ def cmd_export(args) -> Any:
     assignee = args.assignee or cfg.get("assignee", DEFAULT_ASSIGNEE)
     after_filing = "link" if args.keep else cfg.get("after_filing", "remove")
     root, files = select_files(args.root, args.file)
-    plans = export(root, statuses, args.topic, repo, board, columns, assignee, files, after_filing)
+    warnings: List[str] = []
+    plans = export(root, statuses, args.topic, repo, board, columns, assignee, files, after_filing, warnings)
+    result: Dict[str, Any] = {"plans": write_plans(plans, Path(args.out)) if plans else []}
     if not plans:
-        return {"plans": [], "message": "nothing to file: every open item already has a ticket"}
-    return {"plans": write_plans(plans, Path(args.out))}
+        result["message"] = "nothing to file: every open item already has a ticket"
+    if warnings:
+        result["outcome_warnings"] = warnings
+    return result
 
 
 def cmd_file(args) -> Any:
