@@ -334,6 +334,116 @@ class ScopeTest(unittest.TestCase):
         self.assertIn("a separate checkbox", items)
 
 
+OUTCOMES = """---
+repo: me/app
+---
+# Importer
+
+"build the importer"(todo)
+- parse the CSV
+- "a 10k-row file imports in under 5 seconds"(OUTCOME)
+- "bad rows are reported with their line number"(outcome)
+
+"add an error filter"(todo) "only errors are shown"(outcome)
+
+- [ ] add dark mode
+  - toggle in the header
+Done when "contrast passes AA"(outcome)
+- [ ] filed already → #3
+- "added after filing"(outcome)
+
+"belongs to nothing"(outcome)
+
+```
+"in a fence"(outcome)
+```
+"""
+
+
+class OutcomeTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name) / "notes"
+        self.root.mkdir()
+        self.path = self.root / "importer.md"
+        self.path.write_text(OUTCOMES, encoding="utf-8")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def export(self, warnings=None, after_filing="remove"):
+        return notes.export(self.root, ["todo"], None, None, None, notes.DEFAULT_COLUMNS, "@me", None,
+                            after_filing, warnings)
+
+    def bodies(self):
+        return {i["title"]: i["body"] for p in self.export() for i in p["issues"]}
+
+    def test_an_outcome_never_files_a_ticket_and_never_counts_as_an_item(self):
+        self.assertEqual(sorted(self.bodies()), ["add an error filter", "add dark mode", "build the importer"])
+        scan = [it["text"] for it in notes.note_items(notes.parse(OUTCOMES), OUTCOMES)]
+        self.assertNotIn("belongs to nothing", " ".join(scan))
+
+    def test_each_outcome_joins_its_own_line_its_scope_or_the_item_above(self):
+        bodies = self.bodies()
+        self.assertIn("**Acceptance criteria**\n\n- [ ] a 10k-row file imports in under 5 seconds\n"
+                      "- [ ] bad rows are reported with their line number", bodies["build the importer"])
+        self.assertIn("**Acceptance criteria**\n\n- [ ] only errors are shown", bodies["add an error filter"])
+        self.assertIn("**Acceptance criteria**\n\n- [ ] contrast passes AA", bodies["add dark mode"])
+
+    def test_outcomes_leave_the_checklist_and_the_details(self):
+        bodies = self.bodies()
+        self.assertIn("**Checklist**\n\n- [ ] parse the CSV\n\n**Acceptance criteria**", bodies["build the importer"])
+        self.assertNotIn("(outcome)", "".join(bodies.values()))
+        self.assertEqual(bodies["add dark mode"].count("contrast passes AA"), 1)
+
+    def test_export_counts_outcomes_and_warns_about_those_no_ticket_gets(self):
+        warnings = []
+        items = notes.write_plans(self.export(warnings), Path(self._tmp.name) / "plans")[0]["items"]
+        self.assertIn("build the importer (1 scope item, 2 outcomes)", items)
+        self.assertIn("add an error filter (1 outcome)", items)
+        self.assertEqual(len(warnings), 2, warnings)
+        self.assertIn("'belongs to nothing' belongs to no item", warnings[0])
+        self.assertIn("'added after filing' is under #3, which is already filed", warnings[1])
+
+    def link(self, after_filing):
+        plans = self.export(after_filing=after_filing)
+        numbers = {k: n for n, k in enumerate(plans[0]["sources"], 10)}
+        return notes.link_back(self.root, plans[0], numbers)
+
+    def test_link_mode_marks_every_outcome_with_its_ticket(self):
+        self.link("link")
+        text = self.path.read_text(encoding="utf-8")
+        self.assertIn('- "a 10k-row file imports in under 5 seconds"(OUTCOME) → #10', text)
+        self.assertIn('"add an error filter"(todo) → #11 "only errors are shown"(outcome)\n', text)
+        self.assertIn('Done when "contrast passes AA"(outcome) → #12', text)
+        warnings = []
+        self.assertEqual(self.export(warnings), [])
+        self.assertEqual(len(warnings), 2, "filed outcomes warn no more")
+
+    def test_remove_mode_takes_outcomes_out_with_their_item(self):
+        report = self.link("remove")
+        text = self.path.read_text(encoding="utf-8")
+        for gone in ("10k-row", "only errors", "contrast", "toggle"):
+            self.assertNotIn(gone, text)
+        self.assertIn('"belongs to nothing"(outcome)', text)
+        self.assertIn('"in a fence"(outcome)', text)
+        self.assertFalse(any("removed: its outcome" in r for r in report), "each went out with its item's block")
+
+    def test_remove_mode_removes_an_outcome_line_that_prose_kept_apart_from_its_item(self):
+        self.path.write_text('---\nrepo: me/app\n---\n"ship it"(todo)\nSome context that stays.\n'
+                             '"it is shipped"(outcome)\n', encoding="utf-8")
+        report = self.link("remove")
+        self.assertEqual(self.path.read_text(encoding="utf-8"), "---\nrepo: me/app\n---\n"
+                         "→ [#10 ship it](https://github.com/me/app/issues/10)\nSome context that stays.\n")
+        self.assertIn("importer.md:6 removed: its outcome is in the ticket (previous version in importer.md.bak)",
+                      report)
+
+    def test_organize_keeps_outcomes_with_their_item(self):
+        after = notes.organize_text(OUTCOMES, "importer.md")
+        self.assertEqual(notes.compare(OUTCOMES, after), {"lost": [], "added": []})
+        self.assertIn("- [ ] add dark mode\n  - toggle in the header\nDone when", after)
+
+
 class FileArgumentTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

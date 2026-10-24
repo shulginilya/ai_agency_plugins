@@ -1,8 +1,8 @@
 {
   "name": "notes",
   "displayName": "Notes",
-  "version": "0.2.0",
-  "description": "Keeps running notes on many topics organized in plain Markdown: captures as you go, regroups each topic into In progress, TODO, Done and Notes without losing a line, shows what is open, and turns TODO, in-progress and inline \"text\"(todo|wip|done) markers into GitHub tickets assigned to you on your default board. Use when asked to note something, organize notes, list open TODOs, or file notes as tickets.",
+  "version": "0.3.0",
+  "description": "Keeps running notes on many topics organized in plain Markdown: captures as you go, regroups each topic into In progress, TODO, Done and Notes without losing a line, shows what is open, and turns TODO, in-progress and inline \"text\"(todo|wip|done) markers into GitHub tickets, with \"text\"(outcome) as acceptance criteria, assigned to you on your default board. Use when asked to note something, organize notes, list open TODOs, or file notes as tickets.",
   "author": {
     "name": "Ilya Shulgin",
     "email": "ishulgin8@gmail.com"

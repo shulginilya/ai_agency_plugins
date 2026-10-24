@@ -1,10 +1,10 @@
 ---
 name: notes-to-tickets
-description: Turns items in running notes — TODO and in-progress items, and inline "text"(todo), "text"(optional), "text"(wip) and "text"(done) markers, from every topic or one — into GitHub issues assigned to the user on the saved default board, TODO into Backlog, optional into In Definition, in-progress into In progress, done into Done and closed, then replaces each filed item in the note with a link to its ticket (keeping a .bak), or with after-filing set to link marks it with its ticket number, so it is never filed twice. Use when asked to turn notes, TODOs or work in progress into tickets or issues, push notes to a board, or file what is open in the notes.
+description: Turns items in running notes — TODO and in-progress items, and inline "text"(todo), "text"(optional), "text"(wip) and "text"(done) markers, from every topic or one, with "text"(outcome) markers as their acceptance criteria — into GitHub issues assigned to the user on the saved default board, TODO into Backlog, optional into In Definition, in-progress into In progress, done into Done and closed, then replaces each filed item in the note with a link to its ticket (keeping a .bak), or with after-filing set to link marks it with its ticket number, so it is never filed twice. Use when asked to turn notes, TODOs or work in progress into tickets or issues, push notes to a board, or file what is open in the notes.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Notes to tickets
@@ -32,12 +32,20 @@ python ../ticket-management/scripts/board.py boards     # pick a board when none
     optional;
   - `"text"(wip)` goes to In progress;
   - `"text"(done)` or `"text"(+)` goes to Done, and `file` closes the ticket as
-    completed.
+    completed;
+  - `"text"(outcome)` is never a ticket. It is an acceptance criterion of the
+    marker on its line, else of the item whose scope holds it, else of the
+    closest item above it before a blank line.
 - The quoted text is the title. Done `- [x]` items are never filed.
 - A marker's scope is the bullet or dash lines straight after it, up to a
   blank line or any other line. It becomes the ticket's checklist and is never
   filed as separate tickets. `export` lists such a ticket with its scope count,
   e.g. `build the importer (3 scope items)`. Show it that way.
+- Outcomes become the ticket's **Acceptance criteria** checklist and leave
+  the scope checklist. `export` counts them, `(2 scope items, 2 outcomes)`.
+  Show every line of `outcome_warnings` to the user before filing: those
+  outcomes reach no ticket, either because they belong to no item or because
+  their item is already filed. Offer to move an orphan under its item.
 - Every ticket is assigned to the saved assignee, `@me` unless changed.
   `--assignee none` files them unassigned.
 
@@ -84,8 +92,8 @@ shulginilya/ai-common-tasks · AI common tasks (#5) · assigned to @me
 
 Each ticket's body says where it came from (topic, file and line), then has
 the item's full text as its description and a checklist: the scope lines, or
-when there are none, the item's full text as the one thing to do. The
-item's indented details come after it. No ticket has an empty description or
+when there are none, the item's full text as the one thing to do. Its
+outcomes follow as **Acceptance criteria**, then the item's indented details. No ticket has an empty description or
 checklist.
 
 ### Short titles for long items
@@ -127,10 +135,11 @@ closed as completed. Then it settles the note:
   the quoted line and the scope. The previous version is saved as
   `<file>.bak`. A line that also holds a marker that wasn't filed stays, and
   its filed marker gets `→ #N`. The line is replaced on the run that files its
-  last marker. Link lines are never filed and never join a scope.
+  last marker. Link lines are never filed and never join a scope. Outcome
+  lines go with their item, and one that prose kept apart from it is removed.
 - **link** (`defaults --after-filing link`, or `export --keep` for one run):
   every item stays, marked `→ #N` (or `→ owner/repo#N`), right after the
-  marker for an inline one.
+  marker for an inline one. Its outcomes are marked the same way.
 
 Only items whose ticket exists are replaced or marked. If filing fails
 partway, the rest of the note is untouched.
