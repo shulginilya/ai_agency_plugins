@@ -444,6 +444,99 @@ class OutcomeTest(unittest.TestCase):
         self.assertIn("- [ ] add dark mode\n  - toggle in the header\nDone when", after)
 
 
+BOARDS = """---
+repo: me/app
+board: 2
+---
+# Mixed
+
+"goes to the front matter board"(todo)
+"goes to common tasks"(todo)(ai COMMON tasks)
+- with a step
+"goes to board seven"(wip)(7)
+"not a board"(todo) (an aside)
+"criterion"(outcome)(Somewhere)
+"""
+
+
+def fake_find_board(owner, wanted):
+    known = {"ai common tasks": {"number": 5, "title": "AI common tasks"}}
+    if wanted.lower() not in known:
+        raise notes.NotesError("%s has no open board named %r. Boards: #5 AI common tasks" % (owner, wanted))
+    return known[wanted.lower()]
+
+
+class BoardMarkerTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name) / "notes"
+        self.root.mkdir()
+        self.path = self.root / "mixed.md"
+        self.path.write_text(BOARDS, encoding="utf-8")
+        patcher = mock.patch.object(notes, "find_board", side_effect=fake_find_board)
+        self.find = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def export(self, board=None, warnings=None, after_filing="remove"):
+        return notes.export(self.root, ["todo", "wip"], None, None, board, notes.DEFAULT_COLUMNS, "@me", None,
+                            after_filing, warnings)
+
+    def where(self, plans):
+        return {i["title"]: p["board"] for p in plans for i in p["issues"]}
+
+    def test_the_item_marker_wins_over_the_front_matter(self):
+        self.assertEqual(self.where(self.export()), {
+            "goes to the front matter board": 2, "goes to common tasks": 5, "goes to board seven": 7,
+            "not a board": 2})
+
+    def test_a_board_name_is_looked_up_once_and_its_title_shown(self):
+        plans = self.export()
+        self.assertEqual(self.find.call_count, 1)
+        self.find.assert_called_with("me", "ai COMMON tasks")
+        common = next(p for p in plans if p["board"] == 5)
+        self.assertEqual(common["board_title"], "AI common tasks")
+        body = common["issues"][0]["body"]
+        self.assertNotIn("(ai COMMON tasks)", body)
+        self.assertIn("- [ ] with a step", body)
+
+    def test_the_board_option_takes_a_name_when_the_note_names_none(self):
+        self.path.write_text(BOARDS.replace("board: 2\n", ""), encoding="utf-8")
+        self.assertEqual(self.where(self.export("AI common tasks"))["goes to the front matter board"], 5)
+        self.assertEqual(self.where(self.export("9"))["not a board"], 9)
+
+    def test_an_unknown_board_stops_the_export(self):
+        self.path.write_text('---\nrepo: me/app\n---\n"lost"(todo)(Nope)\n', encoding="utf-8")
+        with self.assertRaises(notes.NotesError) as caught:
+            self.export()
+        self.assertIn("mixed.md:4", str(caught.exception))
+        self.assertIn("Boards: #5 AI common tasks", str(caught.exception))
+
+    def test_a_board_marker_on_an_outcome_is_warned_about(self):
+        warnings = []
+        self.export(warnings=warnings)
+        self.assertEqual(len(warnings), 1, warnings)
+        self.assertIn("board marker on outcome 'criterion' changes nothing", warnings[0])
+
+    def test_link_mode_marks_after_the_board_and_a_rerun_files_nothing(self):
+        plans = self.export(after_filing="link")
+        for n, plan in enumerate(plans):
+            notes.link_back(self.root, plan, {k: 20 + n * 10 + m for m, k in enumerate(plan["sources"])})
+        text = self.path.read_text(encoding="utf-8")
+        self.assertRegex(text, r'"goes to common tasks"\(todo\)\(ai COMMON tasks\) → #\d+\n')
+        self.assertRegex(text, r'"goes to board seven"\(wip\)\(7\) → #\d+\n')
+        self.assertEqual(self.export(), [])
+
+    def test_remove_mode_replaces_the_line_with_a_link(self):
+        plan = next(p for p in self.export() if p["board"] == 5)
+        notes.link_back(self.root, plan, {k: 12 for k in plan["sources"]})
+        text = self.path.read_text(encoding="utf-8")
+        self.assertIn("→ [#12 goes to common tasks](https://github.com/me/app/issues/12)\n", text)
+        self.assertNotIn("with a step", text)
+
+
 class FileArgumentTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

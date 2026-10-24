@@ -81,6 +81,15 @@ Any case works, so `(TODO)`, `(OPTIONAL)`, `(WIP)` and `(DONE)` are the same.
 Markers inside code fences are ignored. Unlike these markers, `- [x]` items
 are never filed.
 
+### Board per item
+
+Put a board right after a marker, with no space, to send that one item to a
+different board: `"add an error filter"(todo)(AI common tasks)`, or the
+board's number, `(5)`. It changes only the board, not the repo, and it wins
+over the note's front matter, `--board` and your saved default. The board
+for a whole run can be named too: `/notes:to-tickets --board "AI common tasks"`.
+An unknown name stops before anything is filed, with the boards that exist.
+
 ### Outcomes
 
 `"text"(outcome)` says how you'll know an item is done. It's never a ticket:

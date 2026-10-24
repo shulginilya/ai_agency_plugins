@@ -4,7 +4,7 @@ description: Turns items in running notes — TODO and in-progress items, and in
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Notes to tickets
@@ -16,7 +16,7 @@ seen the list. The scripts guarantee the "only once". The list is your job.
 python ../note-keeping/scripts/notes.py defaults                # where tickets go by default, and to whom
 python ../note-keeping/scripts/notes.py defaults --repo owner/name --board "AI common tasks" --assignee @me
 python ../note-keeping/scripts/notes.py export [--topic T | --file F] [--status todo,wip,done] \
-    [--repo owner/name] [--board N] [--assignee @me|LOGIN|none] --out PLANS_DIR
+    [--repo owner/name] [--board N|NAME] [--assignee @me|LOGIN|none] --out PLANS_DIR
 python ../note-keeping/scripts/notes.py retitle --plans PLANS_DIR --key K --title "Short title"
 python ../note-keeping/scripts/notes.py file --plans PLANS_DIR --yes
 python ../ticket-management/scripts/board.py boards     # pick a board when none is named
@@ -46,6 +46,10 @@ python ../ticket-management/scripts/board.py boards     # pick a board when none
   Show every line of `outcome_warnings` to the user before filing: those
   outcomes reach no ticket, either because they belong to no item or because
   their item is already filed. Offer to move an orphan under its item.
+- A board marker straight after a filing marker, with no space, sends that one
+  item to another board: `"text"(todo)(AI common tasks)` or `"text"(todo)(5)`.
+  It works with todo, optional, wip and done/+, and changes only the board,
+  not the repo. On an outcome it means nothing, and `export` warns about it.
 - Every ticket is assigned to the saved assignee, `@me` unless changed.
   `--assignee none` files them unassigned.
 
@@ -61,9 +65,14 @@ tickets back into that same file.
 ## 1. Decide where the tickets go
 
 - First match wins:
-  1. the topic's front matter (`repo:`, `board:`, `assignee:`);
-  2. the command-line `--repo`, `--board` and `--assignee`;
-  3. the saved defaults.
+  1. for the board only, the item's own board marker, `"text"(todo)(Board)`;
+  2. the topic's front matter (`repo:`, `board:`, `assignee:`);
+  3. the command-line `--repo`, `--board` and `--assignee`;
+  4. the saved defaults.
+
+  A board is a number or the board's exact name, in any case, wherever it
+  is given. A name is looked up among the repo owner's boards. An unknown
+  name stops `export` with the boards that exist: show them, and never guess.
 
   Run `defaults` to see the saved ones. To change them, pass `--repo`,
   `--board` (a number, or the board's exact name) and `--assignee`.
