@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-kept half of the firstmate team diagram. Everything a plugin can say about itself (version, commands, subagents, MCP tools, hooks, routing) is read from the repo by team_diagram.py; only what the repo cannot say lives here. Regenerate with: python integrations/firstmate/team_diagram.py",
+  "_comment": "Hand-kept half of the firstmate team diagram. Everything a plugin can say about itself (version, commands, subagents, MCP tools, hooks, routing) is read from the repo by team_diagram.py; only what the repo cannot say lives here. CI regenerates docs/firstmate/team.drawio on main after each merge; preview with python integrations/firstmate/team_diagram.py, but never commit the result on a branch.",
   "title": "firstmate crew — who does what",
   "leads": [
     {
