@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 PLUGIN = Path(__file__).resolve().parent.parent
 REFINEMENT_SCRIPTS = PLUGIN / "skills" / "backlog-refinement" / "scripts"
@@ -342,6 +343,43 @@ class CreateBoardTest(unittest.TestCase):
                          ["In Definition", "Backlog", "Ready", "In progress", "In review", "Ready for Merge", "Done"])
         self.assertEqual([o["color"] for o in create_board.column_options(create_board.parse_columns(None))],
                          ["GRAY", "GRAY", "BLUE", "YELLOW", "PURPLE", "ORANGE", "GREEN"])
+
+    def test_github_starting_columns_keep_their_ids_on_the_new_board(self):
+        self.assertEqual(create_board.keep_starting(create_board.parse_columns(None)),
+                         {"Done": "Done", "Todo": "Backlog", "In Progress": "In progress"})
+        self.assertEqual(create_board.keep_starting(["Todo", "Doing", "Shipped"]),
+                         {"Done": "Shipped", "Todo": "Todo", "In Progress": "Doing"})
+        self.assertEqual(create_board.keep_starting(["Ideas", "Building"]), {"Done": "Building", "Todo": "Ideas"})
+        self.assertEqual(create_board.keep_starting(["Backlog", "Done"], ["Todo", "Done"]),
+                         {"Done": "Done", "Todo": "Backlog"})
+
+    def test_create_sends_the_starting_ids_and_reports_workflows_that_are_off(self):
+        calls = []
+
+        def fake_graphql(query, **variables):
+            calls.append(query)
+            if "createProjectV2" in query:
+                return {"createProjectV2": {"projectV2": {"id": "P", "number": 9, "url": "https://x/9", "field": {
+                    "id": "F", "options": [{"id": "t1", "name": "Todo"}, {"id": "p1", "name": "In Progress"},
+                                           {"id": "d1", "name": "Done"}]}}}}
+            if "updateProjectV2Field" in query:
+                return {}
+            return {"node": {"field": {"options": [{"name": n} for n in create_board.DEFAULT_COLUMNS]},
+                             "workflows": {"nodes": [{"name": "Item closed", "enabled": True},
+                                                     {"name": "Pull request merged", "enabled": False}]}}}
+
+        with mock.patch.object(create_board, "current_repo", return_value={"owner": "me", "name": "app"}), \
+             mock.patch.object(create_board, "owner_and_repo",
+                               return_value={"owner_id": "O", "repo_id": "R", "boards": []}), \
+             mock.patch.object(create_board, "graphql", fake_graphql):
+            result = create_board.create("Demo", list(create_board.DEFAULT_COLUMNS), link=False)
+        update = next(q for q in calls if "updateProjectV2Field" in q)
+        self.assertIn('{id:"t1",name:"Backlog"', update)
+        self.assertIn('{id:"p1",name:"In progress"', update)
+        self.assertIn('{id:"d1",name:"Done"', update)
+        self.assertIn('{name:"Ready",', update)
+        self.assertEqual(result["workflows_off"], ["Pull request merged"])
+        self.assertIn("Workflows, and enable: Pull request merged", result["to_do"])
 
     def test_custom_columns_keep_order_and_trim(self):
         self.assertEqual(create_board.parse_columns(" Todo , Doing,Done "), ["Todo", "Doing", "Done"])

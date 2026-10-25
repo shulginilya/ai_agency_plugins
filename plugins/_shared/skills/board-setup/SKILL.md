@@ -4,7 +4,7 @@ description: Creates a GitHub Projects board for a repository, with the team's S
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # Board setup
@@ -59,17 +59,23 @@ Run the same command without `--dry-run`. The script:
 1. creates the board under the repository's owner (a user or an organization),
 2. links it to the repository,
 3. replaces the default columns with the agreed ones, colored by meaning
-   (Ready blue, In progress yellow, In review purple, Done green), and
-4. reads the columns back and fails if they do not match.
+   (Ready blue, In progress yellow, In review purple, Done green). GitHub's
+   starting Todo, In Progress and Done columns keep their ids and become
+   Backlog, In progress and Done (`kept_from_github`), because GitHub's
+   built-in workflows point at them by id: a new id switches the workflow off,
+   and then a closed or merged ticket never reaches Done. And
+4. reads the columns and workflows back, fails if the columns do not match,
+   and lists any workflow that is off (`workflows_off`).
 
 It needs the token's `project` scope. If GitHub refuses with a scope error,
 tell the user to run `gh auth refresh -s project`. Do not work around it.
 
 ## 4. After creating it
 
-- New boards come with GitHub's default automations, such as closed or
-  merged → Done. Tell the user they can review them under the board's
-  Workflows settings. The script does not change them.
+- Moving a ticket to Done when its PR merges or it closes is GitHub's
+  built-in workflows ("Item closed" and "Pull request merged"), not ours. If
+  the result has `workflows_off`, tell the user exactly which to enable under
+  the board's ⋯ → Workflows: GitHub's API can't turn a workflow on.
 - To fill the board, use the `ticket-management` skill:
   `tickets.py batch --plan plan.json --project <number> --status Backlog`.
 
@@ -79,5 +85,6 @@ tell the user to run `gh auth refresh -s project`. Do not work around it.
 Board:   #<number> <title> — <url>
 Columns: <in order>
 Linked:  <owner/repo, or "not linked">
+Workflows: all on, or "off: <names>, enable them under ⋯ → Workflows"
 Next:    <the backlog step, or what the user should check>
 ```
