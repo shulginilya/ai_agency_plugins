@@ -10,7 +10,7 @@
     notes.py check BEFORE AFTER                      prove an edit lost or duplicated no line
     notes.py defaults [--repo O/R] [--board N|NAME] [--assignee LOGIN|@me|none]
                                                      where tickets go when a topic names nothing
-    notes.py export [--status todo,wip,done] [--topic T | --file F] [--repo O/R] [--board N] [--assignee A] --out DIR
+    notes.py export [--status todo,wip,done] [--topic T | --file F] [--repo O/R] [--board N|NAME] [--assignee A] --out DIR
     notes.py retitle --plans DIR --key K --title T   give an exported item whose text is too long a short title
     notes.py file --plans DIR [--yes]                create the tickets, then remove the filed items
                                                      from the note (or, with after-filing "link", mark them)
@@ -34,7 +34,9 @@ case. Their columns: todo Backlog, optional In Definition, wip In progress,
 done Done. The bullet or dash lines straight after a marked
 line are its scope, up to a blank line or any other line. They become a task
 list in the ticket body and are never filed on their own. The quoted text is
-the ticket title. A filed marker is followed by `→ #N`. Inline done markers are
+the ticket title. A filed marker is followed by `→ #N`. A board marker straight
+after the status, `"text"(todo)(Board name)` or `(5)`, files that item to that
+board (in the topic's repo), ahead of the front matter, --board and the default. Inline done markers are
 filed into the Done column and closed; checkbox `- [x]` items never are.
 
 `"text"(outcome)` is an acceptance criterion, never a ticket: it belongs to the
@@ -86,7 +88,9 @@ LOOSE_STATUS = {"todo": "todo", "fixme": "todo", "wip": "wip", "doing": "wip"}
 TICKET_RE = re.compile(r"\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+)\s*$")
 TITLE_MAX = 80
 DEFAULT_COLUMNS = {"todo": "Backlog", "optional": "In Definition", "wip": "In progress", "done": "Done"}
-INLINE_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\((todo|optional|wip|done|\+)\)'
+# Groups: text, status, board, ticket. `"text"(todo)(Board)` -- a board marker straight after the
+# status, no space -- files the item to that board.
+INLINE_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\((todo|optional|wip|done|\+)\)(?:\(([^()\n]+)\))?'
                        r'(?:\s*(?:→|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+))?', re.I)
 INLINE_STATUS = {"todo": "todo", "optional": "todo", "wip": "wip", "done": "done", "+": "done"}
 DEFAULT_ASSIGNEE = "@me"
@@ -94,7 +98,8 @@ AFTER_FILING = ("remove", "link")
 # A marked line's scope: the bullet or dash lines straight after it, up to a blank or any other line.
 SCOPE_RE = re.compile(r"^\s*[-\u2013\u2014\u2022\u00b7\u25cf\u25e6\u25aa*+]\s+(?:\[([ xX/~-])\]\s+)?(\S.*)$")
 # An outcome is an acceptance criterion of the item it belongs to; it never files a ticket of its own.
-OUTCOME_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\(outcome\)'
+# Groups: text, board (meaningless on an outcome: export warns), ticket.
+OUTCOME_RE = re.compile(r'["\u201c]([^"\u201c\u201d\n]+)["\u201d]\s*\(outcome\)(?:\(([^()\n]+)\))?'
                         r'(?:\s*(?:\u2192|->)\s*((?:[\w.-]+/[\w.-]+)?#\d+))?', re.I)
 BARE_RE = re.compile(r"(?:[-\u2013\u2014\u2022\u00b7\u25cf\u25e6\u25aa*+]\s*)?(?:\[[ xX/~-]\]\s*)?[.,;:]*")
 
@@ -344,7 +349,8 @@ def inline_items(text: str) -> List[Dict[str, Any]]:
         scope = body[offset + 1:scope_end(body, offset + 1)] if markers else []
         for n, m in enumerate(markers):
             found.append({"status": INLINE_STATUS[m.group(2).lower()], "text": m.group(1).strip(),
-                          "ticket": m.group(3), "line": len(fm_lines) + offset + 1, "raw": line,
+                          "ticket": m.group(4), "board": (m.group(3) or "").strip() or None,
+                          "line": len(fm_lines) + offset + 1, "raw": line,
                           "children": [], "scope": scope if n == len(markers) - 1 else [],
                           "section": None, "group": None, "loose": False,
                           "inline": True, "optional": m.group(2).lower() == "optional", "indent": 0,
@@ -373,7 +379,7 @@ def attach_outcomes(text: str, items: List[Dict[str, Any]]) -> List[Dict[str, An
         if fenced:
             continue
         for m in OUTCOME_RE.finditer(lines[idx]):
-            entry = {"text": m.group(1).strip(), "line": idx + 1, "ticket": m.group(2)}
+            entry = {"text": m.group(1).strip(), "line": idx + 1, "ticket": m.group(3), "board": m.group(2)}
             it = outcome_owner(lines, idx, m.start(), owner, floor)
             (it["outcomes"] if it else orphans).append(entry)
     return orphans
@@ -590,14 +596,17 @@ def ticket_body(topic: str, rel: str, item: Dict[str, Any]) -> str:
 
 
 def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional[str],
-           board: Optional[int], columns: Dict[str, str], assignee: Optional[str] = None,
+           board: Optional[Any], columns: Dict[str, str], assignee: Optional[str] = None,
            files: Optional[List[Path]] = None, after_filing: str = "remove",
            warnings: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """Group the unfiled items into one ticket plan per (repo, board, status).
 
     Open checkbox items and every inline marker are filed; a done checkbox item never is.
-    Outcomes that cannot reach a ticket (no item, or an item already filed) go to `warnings`."""
+    The board, first match wins: the item's `(todo)(Board)` marker, the front matter, `board`;
+    each a number or a board name. Outcomes that cannot reach a ticket (no item, or an item
+    already filed) and board markers on outcomes go to `warnings`."""
     warnings = [] if warnings is None else warnings
+    boards: Dict[Tuple[str, str], Tuple[int, str]] = {}
     plans: Dict[Tuple[str, Optional[int], str], Dict[str, Any]] = {}
     problems = []
     for path in (files if files is not None else note_files(root)):
@@ -612,9 +621,14 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
         if target_assignee and target_assignee.lower() == "none":
             target_assignee = None
         items = note_items(note, text)
-        for o in attach_outcomes(text, items):
+        orphans = attach_outcomes(text, items)
+        for o in orphans:
             warnings.append("%s:%d: outcome %r belongs to no item — put it under the item it is for"
                             % (rel, o["line"], o["text"]))
+        for o in sorted(orphans + [o for it in items for o in it["outcomes"]], key=lambda o: o["line"]):
+            if o["board"]:
+                warnings.append("%s:%d: the board marker on outcome %r changes nothing — an outcome goes to "
+                                "its item's ticket; put the board on the item's marker" % (rel, o["line"], o["text"]))
         for item in items:
             if item["ticket"] and item["status"] in statuses:
                 for o in item["outcomes"]:
@@ -629,15 +643,17 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
                 problems.append("%s: no repo — add `repo: owner/name` to its front matter or pass --repo" % rel)
                 break
             try:
-                board_number = int(target_board) if target_board not in (None, "") else None
-            except ValueError:
-                raise NotesError("%s: board %r is not a project number" % (rel, target_board))
+                board_number, board_title = board_ref(item.get("board") or target_board, target_repo, boards)
+            except NotesError as exc:
+                raise NotesError("%s:%d: %s" % (rel, item["line"], exc))
             lane = "optional" if item.get("optional") else item["status"]  # an optional todo has its own column
             key = (target_repo, board_number, lane)
-            plan = plans.setdefault(key, {"repo": target_repo, "board": board_number, "status": lane,
+            plan = plans.setdefault(key, {"repo": target_repo, "board": board_number, "board_title": board_title,
+                                          "status": lane,
                                           "column": columns.get(lane, DEFAULT_COLUMNS[lane]),
                                           "issues": [], "sources": {}, "root": str(root.resolve()),
                                           "close": item["status"] == "done", "after_filing": after_filing})
+            plan["board_title"] = plan["board_title"] or board_title
             title = ticket_title(item["text"])
             if any(i["title"] == title for i in plan["issues"]):
                 title = ticket_title("%s (%s)" % (item["text"], note["topic"]))
@@ -659,6 +675,23 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
     return list(plans.values())
 
 
+def board_ref(value: Any, repo: str, cache: Dict[Tuple[str, str], Tuple[int, str]]
+              ) -> Tuple[Optional[int], Optional[str]]:
+    """A board given as a number or a name, to its number and, when looked up by name, its title.
+    A name is found among the boards of the repo's owner, once per run."""
+    if value in (None, ""):
+        return None, None
+    text = str(value).strip().lstrip("#")
+    if text.isdigit():
+        return int(text), None
+    owner = repo.split("/")[0]
+    key = (owner.lower(), text.lower())
+    if key not in cache:
+        found = find_board(owner, text)
+        cache[key] = (found["number"], found["title"])
+    return cache[key]
+
+
 def scope_note(count: int, outcomes: int = 0) -> str:
     said = ["%d scope item%s" % (count, "" if count == 1 else "s")] if count else []
     said += ["%d outcome%s" % (outcomes, "" if outcomes == 1 else "s")] if outcomes else []
@@ -674,6 +707,7 @@ def write_plans(plans: List[Dict[str, Any]], out: Path) -> List[Dict[str, Any]]:
         meta = {k: plan[k] for k in ("repo", "board", "status", "column", "sources", "close", "root", "after_filing")}
         (out / (name + ".meta.json")).write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
         summary.append({"plan": str(out / (name + ".json")), "repo": plan["repo"], "board": plan["board"],
+                        "board_title": plan.get("board_title"),
                         "column": plan["column"], "closed_after": plan["close"],
                         "assignees": sorted({a for i in plan["issues"] for a in i.get("assignees", [])}),
                         "items": [i["title"] + scope_note(plan.get("scope_counts", {}).get(i["key"], 0),
@@ -709,7 +743,7 @@ def ticket_links(line: str, repo: str, titles: Optional[Dict[str, str]] = None) 
     """The link lines that replace a filed line: one per ticket it carries, as `→ [#N title](url)`.
     A link line is neither an item nor a scope bullet, so it is never filed and never joins a scope."""
     pad = line[:indent(line)]
-    pairs = [(m.group(1).strip(), m.group(3)) for m in INLINE_RE.finditer(line) if m.group(3)]
+    pairs = [(m.group(1).strip(), m.group(4)) for m in INLINE_RE.finditer(line) if m.group(4)]
     if not pairs:
         m = ITEM_RE.match(line) or LOOSE_RE.match(line)
         ref = TICKET_RE.search(m.group(3)) if m else None
@@ -732,7 +766,7 @@ def remove_filed(lines: List[str], filed: List[int], repo: str = "",
     spans = []
     for idx in sorted(set(filed)):
         line = lines[idx]
-        if any(not m.group(3) for m in INLINE_RE.finditer(line)):
+        if any(not m.group(4) for m in INLINE_RE.finditer(line)):
             continue  # another marker on this line is not filed yet: keep the line, its link marks the filed one
         end = block_end(lines, idx) if (ITEM_RE.match(line) or LOOSE_RE.match(line)) else idx + 1
         if INLINE_RE.search(line):
@@ -740,7 +774,7 @@ def remove_filed(lines: List[str], filed: List[int], repo: str = "",
         spans.append((idx, outcome_end(lines, end), True))
     for idx in sorted(set(outcomes or [])):
         if not any(start <= idx < end for start, end, _ in spans) and not INLINE_RE.search(lines[idx]) \
-                and all(m.group(2) for m in OUTCOME_RE.finditer(lines[idx])):
+                and all(m.group(3) for m in OUTCOME_RE.finditer(lines[idx])):
             spans.append((idx, idx + 1, False))
     for start, end, link in sorted(spans, reverse=True):
         lines[start:end] = ticket_links(lines[start], repo, titles) if link else []
@@ -772,7 +806,7 @@ def link_back(root: Path, meta: Dict[str, Any], numbers: Dict[str, int],
             for idx, line in enumerate(lines):
                 if src.get("inline"):
                     hit = next((m for m in INLINE_RE.finditer(line)
-                                if m.group(1).strip() == src["text"] and not m.group(3)), None)
+                                if m.group(1).strip() == src["text"] and not m.group(4)), None)
                     if hit:
                         lines[idx] = "%s → %s%s" % (line[:hit.end()], ref, line[hit.end():])
                         at = idx
@@ -820,7 +854,7 @@ def mark_outcomes(lines: List[str], at: int, outcomes: List[Dict[str, Any]], ref
             if not 0 <= idx < len(lines):
                 continue
             hit = next((m for m in OUTCOME_RE.finditer(lines[idx])
-                        if m.group(1).strip() == o["text"] and not m.group(2)), None)
+                        if m.group(1).strip() == o["text"] and not m.group(3)), None)
             if hit:
                 lines[idx] = "%s → %s%s" % (lines[idx][:hit.end()], ref, lines[idx][hit.end():])
                 marked.append(idx)
@@ -1050,7 +1084,7 @@ def cmd_export(args) -> Any:
                "done": args.done_column}
     cfg = load_config()
     repo = args.repo or cfg.get("repo")
-    board = args.board if args.board is not None else cfg.get("board")
+    board = args.board or cfg.get("board")
     assignee = args.assignee or cfg.get("assignee", DEFAULT_ASSIGNEE)
     after_filing = "link" if args.keep else cfg.get("after_filing", "remove")
     root, files = select_files(args.root, args.file)
@@ -1112,7 +1146,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--topic")
     p.add_argument("--file", help="one notes file, anywhere; instead of the whole notes folder")
     p.add_argument("--repo", help="owner/name for topics whose front matter names none")
-    p.add_argument("--board", type=int, help="project number for topics whose front matter names none")
+    p.add_argument("--board", help="board number or exact name, for topics whose front matter names none")
     p.add_argument("--todo-column", default=DEFAULT_COLUMNS["todo"])
     p.add_argument("--optional-column", default=DEFAULT_COLUMNS["optional"])
     p.add_argument("--wip-column", default=DEFAULT_COLUMNS["wip"])
