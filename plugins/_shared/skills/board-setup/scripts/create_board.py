@@ -12,8 +12,9 @@ already exists, so a rerun never makes a second one.
 
 Goes through the createProjectV2 and updateProjectV2Field GraphQL mutations,
 because older gh versions have no `gh project`. The token needs the `project`
-scope. The gh plumbing is the ticket-management skill's board.py, which ships
-beside this skill in the same plugin.
+scope. The gh plumbing is the ticket-management skill's board.py. Both are
+shared skills (plugins/_shared/skills), so board.py sits beside this skill in
+the repository and in every plugin bundle that lists both.
 
 Exit status: 0 done, 1 GitHub refused, 2 bad input.
 """
@@ -27,13 +28,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 SKILLS = Path(__file__).resolve().parent.parent.parent
-# Built bundle: ticket-management sits beside this skill. Repo source: it lives in plugins/_shared.
-sys.path.insert(0, str(SKILLS.parent.parent / "_shared" / "skills" / "ticket-management" / "scripts"))
+# ticket-management sits beside this skill: in plugins/_shared/skills, and in a built bundle's skills/.
 sys.path.insert(0, str(SKILLS / "ticket-management" / "scripts"))
 try:
     from board import BoardError, InputError, current_repo, graphql  # noqa: E402
 except ImportError:  # the plugin was built without its shared skill
-    sys.exit("create_board: ticket-management/scripts/board.py is missing beside this skill")
+    sys.exit("create_board: ticket-management/scripts/board.py is missing beside this skill; "
+             "list both board-setup and ticket-management in the plugin's shared_skills")
 
 # In Definition holds the notes plugin's optional items; Ready for Merge holds what passed QA.
 DEFAULT_COLUMNS = ["In Definition", "Backlog", "Ready", "In progress", "In review", "Ready for Merge", "Done"]

@@ -12,6 +12,11 @@ metadata:
 A board is where the team will look every day, so it is created once,
 deliberately, with columns that mean something.
 
+This is a shared skill (`plugins/_shared/skills/board-setup`). A plugin can
+create boards only if it lists `board-setup` in its `shared_skills`, together
+with `ticket-management`, whose `board.py` it uses. Today only scrum-master
+does.
+
 ```bash
 python scripts/create_board.py --title "<name>" --dry-run      # what would be created
 python scripts/create_board.py --title "<name>" [--columns "Backlog,Ready,In progress,In review,Done"] [--no-link]
