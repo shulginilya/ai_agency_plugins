@@ -339,7 +339,9 @@ class McpServerTest(unittest.TestCase):
 class CreateBoardTest(unittest.TestCase):
     def test_default_columns_are_the_team_flow(self):
         self.assertEqual(create_board.parse_columns(None),
-                         ["Backlog", "Ready", "In progress", "In review", "Done"])
+                         ["In Definition", "Backlog", "Ready", "In progress", "In review", "Ready for Merge", "Done"])
+        self.assertEqual([o["color"] for o in create_board.column_options(create_board.parse_columns(None))],
+                         ["GRAY", "GRAY", "BLUE", "YELLOW", "PURPLE", "ORANGE", "GREEN"])
 
     def test_custom_columns_keep_order_and_trim(self):
         self.assertEqual(create_board.parse_columns(" Todo , Doing,Done "), ["Todo", "Doing", "Done"])
@@ -362,7 +364,7 @@ class CreateBoardTest(unittest.TestCase):
         result = subprocess.run([sys.executable, str(CREATE_BOARD), "--title", "Demo", "--dry-run"],
                                 capture_output=True, text=True, env={**os.environ, "PATH": ""}, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(json.loads(result.stdout)["columns"]), 5)
+        self.assertEqual(len(json.loads(result.stdout)["columns"]), 7)
 
 
 if __name__ == "__main__":
