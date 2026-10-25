@@ -1,24 +1,33 @@
 #!/usr/bin/env python3
-"""Turn recorded test results into a QA verdict: accept, or reject with the reasons.
+"""Turn recorded test results into a QA verdict, accept or reject, and the ticket comment that says so.
 
-    qa_report.py results.json [--json]
+    qa_report.py results.json [--link URL] [--commit SHA] [--json]
 
 results.json:
 
-    {"ticket": "#42", "change": "PR #43",
+    {"ticket": "#42", "change": "PR #43", "review_link": "https://...review.com", "commit": "abc1234",
      "criteria": [{"id": "AC1", "text": "..."}, ...],
      "cases": [{"id": "AC1-1", "ac": "AC1", "kind": "happy", "steps": "...",
-                "status": "pass|fail|blocked|skipped", "evidence": "...", "note": "..."}]}
+                "status": "pass|fail|unchecked|skipped", "evidence": "...", "note": "..."}]}
+
+`unchecked` means the check could not be made (no environment, the data can't
+be created); `blocked` is still read as `unchecked`. `--link` and `--commit`
+override the file's review_link and commit.
 
 The verdict follows fixed rules, so it cannot be argued into a pass:
 
-    reject   any case failed, or a criterion has no case at all
-    blocked  nothing failed, but a criterion has no passing case because its
-             cases were blocked or skipped (the check could not be made)
     accept   every criterion has at least one passing case and nothing failed
+    reject   anything else: a case failed, a criterion has no case, or a
+             criterion has no passing case because its cases were unchecked or
+             skipped; those are listed as "suggest blocking", never a verdict
+
+The printed text is the ticket comment. It ends with a `<!-- qa:verdict ... -->`
+marker naming the verdict, the review link and the commit, which
+review_link.py reads to decide whether a later link needs a re-test. An
+accepted ticket moves to Ready for Merge, a rejected one back to In progress.
 
 A pass without evidence counts as not run. Standard library only.
-Exit status: 0 accept, 1 reject or blocked, 2 bad input.
+Exit status: 0 accept, 1 reject, 2 bad input.
 """
 
 from __future__ import annotations
@@ -28,7 +37,9 @@ import json
 import sys
 from typing import Any, Dict, List, Optional
 
-STATUSES = ("pass", "fail", "blocked", "skipped")
+STATUSES = ("pass", "fail", "unchecked", "skipped")
+ALIASES = {"blocked": "unchecked"}
+MOVE_TO = {"accept": "Ready for Merge", "reject": "In progress"}
 KINDS = ("happy", "edge", "boundary", "negative", "regression", "accessibility", "exploratory")
 
 
@@ -49,6 +60,8 @@ def load(data: Any) -> Dict[str, Any]:
     if len(ids) != len(criteria) or not all(ids) or len(set(ids)) != len(ids):
         raise ReportError("every criterion needs a unique 'id'")
     for case in cases:
+        if isinstance(case, dict) and case.get("status") in ALIASES:
+            case["status"] = ALIASES[case["status"]]
         if not isinstance(case, dict) or not case.get("id") or case.get("ac") not in ids:
             raise ReportError("case %r must have an 'id' and an 'ac' naming a listed criterion" % case)
         if case.get("status") not in STATUSES:
@@ -80,36 +93,48 @@ def judge(data: Dict[str, Any]) -> Dict[str, Any]:
             state = "not proven"
             unproven.append(crit["id"])
         rows.append({"id": crit["id"], "text": crit.get("text", ""), "state": state, "cases": cases})
-    if failed or uncovered:
-        verdict = "reject"
-    elif unproven:
-        verdict = "blocked"
-    else:
-        verdict = "accept"
+    verdict = "reject" if failed or uncovered or unproven else "accept"
+    suggest_block = [{"ac": row["id"], "why": "; ".join(str(c.get("note") or c["status"]).strip() for c in row["cases"])}
+                     for row in rows if row["id"] in unproven]
     return {"ticket": data.get("ticket"), "change": data.get("change"), "verdict": verdict,
-            "failed": failed, "uncovered": uncovered, "unproven": unproven, "criteria": rows}
+            "move_to": MOVE_TO[verdict], "review_link": data.get("review_link"), "commit": data.get("commit"),
+            "failed": failed, "uncovered": uncovered, "unproven": unproven, "suggest_block": suggest_block,
+            "criteria": rows}
 
 
 def render(result: Dict[str, Any]) -> str:
     head = "QA verdict: **%s**" % result["verdict"].upper()
     subject = " · ".join(x for x in (result.get("ticket"), result.get("change")) if x)
     lines = [head + (" — %s" % subject if subject else ""), ""]
+    lines.append("Tested on %s, commit `%s`." % (
+        "the review link %s" % result["review_link"] if result.get("review_link") else "a local run",
+        result.get("commit") or "unknown"))
+    lines.append("Moving the ticket to **%s**." % result["move_to"])
+    lines.append("")
     if result["failed"]:
         lines.append("Failing criteria: %s" % ", ".join(result["failed"]))
     if result["uncovered"]:
         lines.append("Criteria with no test case: %s" % ", ".join(result["uncovered"]))
     if result["unproven"]:
-        lines.append("Criteria not proven (cases blocked or skipped): %s" % ", ".join(result["unproven"]))
+        lines.append("Criteria not proven (could not be checked, or skipped): %s" % ", ".join(result["unproven"]))
     lines += ["", "| AC | Criterion | Result | Cases |", "| --- | --- | --- | --- |"]
     for row in result["criteria"]:
         cases = "; ".join("%s %s" % (c["id"], c["status"]) for c in row["cases"]) or "—"
         lines.append("| %s | %s | %s | %s |" % (row["id"], str(row["text"]).replace("|", "\\|"), row["state"], cases))
     problems = [c for row in result["criteria"] for c in row["cases"] if c["status"] != "pass"]
     if problems:
-        lines += ["", "Not passing:"]
+        lines += ["", "What fails, and how to see it:"]
         for c in problems:
             detail = c.get("note") or c.get("evidence") or ""
-            lines.append("- %s (%s, %s): %s" % (c["id"], c.get("kind", "case"), c["status"], str(detail).strip()))
+            steps = " Steps: %s." % str(c["steps"]).strip().rstrip(".") if c.get("steps") else ""
+            lines.append("- %s (%s, %s): %s%s" % (c["id"], c.get("kind", "case"), c["status"],
+                                                  str(detail).strip(), steps))
+    if result["suggest_block"]:
+        lines += ["", "Suggest blocking (QA does not block; the Captain decides):"]
+        lines += ["- %s could not be checked: %s" % (s["ac"], s["why"]) for s in result["suggest_block"]]
+    marker = {"verdict": result["verdict"], "link": result.get("review_link") or "none",
+              "commit": result.get("commit") or "unknown"}
+    lines += ["", "<!-- qa:verdict %s -->" % " ".join("%s=%s" % kv for kv in marker.items())]
     return "\n".join(lines) + "\n"
 
 
@@ -119,11 +144,17 @@ def main(argv: Optional[List[str]] = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("results")
+    parser.add_argument("--link", help="the review link tested; overrides results.json review_link")
+    parser.add_argument("--commit", help="the commit tested; overrides results.json commit")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
         with open(args.results, encoding="utf-8") as handle:
             data = load(json.load(handle))
+        if args.link:
+            data["review_link"] = args.link
+        if args.commit:
+            data["commit"] = args.commit
     except (OSError, ValueError, ReportError) as exc:
         print("qa_report: %s" % exc, file=sys.stderr)
         return 2

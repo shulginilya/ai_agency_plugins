@@ -229,6 +229,34 @@ class BoardTest(unittest.TestCase):
             with self.assertRaises(board.InputError):
                 board.current_repo()
 
+    def test_a_new_column_goes_after_the_named_one_else_before_done_else_last(self):
+        names = lambda opts: [o["name"] for o in opts]  # noqa: E731
+        self.assertEqual(names(board.with_column(self.OPTIONS, "Ready for Merge", "In review")),
+                         ["Backlog", "In progress", "In review", "Ready for Merge", "Done"])
+        self.assertEqual(names(board.with_column(self.OPTIONS, "Ready for Merge", "QA")),
+                         ["Backlog", "In progress", "In review", "Ready for Merge", "Done"])
+        self.assertEqual(names(board.with_column(self.OPTIONS[:2], "Ready for Merge", "In review")),
+                         ["Backlog", "In progress", "Ready for Merge"])
+
+    def test_existing_columns_are_sent_back_with_their_ids(self):
+        literal = board.options_literal(board.with_column(self.OPTIONS[:1], "Ready for Merge"))
+        self.assertEqual(literal, '{id:"1",name:"Backlog",color:GRAY,description:""},'
+                                  '{name:"Ready for Merge",color:GREEN,description:""}')
+
+    def test_adding_a_column_fails_loudly_if_any_card_changed_column(self):
+        before = [o for o in self.OPTIONS]
+        after = before[:3] + [{"id": "9", "name": "Ready for Merge"}] + before[3:]
+        projects = iter([{"id": "P", "title": "Board", "field": {"id": "F", "options": before}},
+                         {"id": "P", "title": "Board", "field": {"id": "F", "options": after}}])
+        cards = iter([{"a": "In review", "b": "Done"}, {"a": None, "b": "Done"}])
+        with mock.patch.object(board, "project", lambda o, n: next(projects)), \
+             mock.patch.object(board, "card_columns", lambda p: next(cards)), \
+             mock.patch.object(board, "graphql", return_value={}) as gql:
+            with self.assertRaises(board.BoardError) as caught:
+                board.add_column("me", 1, "Ready for Merge", "In review")
+        self.assertIn("1 card(s) changed column", str(caught.exception))
+        self.assertIn('id:"3",name:"In review"', gql.call_args[0][0])
+
     def test_missing_gh_is_a_clean_failure(self):
         result = run(SCRIPTS / "board.py", "boards", env={**os.environ, "PATH": ""})
         self.assertEqual(result.returncode, 1)
