@@ -8,7 +8,8 @@ line. See what's open across every topic.
 Turn TODO and in-progress items into GitHub tickets assigned to you on your
 default board, and inline markers too: `"text"(todo)`, `"text"(optional)`,
 `"text"(wip)`, and `"text"(done)` or `"text"(+)`. The bullet lines under a
-marker become the ticket's checklist. Once filed, an item is replaced in the
+marker become the ticket's checklist, and `"text"(outcome)` markers its
+acceptance criteria. Once filed, an item is replaced in the
 note by a link to its ticket, because it lives there now. A `.bak` keeps the
 previous version, and nothing is filed twice.
 
@@ -79,6 +80,33 @@ line, mid-sentence included. The quoted text becomes the ticket title.
 Any case works, so `(TODO)`, `(OPTIONAL)`, `(WIP)` and `(DONE)` are the same.
 Markers inside code fences are ignored. Unlike these markers, `- [x]` items
 are never filed.
+
+### Board per item
+
+Put a board right after a marker, with no space, to send that one item to a
+different board: `"add an error filter"(todo)(AI common tasks)`, or the
+board's number, `(5)`. It changes only the board, not the repo, and it wins
+over the note's front matter, `--board` and your saved default. The board
+for a whole run can be named too: `/notes:to-tickets --board "AI common tasks"`.
+An unknown name stops before anything is filed, with the boards that exist.
+
+### Outcomes
+
+`"text"(outcome)` says how you'll know an item is done. It's never a ticket:
+it goes into its item's ticket as an **Acceptance criteria** checklist. It
+belongs to the marker on its own line, else to the item whose scope holds it,
+else to the closest item above it before a blank line.
+
+```markdown
+"build the importer"(todo)
+- parse the CSV
+- "a 10k-row file imports in under 5 seconds"(outcome)
+
+"add an error filter"(todo) "only errors are shown"(outcome)
+```
+
+`/notes:to-tickets` shows `build the importer (1 scope item, 1 outcome)`, and
+warns about any outcome that belongs to no item or whose item is already filed.
 
 ### Titles and checklists
 
