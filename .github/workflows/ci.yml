@@ -37,8 +37,12 @@ jobs:
           path: dist/
           retention-days: 14
 
-  # The index is generated from every plugin.json, so it conflicts by
-  # construction if branches edit it. Regenerate it once, here, after the merge.
+  # Generated files that many branches would each regenerate, so they conflict
+  # by construction if branches commit them. Branches leave them alone (see
+  # generated-files below); this job regenerates them once, here, after the
+  # merge. One job, one push, so two pushes to main never race.
+  #   - the marketplace index, from every plugin.json
+  #   - the crew diagram, from deploy.sh, brief-include.md, plugins/, team.json
   marketplace:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: check
@@ -55,17 +59,48 @@ jobs:
       - name: Regenerate the marketplace index
         run: python -m tools.apkit marketplace
 
-      - name: Commit it if it changed
+      - name: Regenerate the crew diagram
+        run: python integrations/firstmate/team_diagram.py
+
+      - name: Commit what changed
         run: |
-          if git diff --quiet -- .claude-plugin/marketplace.json; then
-            echo "index already current"
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .claude-plugin/marketplace.json
-          git commit -m "chore(marketplace): regenerate index [skip ci]"
+          changed=
+          if ! git diff --quiet -- .claude-plugin/marketplace.json; then
+            git add .claude-plugin/marketplace.json
+            git commit -m "chore(marketplace): regenerate index [skip ci]"
+            changed=1
+          fi
+          if ! git diff --quiet -- docs/firstmate/team.drawio; then
+            git add docs/firstmate/team.drawio
+            git commit -m "chore(firstmate): regenerate crew diagram [skip ci]"
+            changed=1
+          fi
+          if [ -z "$changed" ]; then
+            echo "generated files already current"
+            exit 0
+          fi
           git push
+
+  # A branch that commits a CI-generated file brings the conflicts back.
+  generated-files:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Branch leaves CI-generated files alone
+        run: |
+          base="$(git merge-base "origin/${{ github.base_ref }}" HEAD)"
+          touched="$(git diff --name-only "$base" HEAD -- docs/firstmate/team.drawio)"
+          if [ -n "$touched" ]; then
+            echo "::error file=docs/firstmate/team.drawio::CI regenerates this on main after the merge. Drop it from the branch: git checkout origin/${{ github.base_ref }} -- docs/firstmate/team.drawio"
+            exit 1
+          fi
+          echo "no generated files touched"
 
   # marketplace.json entries are git-subdir sources pointing at this branch, so
   # what CI pushes here is what `/plugin install` actually fetches. Single

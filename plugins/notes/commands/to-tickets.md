@@ -1,6 +1,6 @@
 ---
-description: Turn TODO, in-progress and done items from your notes — checkboxes and inline "text"(todo|optional|wip|done) markers — into tickets assigned to you, then replace each filed item in the note with a link to its ticket.
-argument_hint: "[a notes file path, a topic, a board number or a repo; nothing for every topic]"
+description: Turn TODO, in-progress and done items from your notes — checkboxes and inline "text"(todo|optional|wip|done) markers, with "text"(outcome) as acceptance criteria — into tickets assigned to you, then replace each filed item in the note with a link to its ticket.
+argument_hint: "[a notes file path, a topic, a board number or name, or a repo; nothing for every topic]"
 model: claude-opus-5-5
 effort: medium
 allowed_tools: Bash(python:*) Bash(gh:*) Read Edit
@@ -20,12 +20,19 @@ Follow the `notes-to-tickets` skill:
    board is set, offer the ones
    `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py boards` lists for that repo.
 2. Export to a scratch folder:
-   `python {{PLUGIN_ROOT}}/skills/note-keeping/scripts/notes.py export --out <dir> [--file F | --topic T] [--repo R] [--board N] [--assignee A]`.
+   `python {{PLUGIN_ROOT}}/skills/note-keeping/scripts/notes.py export --out <dir> [--file F | --topic T] [--repo R] [--board N|"Board name"] [--assignee A]`.
+   An item's own board marker, `"text"(todo)(Board)`, wins over front matter,
+   `--board` and the default. If `export` names an unknown board, show the
+   boards it lists and ask; never guess.
    Show the list per repo, board and column, with the assignee:
    - TODO and `(todo)` go to Backlog;
    - `(optional)` goes to In Definition;
    - in progress and `(wip)` go to In progress;
-   - `(done)` and `(+)` go to Done and are closed.
+   - `(done)` and `(+)` go to Done and are closed;
+   - `(outcome)` is no ticket: it is an acceptance criterion of its item,
+     counted next to it, e.g. `(2 scope items, 1 outcome)`.
+
+   Show every line of `outcome_warnings`: those outcomes reach no ticket.
 
    For every item under `needs_short_title`, write a short title (80
    characters or fewer) that keeps the point, and set it with

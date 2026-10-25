@@ -79,6 +79,14 @@ Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(o
   there, and in link mode, the marker gets its ticket right after it,
   `"add an error filter"(todo) → #12`. A marker with a
   ticket is never filed again.
+- **Board.** A second bracket straight after the status, with no space, names
+  the board for that item: `"add an error filter"(todo)(AI common tasks)` or
+  `(5)`. A name matches the board's title exactly, in any case. It wins over
+  the front matter's `board:`, `--board` and the saved default, and changes
+  only the board, never the repo. `"text"(todo) (an aside)`, with a space, is
+  not a board. It works on todo, optional, wip and done markers; on an outcome
+  it changes nothing, and `export` warns. When filed in link mode, the ticket
+  goes after it: `"add an error filter"(todo)(AI common tasks) → #12`.
 - A checkbox item whose text holds a marker is filed once, as the marker.
 - Markers inside a code fence (```` ``` ````) are ignored.
 - **Scope.** The lines straight after a marked line that start with a bullet
@@ -104,6 +112,38 @@ Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(o
   its marker.
 - Unlike inline `(done)` markers, `- [x]` items are never filed. They are
   history, not tasks.
+
+## Outcomes
+
+`"text"(outcome)`, in any case, is an acceptance criterion: how you will know
+the item is done. It works anywhere a marker does, but it never becomes a
+ticket of its own. It belongs to the marker on its own line (the last one
+before it), else to the item whose scope or details hold it, else to the
+closest item above it before a blank line or a heading (a checkbox or
+`TODO:` item too).
+
+```markdown
+"build the importer"(todo)
+- parse the CSV
+- "a 10k-row file imports in under 5 seconds"(outcome)
+
+"add an error filter"(todo) "only errors are shown"(outcome)
+
+- [ ] add dark mode
+Done when "contrast passes AA"(outcome)
+```
+
+- The ticket gets an **Acceptance criteria** checklist, one box per outcome,
+  after its checklist. Outcome lines are left out of the checklist and the
+  details, so nothing appears twice. A line holding only outcomes is never an
+  item or a task.
+- `export` counts them, `build the importer (1 scope item, 1 outcome)`, and
+  lists under `outcome_warnings` every outcome no ticket will get: one that
+  belongs to no item, and one under an item that is already filed (add that
+  one to the ticket by hand). Neither is filed or dropped.
+- After filing, outcome lines go with their item: removed with it, or in link
+  mode marked `→ #N` like it. Lines holding outcomes straight after an item
+  move with it when `organize` regroups the note.
 
 ## Sections
 

@@ -47,7 +47,9 @@ from `status` and say which you picked.
 - Inline markers need no command. A quoted phrase followed by `(todo)`,
   `(optional)`, `(wip)` or `(done)`/`(+)`, anywhere in a note, is a task of that status (see
   the format reference). `status` counts the markers, and `notes-to-tickets`
-  files them.
+  files them. `"text"(outcome)` is not a task: it is an acceptance criterion
+  of the item it sits with, and goes into that item's ticket. A second bracket,
+  `"text"(todo)(Board name)`, sends the item to that board.
 
 Keep the user's wording. Fix only obvious typos, and only if they ask.
 

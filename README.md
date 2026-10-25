@@ -79,15 +79,15 @@ the format supports, so the `apkit` tests build, install, pack and validate it,
 and the docs use it as the worked example:
 
 - **skills** — `backlog-refinement` (the Definition of Ready and the refinement
-  loop, with references loaded on demand), `sprint-planning` and `board-setup`,
-  plus the shared `ticket-management` skill from `plugins/_shared/skills/`
+  loop, with references loaded on demand) and `sprint-planning`, plus the
+  shared `ticket-management` and `board-setup` skills from `plugins/_shared/skills/`
 - **commands** — `/refine`, `/plan-sprint`, `/backlog-health` and
   `/create-board`, rendered into each harness's command dialect
 - **agent** — a `story-splitter` subagent (Claude Code; degrades to a skill elsewhere)
 - **hook** — a `SessionStart` hook that prints the active sprint (Claude Code only)
 - **mcp** — a dependency-free stdio server (`backlog`, `readiness_check`,
   `scrum_checklist`), projected into each harness's MCP config
-- **scripts** — `ready.py`, `backlog.py`, `capacity.py` and `create_board.py`,
+- **scripts** — `ready.py`, `backlog.py`, `capacity.py` and the shared `create_board.py`,
   real helpers the skills call
 
 Build it and diff the outputs to see exactly what each adapter does:

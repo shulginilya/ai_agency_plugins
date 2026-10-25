@@ -113,8 +113,8 @@
         "path": "claude-code/notes",
         "ref": "dist"
       },
-      "description": "Keeps running notes on many topics organized in plain Markdown: captures as you go, regroups each topic into In progress, TODO, Done and Notes without losing a line, shows what is open, and turns TODO, in-progress and inline \"text\"(todo|wip|done) markers into GitHub tickets assigned to you on your default board. Use when asked to note something, organize notes, list open TODOs, or file notes as tickets.",
-      "version": "0.2.0",
+      "description": "Keeps running notes on many topics organized in plain Markdown: captures as you go, regroups each topic into In progress, TODO, Done and Notes without losing a line, shows what is open, and turns TODO, in-progress and inline \"text\"(todo|wip|done) markers into GitHub tickets, with \"text\"(outcome) as acceptance criteria, assigned to you on your default board or one named per item. Use when asked to note something, organize notes, list open TODOs, or file notes as tickets.",
+      "version": "0.4.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -254,7 +254,7 @@
         "ref": "dist"
       },
       "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, builds a sprint plan with one goal and a realistic capacity, and creates the GitHub Projects board the backlog goes on. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, plan the next sprint, or create a project board.",
-      "version": "0.3.0",
+      "version": "0.3.2",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
