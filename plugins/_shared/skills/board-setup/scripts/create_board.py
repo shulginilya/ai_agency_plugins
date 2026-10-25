@@ -10,6 +10,14 @@ links it to the repository unless --no-link, and replaces the default Status
 options with the columns given. Refuses if an open board with the same title
 already exists, so a rerun never makes a second one.
 
+A new board starts with the columns Todo, In Progress and Done, and its
+built-in workflows (item closed and pull request merged -> Done, item added ->
+Todo, ...) point at them. Give a column a new id and GitHub switches off every
+workflow that targeted it, and its API cannot switch one back on. So each
+starting column keeps its id and becomes a column of the new board (Todo ->
+Backlog, In Progress -> In progress, Done -> Done; see keep_starting), and the
+workflows are read back and any that are off reported.
+
 Goes through the createProjectV2 and updateProjectV2Field GraphQL mutations,
 because older gh versions have no `gh project`. The token needs the `project`
 scope. The gh plumbing is the ticket-management skill's board.py. Both are
@@ -73,6 +81,28 @@ def parse_columns(text: Optional[str]) -> List[str]:
     return columns
 
 
+# GitHub's starting columns, and the names on the new board each one becomes, first match wins.
+# With none of them, Todo becomes the first column and Done the last, so their workflows stay on.
+STARTING = {"Done": ("done", "completed", "closed"), "Todo": ("backlog", "todo", "to do"),
+            "In Progress": ("in progress", "doing", "wip")}
+FALLBACK = {"Done": -1, "Todo": 0}
+
+
+def keep_starting(columns: List[str], starting: Optional[List[str]] = None) -> Dict[str, str]:
+    """Which new column each of GitHub's starting columns becomes, keeping its id: {starting: new column}."""
+    lowered = [c.lower() for c in columns]
+    kept: Dict[str, str] = {}
+    for start in [s for s in STARTING if starting is None or s in starting]:
+        free = [c for c in columns if c not in kept.values()]
+        hit = next((columns[lowered.index(a)] for a in STARTING[start]
+                    if a in lowered and columns[lowered.index(a)] in free), None)
+        if hit is None and start in FALLBACK and columns[FALLBACK[start]] in free:
+            hit = columns[FALLBACK[start]]
+        if hit:
+            kept[start] = hit
+    return kept
+
+
 def column_options(columns: List[str]) -> List[Dict[str, str]]:
     options = []
     for name in columns:
@@ -111,16 +141,21 @@ def create(title: str, columns: List[str], link: bool) -> Dict[str, Any]:
         raise InputError("an open board named %r already exists: #%d %s" % (dup["title"], dup["number"], dup["url"]))
     made = graphql(
         """mutation($owner:ID!,$title:String!%s){createProjectV2(input:{ownerId:$owner,title:$title%s}){
-          projectV2{id number url field(name:"Status"){... on ProjectV2SingleSelectField{id}}}}}"""
+          projectV2{id number url field(name:"Status"){... on ProjectV2SingleSelectField{id options{id name}}}}}}"""
         % ((",$repo:ID!", ",repositoryId:$repo") if link else ("", "")),
         **dict({"owner": ids["owner_id"], "title": title}, **({"repo": ids["repo_id"]} if link else {})),
     )["createProjectV2"]["projectV2"]
     if not made.get("field"):
         raise BoardError("board #%d was created but has no Status field to set columns on: %s"
                          % (made["number"], made["url"]))
+    starting = {o["name"]: o["id"] for o in made["field"]["options"]}
+    kept = keep_starting(columns, list(starting))
+    ids = {column: starting[start] for start, column in kept.items()}
     options = column_options(columns)
     literal = ",".join(
-        '{name:%s,color:%s,description:%s}' % (json.dumps(o["name"]), o["color"], json.dumps(o["description"]))
+        '{%s}' % ",".join((["id:%s" % json.dumps(ids[o["name"]])] if o["name"] in ids else [])
+                          + ["name:%s" % json.dumps(o["name"]), "color:%s" % o["color"],
+                             "description:%s" % json.dumps(o["description"])])
         for o in options
     )
     graphql(
@@ -129,14 +164,23 @@ def create(title: str, columns: List[str], link: bool) -> Dict[str, Any]:
     )
     check = graphql(
         """query($id:ID!){node(id:$id){... on ProjectV2{field(name:"Status"){
-          ... on ProjectV2SingleSelectField{options{name}}}}}}""", id=made["id"],
+          ... on ProjectV2SingleSelectField{options{name}}} workflows(first:20){nodes{name enabled}}}}}""",
+        id=made["id"],
     )
     got = [o["name"] for o in check["node"]["field"]["options"]]
     if got != columns:
         raise BoardError("board #%d created, but its columns read back as %s, not %s: %s"
                          % (made["number"], got, columns, made["url"]))
-    return {"number": made["number"], "url": made["url"], "title": title, "columns": got,
-            "linked": "%s/%s" % (repo["owner"], repo["name"]) if link else None}
+    workflows = {w["name"]: w["enabled"] for w in check["node"]["workflows"]["nodes"]}
+    result = {"number": made["number"], "url": made["url"], "title": title, "columns": got,
+              "linked": "%s/%s" % (repo["owner"], repo["name"]) if link else None,
+              "kept_from_github": kept, "workflows": workflows}
+    off = sorted(name for name, on in workflows.items() if not on)
+    if off:
+        result["workflows_off"] = off
+        result["to_do"] = ("GitHub's API cannot turn a workflow on. Ask the user to open %s, then ... -> "
+                           "Workflows, and enable: %s" % (made["url"], ", ".join(off)))
+    return result
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -153,7 +197,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         columns = parse_columns(args.columns)
         if args.dry_run:
             result: Dict[str, Any] = {"dry_run": True, "title": title, "columns": column_options(columns),
-                                      "link": not args.no_link}
+                                      "link": not args.no_link, "keeps_from_github": keep_starting(columns)}
         else:
             result = create(title, columns, link=not args.no_link)
         print(json.dumps(result, indent=2))
