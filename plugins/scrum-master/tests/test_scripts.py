@@ -18,7 +18,7 @@ BACKLOG = REFINEMENT_SCRIPTS / "backlog.py"
 CAPACITY = PLUGIN / "skills" / "sprint-planning" / "scripts" / "capacity.py"
 SPRINT_CONTEXT = PLUGIN / "scripts" / "sprint_context.py"
 MCP_SERVER = PLUGIN / "mcp" / "server.py"
-CREATE_BOARD = PLUGIN / "skills" / "board-setup" / "scripts" / "create_board.py"
+CREATE_BOARD = PLUGIN.parent / "_shared" / "skills" / "board-setup" / "scripts" / "create_board.py"
 
 sys.path.insert(0, str(REFINEMENT_SCRIPTS))
 sys.path.insert(0, str(CAPACITY.parent))

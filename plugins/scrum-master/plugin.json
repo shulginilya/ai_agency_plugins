@@ -8,7 +8,7 @@
     "email": "ishulgin8@gmail.com"
   },
   "license": "MIT",
-  "shared_skills": ["ticket-management"],
+  "shared_skills": ["ticket-management", "board-setup"],
   "homepage": "https://github.com/shulginilya/ai_agency_plugins",
   "repository": "https://github.com/shulginilya/ai_agency_plugins",
   "keywords": ["scrum", "agile", "backlog", "sprint-planning", "user-stories", "github-issues"],
