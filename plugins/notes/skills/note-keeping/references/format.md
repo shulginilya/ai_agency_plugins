@@ -79,6 +79,14 @@ Talked to the team: we should "add an error filter"(todo), "maybe a dark mode"(o
   there, and in link mode, the marker gets its ticket right after it,
   `"add an error filter"(todo) → #12`. A marker with a
   ticket is never filed again.
+- **Board.** A second bracket straight after the status, with no space, names
+  the board for that item: `"add an error filter"(todo)(AI common tasks)` or
+  `(5)`. A name matches the board's title exactly, in any case. It wins over
+  the front matter's `board:`, `--board` and the saved default, and changes
+  only the board, never the repo. `"text"(todo) (an aside)`, with a space, is
+  not a board. It works on todo, optional, wip and done markers; on an outcome
+  it changes nothing, and `export` warns. When filed in link mode, the ticket
+  goes after it: `"add an error filter"(todo)(AI common tasks) → #12`.
 - A checkbox item whose text holds a marker is filed once, as the marker.
 - Markers inside a code fence (```` ``` ````) are ignored.
 - **Scope.** The lines straight after a marked line that start with a bullet

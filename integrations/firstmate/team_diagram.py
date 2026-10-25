@@ -19,6 +19,8 @@ lane automatically, and the script warns about whatever team.json or
 brief-include.md still has to say about it.
 
 Writes one file, team.drawio, with three pages.
+CI regenerates docs/firstmate/team.drawio on main after each merge, so a branch
+never commits it: run this to preview, then leave the file out of the commit.
 Standard library only; Python 3.9+.
 Exit status: 0 written, 1 written with warnings and --strict, 2 bad input.
 """

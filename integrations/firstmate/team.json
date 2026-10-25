@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-kept half of the firstmate team diagram. Everything a plugin can say about itself (version, commands, subagents, MCP tools, hooks, routing) is read from the repo by team_diagram.py; only what the repo cannot say lives here. Regenerate with: python integrations/firstmate/team_diagram.py",
+  "_comment": "Hand-kept half of the firstmate team diagram. Everything a plugin can say about itself (version, commands, subagents, MCP tools, hooks, routing) is read from the repo by team_diagram.py; only what the repo cannot say lives here. CI regenerates docs/firstmate/team.drawio on main after each merge; preview with python integrations/firstmate/team_diagram.py, but never commit the result on a branch.",
   "title": "firstmate crew — who does what",
   "leads": [
     {
@@ -118,7 +118,7 @@
       {"id": "s6", "lane": "firstmate", "text": "Relay the backlog, the board plan and open questions"},
       {"id": "s7", "lane": "captain", "kind": "decision", "text": "Answer questions, approve the board and the backlog"},
       {"id": "s8", "lane": "firstmate", "text": "Brief T2: create the board, then file the approved plan on it"},
-      {"id": "s9", "lane": "scrum-master", "kind": "write", "text": "/scrum-master:create-board → board N, columns Backlog → Ready → In progress → In review → Done"},
+      {"id": "s9", "lane": "scrum-master", "kind": "write", "text": "/scrum-master:create-board → board N, columns In Definition → Backlog → Ready → In progress → In review → Ready for Merge → Done"},
       {"id": "s10", "lane": "scrum-master", "kind": "write", "text": "tickets.py batch --plan plan.json --project N --status Ready (safe to rerun; slices linked to epics)"},
       {"id": "s11", "lane": "scrum-master", "text": "/scrum-master:plan-sprint → sprint goal, capacity, issues that fit (proposal)"},
       {"id": "s12", "lane": "captain", "kind": "decision", "text": "Approve sprint 1"},
