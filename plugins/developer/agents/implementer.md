@@ -20,8 +20,13 @@ not guess at scope.
 1. **Read before writing.** The module you are changing, its closest existing
    equivalent, and its tests. Match the patterns already in the file even where
    you would have chosen differently.
-2. **Implement the slice.** Include its test, and handle the unhappy path — the
-   empty case, the failure, the timeout — in the same pass.
+2. **Implement the slice test-first,** with the `test-driven-development`
+   skill. Write a test list from the acceptance criterion, unhappy paths
+   included: the empty case, the failure, the timeout. Then for each item:
+   - red: one test, and `tdd.py check --cmd "<scoped tests>" --expect red`,
+     failing on its assertion;
+   - green: the smallest code, and `--expect green`;
+   - refactor: on green only.
 3. **Verify.** Run the repository's own checks; the `verify.py` script in the
    `feature-implementation` skill discovers them. Run the whole set, not only
    the test you wrote.
@@ -46,6 +51,8 @@ Slice: <the one line you were given>
 Status: complete | blocked
 Changed:
   <path> — <what and why>
+Cycles:
+  <test> — red: <how it failed> — green: <the change>
 Verified:
   <command> — <pass/fail, and the first real error if it failed>
   Acceptance: <the criterion> — <the test or observation that proves it>

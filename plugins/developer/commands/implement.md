@@ -19,13 +19,17 @@ Follow the `feature-implementation` skill:
 2. **Plan.** State goal, slices, contracts, risk and verification in the
    conversation. Wait for agreement when the change alters a contract or
    touches migrations, auth, money or data deletion; otherwise proceed.
-3. **Build slice by slice.** Tests with the code, unhappy paths in the same
-   slice, no unrelated changes.
+3. **Build slice by slice, test-first.** For each slice, follow the
+   `test-driven-development` skill: a test list, then one red-green-refactor
+   cycle per behaviour, with
+   `python {{PLUGIN_ROOT}}/skills/test-driven-development/scripts/tdd.py check --cmd "<scoped tests>" --expect red|green`
+   at each step. Unhappy paths are on the test list, and no unrelated changes.
 4. **Verify.** `python {{PLUGIN_ROOT}}/skills/feature-implementation/scripts/verify.py --run`,
    the whole set, and report failures you did not cause rather than ignoring
    them.
 5. **Self-review** against `references/handoff.md`, then report in the skill's
-   Done / Changed / Verified / Not done format.
+   Done / Changed / Verified / Not done format. Add the TDD skill's Cycles
+   lines, and name anything that wasn't test-driven, with the reason.
 
 Do not report a change as finished while any part of the plan is unproven —
 name what is left instead.

@@ -43,6 +43,7 @@
       "role": "Developer",
       "owns": [
         "Code changes, built in slices that stay green",
+        "Test-first slices in red-green-refactor cycles (/developer:implement, /developer:tdd)",
         "A proved root cause and a failing-first test before any bug fix (/developer:diagnose, /developer:fix)",
         "The first bad commit of a regression (/developer:bisect)",
         "Repo checks passing before push",
@@ -71,7 +72,8 @@
       "role": "QA Engineer",
       "owns": [
         "A test plan from each ticket's acceptance criteria, before it is built",
-        "The accept / reject / blocked verdict on a built change, with evidence per criterion",
+        "The accept / reject verdict on a built change, on the ticket's review link when it has one (re-tested on a new link), with evidence per criterion",
+        "Moving a verified ticket to Ready for Merge on accept (adding the column if missing) or back to In progress on reject, with a comment on what fails",
         "Bug tickets for every failure, filed by QA and labelled \"QA testing\" (create and edit, never close or delete)"
       ]
     },
@@ -114,6 +116,7 @@
       {"activity": "Add repository secrets and hosting accounts", "captain": "A/R", "devops": "C"},
       {"activity": "Triage a red pipeline", "firstmate": "A", "devops": "R", "developer": "C"},
       {"activity": "Open PR, move card to In review", "firstmate": "A", "developer": "R"},
+      {"activity": "Move a verified ticket to Ready for Merge or back to In progress", "qa": "R", "developer": "I", "captain": "I"},
       {"activity": "Merge", "captain": "A/R", "firstmate": "I"},
       {"activity": "Deploy crew plugins (deploy.sh)", "captain": "A/R"}
     ]
@@ -141,9 +144,9 @@
       {"id": "s17", "lane": "developer", "kind": "optional", "text": "Only if a test fails: /developer:diagnose → /developer:fix", "group": "Then: the delivery loop, per ticket"},
       {"id": "s18", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:review the built UI; developer fixes every blocker", "group": "Then: the delivery loop, per ticket"},
       {"id": "s19", "lane": "developer", "text": "Self-review own diff against the handoff checklist; /developer:verify", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s19b", "lane": "devops", "kind": "optional", "text": "Repo has PR previews: preview_link.py --pr N gives QA the review link of the head commit. Red CI: /devops:triage", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s20", "lane": "qa", "text": "/qa:verify → accept, or reject with /qa:bug tickets labelled QA testing for developer to fix", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s21", "lane": "developer", "kind": "write", "text": "On accept: /developer:ship → branch, PR, card to In review", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s20", "lane": "developer", "kind": "write", "text": "/developer:ship → branch, PR, card to In review", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s20b", "lane": "devops", "kind": "optional", "text": "Repo has PR previews: preview_link.py --pr N gives QA the PR's preview when the ticket names no review link. Red CI: /devops:triage", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s21", "lane": "qa", "kind": "write", "text": "/qa:verify on the review link → accept: card to Ready for Merge; reject: comment what fails, card to In progress, /qa:bug tickets", "group": "Then: the delivery loop, per ticket"},
       {"id": "s22", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}
     ]
   }

@@ -17,8 +17,11 @@ carries `environment_url`:
   (Cloudflare Pages, and any other provider it deploys to);
 - Render creates its own for each PR preview.
 
-So the link comes from the Deployments API, never from a PR comment or a guess
-at a URL pattern.
+So the PR's preview link comes from the Deployments API, never from a PR
+comment or a guess at a URL pattern. A review link written in the *ticket*
+(`<name>.<slug>.review.com`) is a different thing: QA finds it with its own
+`review_link.py` and tests on it first; this skill is the fallback when the
+ticket names none.
 
 ```bash
 python scripts/preview_link.py --pr 42                 # the link, and whether it's current
