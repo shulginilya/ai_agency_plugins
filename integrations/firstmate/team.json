@@ -117,6 +117,7 @@
       {"activity": "Triage a red pipeline", "firstmate": "A", "devops": "R", "developer": "C"},
       {"activity": "Open PR, move card to In review", "firstmate": "A", "developer": "R"},
       {"activity": "Move a verified ticket to Ready for Merge or back to In progress", "qa": "R", "developer": "I", "captain": "I"},
+      {"activity": "Resolve a PR's merge conflicts (rebase; only when the Captain asks)", "captain": "A", "firstmate": "I", "developer": "R", "qa": "I"},
       {"activity": "Merge", "captain": "A/R", "firstmate": "I"},
       {"activity": "Deploy crew plugins (deploy.sh)", "captain": "A/R"}
     ]
