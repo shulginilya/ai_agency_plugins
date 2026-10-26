@@ -23,6 +23,8 @@ python scripts/tickets.py delete --issue I --confirm I
 python scripts/board.py boards                                  # open boards, most used first
 python scripts/board.py add  --project N --issue I              # card on a board
 python scripts/board.py move --project N --issue I --status S   # change column, confirm it held
+python scripts/board.py move --project N --issue I --status "Ready for Merge" --create-column [--after "In review"]
+                                                               # add the column first if the board lacks it
 ```
 
 ## Who decides
@@ -109,6 +111,13 @@ GitHub cannot undo it. Only the repository's admins can do it.
 automations move cards asynchronously. For example, "Pull request linked to
 issue" moves a card to In progress seconds after a PR opens. It exits 1 if the
 column will not hold. Report that failure instead of claiming the move.
+
+`--create-column` adds the `--status` column when no column has exactly that
+name, after `--after` (In review by default), else before Done, else last.
+GitHub only adds a column by rewriting all of them, so every existing column is
+sent back with its id, and every card's column is compared before and after.
+If any card changed column, it exits 1 and names them; report it. Use it only
+where your plugin's rules allow adding a column (QA's Ready for Merge).
 
 ## Reporting
 

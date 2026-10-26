@@ -3,8 +3,9 @@
 
     board.py boards                         open boards of the repo's owner, and where recent issues went
     board.py add    --project N --issue 21  put an issue on a board (idempotent), print the item id
-    board.py move   --project N --issue 21 [--status "In review"]
-                                            set the Status column and confirm it stuck
+    board.py move   --project N --issue 21 [--status "In review"] [--create-column [--after COL]]
+                                            set the Status column and confirm it stuck; with
+                                            --create-column, add the column first if the board lacks it
     board.py branch --issue 21              the branch name for an issue: <number>-<type>-<slug>
 
 `move` re-reads the card after setting it, because board automations fire
@@ -12,6 +13,10 @@ asynchronously: the built-in "Pull request linked to issue" workflow moves the
 card to In progress *after* the PR is opened and silently undoes an earlier
 move to In review. A move is only reported done once the card has held the
 column across several reads.
+
+`--create-column` rewrites the board's Status options, the only way GitHub adds
+one. Every existing option is sent back with its id, so no card loses its
+column, and every card's column is compared before and after to prove it.
 
 Standard library only; needs an authenticated `gh` (any version with `gh api`).
 Exit status: 0 done, 1 GitHub refused or the column would not hold, 2 bad input.
@@ -32,6 +37,7 @@ TYPES = ("feat", "fix", "docs", "chore", "refactor", "test", "perf", "ci", "buil
 SLUG_WORDS = 4
 SETTLE_READS = 3
 SETTLE_SECONDS = 6.0
+NEW_COLUMN_COLOR = "GREEN"
 
 
 class BoardError(Exception):
@@ -71,6 +77,29 @@ def match_option(options: List[Dict[str, str]], wanted: str) -> Dict[str, str]:
     if partial:
         raise InputError("'%s' matches more than one column: %s" % (wanted, names))
     raise InputError("no column matches '%s'; the board has: %s" % (wanted, names))
+
+
+def with_column(options: List[Dict[str, Any]], name: str, after: Optional[str] = None) -> List[Dict[str, Any]]:
+    """The Status options with `name` added: after the column `after` names, else before Done,
+    else last. Existing options keep their id, name, color and description, in order."""
+    keep = [{"id": o["id"], "name": o["name"], "color": o.get("color") or "GRAY",
+             "description": o.get("description") or ""} for o in options]
+    names = [o["name"].strip().lower() for o in keep]
+    if after and after.strip().lower() in names:
+        at = names.index(after.strip().lower()) + 1
+    elif "done" in names:
+        at = names.index("done")
+    else:
+        at = len(keep)
+    return keep[:at] + [{"name": name, "color": NEW_COLUMN_COLOR, "description": ""}] + keep[at:]
+
+
+def options_literal(options: List[Dict[str, Any]]) -> str:
+    """GraphQL input objects for singleSelectOptions; an `id` keeps an existing option's identity."""
+    return ",".join("{%s}" % ",".join(
+        (["id:%s" % json.dumps(o["id"])] if o.get("id") else [])
+        + ["name:%s" % json.dumps(o["name"]), "color:%s" % o["color"], "description:%s" % json.dumps(o["description"])])
+        for o in options)
 
 
 # --- gh plumbing -------------------------------------------------------------
@@ -114,7 +143,8 @@ query($owner:String!,$number:Int!){repositoryOwner(login:$owner){
   ... on User{projectV2(number:$number){%s}}
   ... on Organization{projectV2(number:$number){%s}}}}"""
 
-PROJECT_FIELDS = "id title field(name:\"Status\"){... on ProjectV2SingleSelectField{id options{id name}}}"
+PROJECT_FIELDS = ("id title field(name:\"Status\"){... on ProjectV2SingleSelectField{"
+                  "id options{id name color description}}}")
 
 
 def project(owner: str, number: int) -> Dict[str, Any]:
@@ -124,6 +154,45 @@ def project(owner: str, number: int) -> Dict[str, Any]:
         raise BoardError("board #%d not found for %s (does the token have the project scope?)" % (number, owner))
     if not proj.get("field"):
         raise BoardError("board '%s' has no single-select Status field" % proj["title"])
+    return proj
+
+
+def card_columns(project_id: str) -> Dict[str, Optional[str]]:
+    """Every card on the board and its Status column, by item id."""
+    cards: Dict[str, Optional[str]] = {}
+    after = None
+    while True:
+        data = graphql(
+            """query($id:ID!%s){node(id:$id){... on ProjectV2{items(first:100%s){
+              pageInfo{hasNextPage endCursor}
+              nodes{id fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}"""
+            % ((",$after:String", ",after:$after") if after else ("", "")),
+            **dict({"id": project_id}, **({"after": after} if after else {})),
+        )
+        items = data["node"]["items"]
+        for node in items["nodes"]:
+            cards[node["id"]] = (node.get("fieldValueByName") or {}).get("name")
+        if not items["pageInfo"]["hasNextPage"]:
+            return cards
+        after = items["pageInfo"]["endCursor"]
+
+
+def add_column(owner: str, number: int, name: str, after: Optional[str] = None) -> Dict[str, Any]:
+    """Add the Status column `name` to board #number, then prove that no card changed column."""
+    proj = project(owner, number)
+    before = card_columns(proj["id"])
+    options = with_column(proj["field"]["options"], name, after)
+    graphql("mutation($f:ID!){updateProjectV2Field(input:{fieldId:$f,singleSelectOptions:[%s]}){clientMutationId}}"
+            % options_literal(options), f=proj["field"]["id"])
+    proj = project(owner, number)
+    got = [o["name"] for o in proj["field"]["options"]]
+    if got != [o["name"] for o in options]:
+        raise BoardError("added '%s' to '%s', but its columns read back as %s" % (name, proj["title"], got))
+    now = card_columns(proj["id"])
+    moved = sorted(i for i in before if i in now and now[i] != before[i])  # a card read late is not a move
+    if moved:
+        raise BoardError("added '%s' to '%s', but %d card(s) changed column (%s); restore them from the "
+                         "board's history" % (name, proj["title"], len(moved), ", ".join(moved[:5])))
     return proj
 
 
@@ -191,6 +260,11 @@ def cmd_add(args: argparse.Namespace) -> Dict[str, Any]:
 def cmd_move(args: argparse.Namespace) -> Dict[str, Any]:
     repo = current_repo()
     proj = project(repo["owner"], args.project)
+    created = False
+    if args.create_column and not any(o["name"].strip().lower() == args.status.strip().lower()
+                                      for o in proj["field"]["options"]):
+        proj = add_column(repo["owner"], args.project, args.status.strip(), args.after)
+        created = True
     option = match_option(proj["field"]["options"], args.status)
     history: List[str] = []
     for attempt in range(1, args.attempts + 1):
@@ -212,7 +286,8 @@ def cmd_move(args: argparse.Namespace) -> Dict[str, Any]:
                 held = False  # an automation moved it back; set it again
                 break
         if held:
-            return {"board": proj["title"], "status": option["name"], "attempts": attempt, "reads": history}
+            done = {"board": proj["title"], "status": option["name"], "attempts": attempt, "reads": history}
+            return dict(done, column_created=True) if created else done
     raise BoardError(
         "'%s' did not hold on '%s' after %d attempts (reads: %s); a board workflow keeps moving it"
         % (option["name"], proj["title"], args.attempts, ", ".join(history))
@@ -239,6 +314,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--status", default="In review")
     p.add_argument("--attempts", type=int, default=3)
     p.add_argument("--settle", type=float, default=SETTLE_SECONDS, help="seconds between confirming reads")
+    p.add_argument("--create-column", action="store_true",
+                   help="add the --status column first if the board has none named exactly that")
+    p.add_argument("--after", default="In review", help="with --create-column: the column to put it after")
     p = sub.add_parser("branch", help="branch name for an issue")
     p.add_argument("--issue", type=int, required=True)
     p.add_argument("--title", help="use this title instead of fetching the issue")
