@@ -12,7 +12,7 @@ marker, are never read as a new link.
 
 The decision:
 
-    none        no review link: test locally or on a preview the PR names
+    none        no review link: use the PR's preview (preview_link.py), else test locally
     test        a review link and no QA verdict yet
     retest      a verdict exists, but a link came after it, the newest link is not
                 the one it tested, or --commit differs from the commit it tested

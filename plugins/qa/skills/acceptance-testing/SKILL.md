@@ -4,7 +4,7 @@ description: Verifies a built change — a branch, a PR, or the review link on i
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Acceptance testing
@@ -43,7 +43,13 @@ python ../ticket-management/scripts/board.py move --project N --issue 42 \
     full test; a fix can break what passed before.
   - `up-to-date`: you already gave a verdict on this link and commit. Say so,
     and stop. Nothing has changed to test.
-  - `none`: no review link. Test locally, or on a preview the PR names.
+  - `none`: no review link in the ticket. For a PR, look for its preview
+    deployment: `python ../preview-link/scripts/preview_link.py --pr N --wait 600 --check`.
+    Test on it only when it's **current**, meaning it was deployed from
+    the PR's head commit, and record the URL and its commit. Stale,
+    pending or failed means the running build isn't the code under test:
+    wait, or test locally. A failed preview deploy is itself a finding.
+    With no preview at all, run the app locally.
 
   If the link doesn't load, that is not a pass: record the cases as
   `unchecked`, with what you saw.
@@ -56,7 +62,7 @@ features on top of a red build.
 
 ## 3. Execute every case
 
-Run the app the way the README says, and work through the plan. For each
+Run the app on the review link, or the way the README says, and work through the plan. For each
 case record `status` (pass, fail, unchecked or skipped) and `evidence`: the
 command and output, a screenshot path, a response, a log line.
 

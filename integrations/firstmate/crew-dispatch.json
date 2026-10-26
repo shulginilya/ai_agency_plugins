@@ -6,9 +6,9 @@
       "why": "Narrow, low-ambiguity work. The cheapest fast profile is enough, and the crew plugins are installed for Claude Code only."
     },
     {
-      "when": "The task is read-only and plans or reports rather than changes code: a scout investigation, a UX review of existing UI, a QA test plan or acceptance check, backlog refinement, sprint planning, or drafting a backlog or board plan.",
+      "when": "The task is read-only and plans or reports rather than changes code: a scout investigation, a UX review of existing UI, a QA test plan or acceptance check, backlog refinement, sprint planning, triaging why a CI run failed, or drafting a backlog or board plan.",
       "use": { "harness": "claude", "model": "claude-sonnet-5-5", "effort": "medium" },
-      "why": "Reading and judging, not building: /developer:diagnose as a scout, /designer:review, /qa:plan and /qa:verify (which comments its verdict and moves the card, but never changes code), /scrum-master:refine and plan-sprint all run well on Sonnet."
+      "why": "Reading and judging, not building: /developer:diagnose as a scout, /designer:review, /qa:plan and /qa:verify (which comments its verdict and moves the card, but never changes code), /scrum-master:refine and plan-sprint, and /devops:triage as a scout, all run well on Sonnet."
     },
     {
       "when": "The task is a bug whose cause is not known yet: a crash, wrong output, a failing or flaky test, or a regression that has to be diagnosed or bisected before it can be fixed.",
@@ -20,6 +20,12 @@
       "approval": "captain",
       "use": { "harness": "claude", "model": "claude-opus-5-5", "effort": "high" },
       "why": "Many moving parts and costly mistakes: the strongest profile, and the Captain confirms the dispatch."
+    },
+    {
+      "when": "The task deploys or sets up a deploy: PR preview environments, a deploy job, a hosting provider, or anything that needs secrets added to a repository.",
+      "approval": "captain",
+      "use": { "harness": "claude", "model": "claude-opus-5-5", "effort": "high" },
+      "why": "/devops:preview and deploy work touch hosting accounts and secrets, which only the Captain can add, and the proof is a live deploy. The Captain confirms the dispatch. CI setup without a deploy, and /devops:triage, need no approval."
     },
     {
       "when": "The task builds or changes UI: a new screen, page, flow or component that needs a /designer:spec first and a /designer:review before pushing.",

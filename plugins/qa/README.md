@@ -18,6 +18,7 @@ things go wrong.
 | Skill | `acceptance-testing` | Gate on the repo's checks, test on the ticket's review link (re-test on a new one), run every case with evidence, verdict accept / reject, comment, move the card |
 | Skill | `bug-reporting` | Reproducible report: steps, expected vs actual, build, severity, evidence, what was ruled out |
 | Skill (shared) | `ticket-management` | Create and edit GitHub issues; QA's tickets are labelled **QA testing**. Source: `plugins/_shared/skills/` |
+| Skill (shared) | `preview-link` | The fallback when the ticket names no review link: a PR's preview from the Deployments API, used only when it was deployed from the PR's head commit (devops publishes it). Source: `plugins/_shared/skills/` |
 | Command | `/plan` | Test plan for a ticket |
 | Command | `/verify` | Verify a branch or PR against its ticket and give the verdict |
 | Command | `/bug` | Write one bug report and file it, labelled **QA testing** |

@@ -16,7 +16,10 @@ Follow the `acceptance-testing` skill:
    write one first with the `test-planning` skill.
    Then run `python {{PLUGIN_ROOT}}/skills/acceptance-testing/scripts/review_link.py --issue <n> --commit <sha>`:
    `test` or `retest` means every case runs on that review link; `up-to-date` means you already
-   verdicted this link and commit, so say so and stop; `none` means test locally.
+   verdicted this link and commit, so say so and stop; `none` means
+   look for the PR's preview with
+   `python {{PLUGIN_ROOT}}/skills/preview-link/scripts/preview_link.py --pr <n> --wait 600 --check`
+   and test on it only when it's current (deployed from the head commit); with no preview, test locally.
 2. Run the repository's checks (`/developer:verify`). If they fail, the verdict is reject.
 3. Execute every case against the running result (the review link when there is one) and record
    status and evidence; a check you couldn't make is `unchecked`, with why. Explore
