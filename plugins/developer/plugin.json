@@ -1,17 +1,17 @@
 {
   "name": "developer",
   "displayName": "Developer",
-  "version": "0.4.0",
-  "description": "The development loop end to end: implement a feature in verifiable slices, refactor without changing behaviour, diagnose a bug to its proved root cause, fix it with the failing test first, bisect a regression to the commit that caused it, run the repo's checks, then ship it as a ticket, branch and PR. Use when asked to implement, refactor, debug, fix a failing or flaky test, find what broke, or open a PR.",
+  "version": "0.5.0",
+  "description": "The development loop end to end, test-first: implement a feature in red-green-refactor slices, refactor without changing behaviour, diagnose a bug to its proved root cause, fix it with the failing test first, bisect a regression to the commit that caused it, run the repo's checks, then ship it as a ticket, branch and PR. Use when asked to implement, refactor, debug, fix a failing or flaky test, find what broke, or open a PR.",
   "author": {
     "name": "Ilya Shulgin",
     "email": "ishulgin8@gmail.com"
   },
   "license": "MIT",
-  "shared_skills": ["ticket-management"],
+  "shared_skills": ["ticket-management", "test-driven-development"],
   "homepage": "https://github.com/shulginilya/ai_agency_plugins",
   "repository": "https://github.com/shulginilya/ai_agency_plugins",
-  "keywords": ["development", "implementation", "refactoring", "testing", "verification"],
+  "keywords": ["development", "implementation", "refactoring", "testing", "tdd", "verification"],
   "targets": {
     "exclude": [],
     "overrides": {}

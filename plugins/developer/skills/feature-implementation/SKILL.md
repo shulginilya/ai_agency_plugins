@@ -47,7 +47,8 @@ Goal:      one sentence, the user-visible outcome
 Slices:    2-5 steps, each independently verifiable
 Contracts: what changes shape (API, schema, event, config) and who consumes it
 Risk:      what could break that the tests would not catch
-Verify:    the exact commands that will prove it
+Verify:    the exact commands that will prove it, and the scoped test
+           command each red-green cycle runs
 ```
 
 Get agreement on the plan when the change is more than a slice or two, when it
@@ -61,9 +62,12 @@ One slice at a time, and the tree stays green between slices.
 - **Make the change easy, then make the easy change.** If the code resists,
   refactor first as its own slice — see the `safe-refactoring` skill — then
   add behaviour. Never combine the two in one commit.
-- **Write the test with the code, not after the feature is done.** For a bug
-  fix, write the failing test first: it is the only proof the fix addresses the
-  reported defect and not a lookalike.
+- **Drive each slice test-first,** with the `test-driven-development` skill:
+  a test list from the slice's acceptance test, then red, green and refactor
+  for one behaviour at a time. Each red is checked with `tdd.py check
+  --expect red`, so it is a real failure and not an import error or an empty
+  run. For a bug fix, the first red reproduces the reported defect: it is the
+  only proof the fix addresses that defect and not a lookalike.
 - **Handle the unhappy path in the same slice.** The empty list, the timeout,
   the rejected promise, the 404. An error path added later is an error path
   that was never run.

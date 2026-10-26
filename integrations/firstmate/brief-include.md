@@ -4,6 +4,9 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
 
 - Feature, ticket or change: `/developer:implement`. The Captain's intent and Firstmate spec
   above are the agreed change plan; do not stop to ask for plan approval.
+  Build it test-first: each slice in red-green-refactor cycles with the
+  `test-driven-development` skill, every red checked with `tdd.py check --expect red`,
+  and its Cycles lines in your report.
 - Restructure without behaviour change: `/developer:refactor`.
 - New or changed UI: `/designer:spec` before building, so every state, the copy and the
   accessibility are decided up front. Then `/designer:review` on the built UI before pushing,
