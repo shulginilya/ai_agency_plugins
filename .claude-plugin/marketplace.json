@@ -55,6 +55,29 @@
       ]
     },
     {
+      "name": "devops",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
+        "path": "claude-code/devops",
+        "ref": "dist"
+      },
+      "description": "CI/CD for the crew: sets up GitHub Actions that run a repo's own checks, gives every pull request a review link (a preview deployment on Cloudflare Pages or Render, published as a GitHub Deployment), and triages failing runs to a cause and an owner. Never handles secret values. Use when asked to set up CI or CI/CD, add PR previews or review links, fix a workflow, or find why CI is red.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "devops",
+        "ci",
+        "cd",
+        "github-actions",
+        "preview",
+        "deploy"
+      ]
+    },
+    {
       "name": "interview-prep",
       "source": {
         "source": "git-subdir",
@@ -208,7 +231,7 @@
         "ref": "dist"
       },
       "description": "Quality assurance for the crew: turns a ticket's acceptance criteria into a test plan before work starts, verifies the finished change against every criterion with evidence, on the ticket's review link if any, gives an accept or reject verdict and moves the ticket to Ready for Merge or back to In progress, and files reproducible bug tickets labelled \"QA testing\". Use when asked to test, QA or verify a change, check acceptance criteria, write test cases or a test plan, or report a bug.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
