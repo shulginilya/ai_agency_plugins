@@ -1,20 +1,29 @@
 ---
 name: preview-environments
-description: Gives every pull request its own review link — a running preview of the PR's head commit — on a free host picked for the stack (Cloudflare Pages for static frontends, Render for backends), published the same way whatever the host as a GitHub Deployment plus one sticky PR comment, taken down when the PR closes, and proved with a real PR whose link answers. Use when asked for PR previews, preview or review links, deploy previews, ephemeral or staging environments per pull request, or a link QA can test a PR on.
+description: Gives every pull request its own review link — a running preview of the PR's head commit — on a free host picked for the stack (Cloudflare Pages for static frontends, Render for backends), optionally served at <branch>.<slug>.<review domain>, published the same way whatever the host as a GitHub Deployment, one sticky PR comment and one comment on each ticket the PR closes saying which commit the link serves, taken down when the PR closes, and proved with a real PR whose link answers. Use when asked for PR previews, preview or review links, deploy previews, ephemeral or staging environments per pull request, or a link QA can test a PR on.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Preview environments
 
 Every PR gets a link to a running build of its head commit. Whatever hosts it,
-the link ends up in the same two places:
+the link ends up in the same three places:
 
-- a **GitHub Deployment** whose latest status has `environment_url`. That is
-  what QA and everyone else reads, through the shared `preview-link` skill;
-- **one sticky PR comment**, updated on each push, never duplicated.
+- a **GitHub Deployment** whose latest status has `environment_url`. Anyone
+  can read it back with the shared `preview-link` skill;
+- **one sticky PR comment**, updated on each push, never duplicated;
+- **one comment on each ticket the PR closes**, edited on every deploy, with
+  a hidden marker QA reads to pick the latest version:
+  `<!-- devops:review-link link=<url> commit=<sha> pr=<N> state=live -->`,
+  or `state=down` once the PR closes.
+
+With a **review domain** set (repo variable `REVIEW_DOMAIN`), the link is
+`https://<branch>.<slug>.<REVIEW_DOMAIN>`, the shape QA recognises, served
+from the same preview. The flow is drawn in the devops plugin's
+`docs/review-links.drawio`, in the source repository.
 
 ```bash
 python ../ci-setup/scripts/stack_scan.py .                       # static or server? which provider?
@@ -60,37 +69,67 @@ until they're done.
 
 Render needs no GitHub secret. It creates the GitHub Deployment itself.
 
+**Review domain (optional, Cloudflare Pages only)**
+1. The domain's zone is on Cloudflare (ticket: choosing and setting it up).
+2. The API token also gets *Zone › DNS › Edit* on that zone only. Add the
+   zone: `gh secret set CLOUDFLARE_ZONE_ID -R <owner>/<repo>`.
+3. Set the variables. They aren't secrets, but `gh` 2.4 has no
+   `gh variable`:
+   `gh api -X POST repos/<owner>/<repo>/actions/variables -f name=REVIEW_DOMAIN -f value=<domain>`.
+   `REVIEW_SLUG` (the middle label) defaults to the repo name.
+4. Render previews can't take a custom domain, so they keep their
+   `onrender.com` link. The ticket comment still carries it.
+
 ## 3. Write it
 
 - **Cloudflare Pages:** `scaffold.py preview --project <name>` writes
   `.github/workflows/preview.yml`.
   - It builds with the repo's own commands and deploys with
     `wrangler pages deploy --branch=pr-<N>`.
+  - With `REVIEW_DOMAIN` set, it adds `<branch>.<slug>.<REVIEW_DOMAIN>` as a
+    Pages custom domain, with a proxied CNAME to `pr-<N>.<project>.pages.dev`
+    (Cloudflare's "custom domain on a branch"). That address becomes the
+    link. The branch name is cut to a DNS label: lowercase, `a-z0-9-`, at most
+    63 characters.
   - It creates Deployment `preview-pr-<N>`, with `auto_inactive` so older
-    pushes go inactive, and upserts the comment.
-  - When the PR closes, it marks the Deployment inactive.
+    pushes go inactive, and upserts the PR comment and the ticket comments.
+    The tickets are the ones the PR closes (`Closes #N`). A ticket in another
+    repo is skipped with a notice, because the token can't write there.
+  - When the PR closes, it marks the Deployment inactive, removes the custom
+    domain and its DNS record, and marks the ticket comments `state=down`.
   - A fork PR gets no secrets, so its preview is skipped with a notice.
     Don't work around that with `pull_request_target`.
-- **Render:** `scaffold.py preview --provider render` writes `render.yaml`.
-  There is no workflow to write.
+- **Render:** `scaffold.py preview --provider render` writes `render.yaml`
+  and `.github/workflows/review-link.yml`. Render deploys by itself. The
+  workflow runs on Render's `deployment_status`, and carries the link to the
+  tickets, marking it down when the PR closes.
 - The app must work from the root of its own host. If it has a hardcoded base
   path or an absolute API URL, make the API URL a build-time variable.
 - Same rules as `ci-setup`: least-privilege `permissions` (the preview job
-  needs `deployments: write` and `pull-requests: write`, nothing else), pinned
+  needs `deployments: write`, `issues: write` and `pull-requests: write`,
+  nothing else), pinned
   major versions, and `actionlint` when it's installed.
 
 ## 4. Prove it
 
-Not done until all four are true, and each is in the report:
+Not done until all of these are true, and each is in the report:
 
 1. A test PR on the target repo.
 2. A green preview run: `gh run watch`.
 3. `preview_link.py --pr <N> --wait 600 --check` returns **current**, with
    HTTP 2xx. This is the same lookup QA will use.
-4. Push one more commit. The link follows it (the `sha` changes) and the PR
+4. Push one more commit. The link follows it (the `sha` changes), and the PR
    has one comment, not two.
+5. The PR's ticket has one review-link comment, whose commit is the new
+   head. `review_link.py --issue <ticket> --pr <N>` (QA's script) says
+   `test`, not `wait`.
+6. With a review domain: the link is `https://<branch>.<slug>.<domain>` and
+   answers over HTTPS. The first time, the certificate can take a few
+   minutes.
 
-Close the test PR and check that the Deployment went inactive.
+Close the test PR. Check that the Deployment went inactive, the ticket
+comment says taken down, and, with a review domain, the custom domain and its
+DNS record are gone.
 
 ## Report
 
@@ -99,5 +138,7 @@ Repo:      <owner/repo>
 Host:      <provider> — why (scan: <kind, framework>)
 Wrote:     <files>  (actionlint: clean | not installed)
 Owner to do: <account, project and secret steps still open, or none>
+Review domain: <domain> (slug <slug>) | not set
 Proof:     PR <link> — run <link> — preview <url> @ <sha>, HTTP <code>; follows new pushes: yes/no
+Ticket:    <ticket link> — review-link comment @ <sha>; review_link.py says <action>
 ```

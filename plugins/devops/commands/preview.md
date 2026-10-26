@@ -19,8 +19,11 @@ Follow the `preview-environments` skill:
    list if anything is missing.
 3. Write the files with `python {{PLUGIN_ROOT}}/skills/ci-setup/scripts/scaffold.py preview --root <root> ...`,
    then run `actionlint` if it is installed.
-4. Prove it on a test PR: a green run, then
+   With a review domain (repo variable `REVIEW_DOMAIN`, Cloudflare only), the link is
+   `<branch>.<slug>.<domain>`: list `CLOUDFLARE_ZONE_ID` and the token's DNS edit permission too.
+4. Prove it on a test PR that closes a ticket: a green run, then
    `python {{PLUGIN_ROOT}}/skills/preview-link/scripts/preview_link.py --pr <N> --wait 600 --check`
-   returns current with HTTP 2xx. After one more push the link follows the new commit, and there
-   is still only one comment.
+   returns current with HTTP 2xx. After one more push the link follows the new commit, and
+   there is still only one PR comment. The ticket has one review-link comment at the new head
+   commit. Closing the PR marks it down and, with a review domain, removes the domain.
 5. Report in the skill's format.

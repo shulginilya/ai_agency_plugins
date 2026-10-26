@@ -26,23 +26,28 @@ provider's pricing page before relying on a limit.
 ## How each host meets the contract
 
 The contract: a GitHub Deployment per PR whose latest status has
-`environment_url`, and one sticky comment.
+`environment_url`, one sticky PR comment, and one comment on each ticket
+the PR closes, with the `<!-- devops:review-link ... -->` marker QA reads.
 
-| Host | Deployment | Comment |
-| --- | --- | --- |
-| Cloudflare Pages | created by `preview.yml`, environment `preview-pr-<N>`, `ref` = head SHA | `preview.yml` upserts it (marker `<!-- devops:preview -->`) |
-| Render | created by Render | Render's own deployment entry on the PR. Add no comment. |
-| Netlify | `netlify deploy --alias pr-<N> --json` in a workflow, then the same publish step as `preview.yml` | same publish step |
+| Host | Deployment | PR comment | Ticket comment | Review domain |
+| --- | --- | --- | --- | --- |
+| Cloudflare Pages | created by `preview.yml`, environment `preview-pr-<N>`, `ref` = head SHA | `preview.yml` upserts it (marker `<!-- devops:preview -->`) | `preview.yml`, same step | yes: a Pages custom domain per PR plus a CNAME to the branch alias |
+| Render | created by Render | Render's own deployment entry on the PR. Add no comment. | `review-link.yml`, on Render's `deployment_status` | no: previews can't take a custom domain. A Cloudflare Worker proxy could, but needs a paid certificate for two-level names. |
+| Netlify | `netlify deploy --alias pr-<N> --json` in a workflow, then the same publish step as `preview.yml` | same publish step | same publish step | Netlify DNS branch subdomains, if the site moves there |
 
 Any other host: deploy, read the URL from the deploy command's output, then
 reuse the "Publish the review link" step from `preview.yml` unchanged.
 
 ## When the PR closes
 
-- **Cloudflare:** `preview.yml` marks the Deployment inactive. The branch
-  alias stays on Cloudflare until it's deleted in the dashboard. That's
-  harmless, but it's public if the URL is known.
-- **Render:** deletes the preview instance itself.
+- **Cloudflare:** `preview.yml` marks the Deployment inactive, removes the
+  review domain and its DNS record, and marks the ticket comment down. The
+  branch alias itself stays on Cloudflare until it's deleted in the
+  dashboard. That's harmless, but it's public if the URL is known. A Pages
+  project takes 100 custom domains on the free plan, so closed PRs must
+  give theirs back, which cleanup does.
+- **Render:** deletes the preview instance itself; `review-link.yml` marks the
+  ticket comment down.
 
 ## Privacy
 

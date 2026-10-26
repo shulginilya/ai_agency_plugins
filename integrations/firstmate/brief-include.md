@@ -21,17 +21,21 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   (`feature-implementation` skill) and fix what it finds; then `/developer:verify` must pass.
 - Ticket with acceptance criteria: `/qa:plan` before building, so every criterion has test
   cases. After `/developer:ship`: `/qa:verify` against the ticket and its PR, on the ticket's
-  review link (any `<name>.<project>.review.com` link in its description or comments) when it
-  has one; a new link after QA's verdict means verify again. Only an accept means done: QA
+  review link (any `<name>.<project>.<review domain>` link in its description or comments,
+  including devops' review-link comment) when it has one. The newest wins; while it serves an
+  older commit than the PR's head QA waits, never tests it; a new commit or link after QA's
+  verdict means verify again. Only an accept means done: QA
   comments and moves the ticket to Ready for Merge (adding that column if the board lacks it).
   On reject, QA comments what fails and moves it to In progress: fix, push to the same PR, and
   verify again. QA never blocks a ticket; it may suggest blocking in its comment.
 - Bug found while testing: `/qa:bug` writes the report and files it as a ticket labelled
   "QA testing"; never patch it from the QA step.
 - CI/CD: `/devops:ci` sets up or fixes a repo's CI; `/devops:preview` gives every PR a review
-  link; `/devops:triage` says why a run is red and whose fix it is (a code failure goes to the
-  developer step). A PR's review link: `preview_link.py` from the `preview-link` skill, and test
-  on it only when it is current. Never ask for, print or write a secret value: list the secret
+  link (at `<branch>.<slug>.<REVIEW_DOMAIN>` when that repo variable is set) and keeps one
+  comment on each ticket the PR closes naming the link and the commit it serves; `/devops:triage`
+  says why a run is red and whose fix it is (a code failure goes to the developer step). A PR's
+  review link: `preview_link.py` from the `preview-link` skill, and test on it only when it is
+  current. Never ask for, print or write a secret value: list the secret
   names in your report with a `gh secret set NAME -R <owner>/<repo>` line for the Captain.
   Done means a green run on a real PR (and, for previews, a link that answers), not YAML.
 - Scout (read-only) tasks: use `/developer:diagnose`, `/designer:review` or `/qa:plan` without

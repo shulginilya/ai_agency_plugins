@@ -72,7 +72,7 @@
       "role": "QA Engineer",
       "owns": [
         "A test plan from each ticket's acceptance criteria, before it is built",
-        "The accept / reject verdict on a built change, on the ticket's review link when it has one (re-tested on a new link), with evidence per criterion",
+        "The accept / reject verdict on a built change, on the ticket's newest review link when it has one (waits while it serves an older commit; re-tested on a new commit or link), with evidence per criterion",
         "Moving a verified ticket to Ready for Merge on accept (adding the column if missing) or back to In progress on reject, with a comment on what fails",
         "Bug tickets for every failure, filed by QA and labelled \"QA testing\" (create and edit, never close or delete)"
       ]
@@ -81,7 +81,7 @@
       "role": "DevOps Engineer",
       "owns": [
         "CI on GitHub Actions that runs each repo's own checks, proved by a green run on a real PR (/devops:ci)",
-        "A review link per PR: a preview of its head commit, published as a GitHub Deployment (/devops:preview)",
+        "A review link per PR: a preview of its head commit at <branch>.<slug>.<review domain>, published as a GitHub Deployment and one comment per ticket naming the commit it serves (/devops:preview)",
         "Why a pipeline is red and whose fix it is: pipeline failures fixed, code failures handed to the developer (/devops:triage)",
         "The secret names a workflow needs, for the Captain to add with gh secret set (never their values)"
       ]
@@ -146,8 +146,8 @@
       {"id": "s18", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:review the built UI; developer fixes every blocker", "group": "Then: the delivery loop, per ticket"},
       {"id": "s19", "lane": "developer", "text": "Self-review own diff against the handoff checklist; /developer:verify", "group": "Then: the delivery loop, per ticket"},
       {"id": "s20", "lane": "developer", "kind": "write", "text": "/developer:ship → branch, PR, card to In review", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s20b", "lane": "devops", "kind": "optional", "text": "Repo has PR previews: preview_link.py --pr N gives QA the PR's preview when the ticket names no review link. Red CI: /devops:triage", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s21", "lane": "qa", "kind": "write", "text": "/qa:verify on the review link → accept: card to Ready for Merge; reject: comment what fails, card to In progress, /qa:bug tickets", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s20b", "lane": "devops", "kind": "optional", "text": "Repo has PR previews: every push deploys <branch>.<slug>.<review domain> and edits the ticket's review-link comment (link + commit). Red CI: /devops:triage", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s21", "lane": "qa", "kind": "write", "text": "/qa:verify on the newest review link, once it serves the PR's head (else wait) → accept: card to Ready for Merge; reject: comment what fails, card to In progress, /qa:bug tickets", "group": "Then: the delivery loop, per ticket"},
       {"id": "s22", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}
     ]
   }

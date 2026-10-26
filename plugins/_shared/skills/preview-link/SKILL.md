@@ -4,7 +4,7 @@ description: Finds the review link of a pull request — the URL of its preview 
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # Preview link
@@ -18,10 +18,14 @@ carries `environment_url`:
 - Render creates its own for each PR preview.
 
 So the PR's preview link comes from the Deployments API, never from a PR
-comment or a guess at a URL pattern. A review link written in the *ticket*
-(`<name>.<slug>.review.com`) is a different thing: QA finds it with its own
-`review_link.py` and tests on it first; this skill is the fallback when the
-ticket names none.
+comment or a guess at a URL pattern. With a review domain set,
+`environment_url` is the `<branch>.<slug>.<domain>` address.
+
+QA looks on the *ticket* first: the devops workflow keeps a comment there
+with the same link and the commit it serves, and people may paste one.
+QA's `review_link.py` reads those. This skill is the fallback when the
+ticket names no link, and the way to check which commit a pasted link
+serves.
 
 ```bash
 python scripts/preview_link.py --pr 42                 # the link, and whether it's current

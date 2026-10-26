@@ -120,10 +120,17 @@ class ScaffoldTest(unittest.TestCase):
             same = "github.event.pull_request.head.repo.full_name == github.repository"
             self.assertIn("if: github.event.action != 'closed' && %s" % same, text)
             self.assertIn("!(%s)" % same, text)
-            # secrets by name only, and only the two the deploy needs
+            # secrets by name only: the two the deploy needs, and the zone for a review domain
             self.assertEqual(sorted(set(re.findall(r"secrets\.([A-Z_]+)", text))),
-                             ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"])
+                             ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ZONE_ID"])
             self.assertIn("gh secret set CLOUDFLARE_API_TOKEN", result.stdout)
+            self.assertIn("gh secret set CLOUDFLARE_ZONE_ID -R <owner>/<repo>   # only with a review domain",
+                          result.stdout)
+            # the review domain is opt-in, by a variable, and the ticket comment needs issues: write
+            self.assertIn("REVIEW_DOMAIN: ${{ vars.REVIEW_DOMAIN }}", text)
+            self.assertEqual(text.count("if: env.REVIEW_DOMAIN != ''"), 2)
+            self.assertIn("  issues: write", text)
+            self.assertIn("steps.review.outputs.url ||", text)
 
     def test_render_blueprint_turns_on_pr_previews(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -134,7 +141,11 @@ class ScaffoldTest(unittest.TestCase):
             for line in ("runtime: python", "plan: free", "startCommand: uvicorn app.main:app",
                          "previews:\n      generation: automatic"):
                 self.assertIn(line, text)
-            self.assertFalse((root / ".github").exists(), "Render needs no workflow")
+            workflows = sorted(p.name for p in (root / ".github" / "workflows").iterdir())
+            self.assertEqual(workflows, ["review-link.yml"], "Render deploys itself; only the ticket comment is ours")
+            ticket = (root / ".github" / "workflows" / "review-link.yml").read_text()
+            self.assertNotIn("secrets.", ticket)
+            self.assertIn("deployment_status:", ticket)
 
     def test_refuses_to_guess_or_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -181,6 +192,165 @@ LOG = textwrap.dedent("""\
     2026-10-22T12:57:36.64Z ##[error]Process completed with exit code 1.
     2026-10-22T12:57:36.70Z ##[group]Run actions/upload-artifact@v4
     """)
+
+
+# A fake GitHub and Cloudflare for the workflows' github-script steps: run each
+# script under node, record what it writes, and check QA reads it back.
+NODE_HARNESS = r"""
+const fs = require('fs');
+const [scriptFile, scenarioFile] = process.argv.slice(2);
+const sc = JSON.parse(fs.readFileSync(scenarioFile, 'utf8'));
+const calls = [], outputs = {}, notices = [];
+let failed = null;
+const comments = sc.comments || {};
+const github = {
+  graphql: async () => ({ repository: { pullRequest: { closingIssuesReferences: { nodes: sc.closes } } } }),
+  paginate: async (fn, args) => fn === github.rest.issues.listComments ? (comments[args.issue_number] || []) : [],
+  rest: {
+    issues: {
+      listComments: () => {},
+      createComment: async a => { calls.push(['createComment', a]); },
+      updateComment: async a => { calls.push(['updateComment', a]); },
+    },
+    repos: {
+      createDeployment: async a => { calls.push(['createDeployment', a]); return { data: { id: 7 } }; },
+      createDeploymentStatus: async a => { calls.push(['createDeploymentStatus', a]); },
+      listDeployments: () => {},
+      listPullRequestsAssociatedWithCommit: async () => ({ data: sc.prs || [] }),
+    },
+  },
+};
+const core = { setOutput: (k, v) => { outputs[k] = v; }, setFailed: m => { failed = m; }, notice: m => notices.push(m) };
+const context = Object.assign({ repo: { owner: 'me', repo: 'shop' }, serverUrl: 'https://github.com', runId: 9 },
+                              sc.context);
+global.fetch = async (url, init) => {
+  calls.push(['cf', init.method, url.replace('https://api.cloudflare.com/client/v4', ''), init.body ? JSON.parse(init.body) : null]);
+  const exists = (sc.cf_exists || []).some(p => url.endsWith(p));
+  const ok = init.method !== 'GET' || exists;
+  const result = url.includes('dns_records?') ? (sc.dns || []) : {};
+  return { ok, json: async () => ({ success: ok, result }) };
+};
+Object.assign(process.env, sc.env || {});
+const body = fs.readFileSync(scriptFile, 'utf8');
+(async () => {
+  await (new Function('github', 'context', 'core', 'require', `return (async () => {\n${body}\n})();`))(github, context, core, require);
+  console.log(JSON.stringify({ calls, outputs, notices, failed }));
+})().catch(e => { console.log(JSON.stringify({ error: String(e.stack || e) })); });
+"""
+
+PR = {"number": 43, "head": {"ref": "79-Feat/Review_Links", "sha": "abc1234def", "repo": {"full_name": "me/shop"}},
+      "merged": False}
+QA_SCRIPTS = PLUGIN.parent / "qa" / "skills" / "acceptance-testing" / "scripts"
+
+
+@unittest.skipUnless(shutil.which("node"), "node is not installed")
+class WorkflowScriptTest(unittest.TestCase):
+    """The github-script steps, run for real against a fake GitHub and Cloudflare."""
+
+    def steps(self, root, workflow):
+        """Each named step's env and script, read from the YAML as written (no YAML library in CI)."""
+        found, current, block = {}, None, None
+        for line in (root / ".github" / "workflows" / workflow).read_text().splitlines():
+            if line.startswith("      - name: "):
+                current = found.setdefault(line[len("      - name: "):], {"env": {}, "with": {}})
+                block = None
+            elif current is None:
+                continue
+            elif line == "        env:":
+                block = "env"
+            elif line == "          script: |":
+                block, current["with"]["script"] = "script", ""
+            elif block == "script" and (line.startswith(" " * 12) or not line.strip()):
+                current["with"]["script"] += line[12:] + "\n"
+            elif block == "env" and line.startswith(" " * 10) and ": " in line:
+                key, value = line.strip().split(": ", 1)
+                current["env"][key] = value
+            elif line.strip() and not line.startswith(" " * 10):
+                block = None
+        return found
+
+    def node(self, tmp, script, scenario):
+        js, sc, harness = Path(tmp, "step.js"), Path(tmp, "scenario.json"), Path(tmp, "harness.js")
+        js.write_text(script)
+        sc.write_text(json.dumps(scenario))
+        harness.write_text(NODE_HARNESS)
+        done = subprocess.run(["node", str(harness), str(js), str(sc)], capture_output=True, text=True, check=False)
+        out = json.loads(done.stdout.strip().splitlines()[-1])
+        self.assertNotIn("error", out, out.get("error"))
+        return out
+
+    def cloudflare(self, tmp):
+        root = project(tmp, "vite", VITE)
+        self.assertEqual(run(SCRIPTS / "scaffold.py", "preview", "--project", "shop", "--root", root).returncode, 0)
+        return self.steps(root, "preview.yml")
+
+    def test_the_review_domain_step_adds_the_pages_domain_and_a_cname_to_the_branch_alias(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            step = self.cloudflare(tmp)["Serve it on the review domain"]
+            env = dict(step["env"], REVIEW_DOMAIN="review.example.dev", REVIEW_SLUG="Shop", PAGES_PROJECT="shop",
+                       CLOUDFLARE_ACCOUNT_ID="acc", CLOUDFLARE_ZONE_ID="zone", CLOUDFLARE_API_TOKEN="t")
+            out = self.node(tmp, step["with"]["script"], {"env": env, "context": {"payload": {"pull_request": PR}}})
+            host = "79-feat-review-links.shop.review.example.dev"
+            self.assertIsNone(out["failed"])
+            self.assertEqual(out["outputs"], {"url": "https://" + host})
+            writes = [c for c in out["calls"] if c[1] != "GET"]
+            self.assertEqual(writes[0][1:3], ["POST", "/accounts/acc/pages/projects/shop/domains"])
+            self.assertEqual(writes[0][3], {"name": host})
+            self.assertEqual(writes[1][1:3], ["POST", "/zones/zone/dns_records"])
+            self.assertEqual((writes[1][3]["content"], writes[1][3]["proxied"]), ("pr-43.shop.pages.dev", True))
+
+            env["ACTION"] = "down"
+            out = self.node(tmp, step["with"]["script"], {"env": env, "context": {"payload": {"pull_request": PR}},
+                                                          "dns": [{"id": "rec1"}]})
+            deletes = [c[2] for c in out["calls"] if c[1] == "DELETE"]
+            self.assertEqual(deletes, ["/accounts/acc/pages/projects/shop/domains/" + host, "/zones/zone/dns_records/rec1"])
+
+    def test_the_ticket_comment_the_workflow_writes_is_the_one_qa_reads(self):
+        sys.path.insert(0, str(QA_SCRIPTS))
+        import review_link  # noqa: PLC0415
+        with tempfile.TemporaryDirectory() as tmp:
+            steps = self.cloudflare(tmp)
+            link = "https://79-feat-review-links.shop.review.example.dev"
+            scenario = {"env": {"PREVIEW_URL": link}, "context": {"payload": {"pull_request": PR}},
+                        "closes": [{"number": 42, "repository": {"nameWithOwner": "me/shop"}},
+                                   {"number": 5, "repository": {"nameWithOwner": "other/repo"}}]}
+            out = self.node(tmp, steps["Publish the review link"]["with"]["script"], scenario)
+            posted = [c[1] for c in out["calls"] if c[0] == "createComment" and c[1]["issue_number"] == 42]
+            self.assertEqual(len(posted), 1, out["calls"])
+            self.assertTrue(any("other/repo" in n for n in out["notices"]), "a ticket in another repo is skipped, said")
+            body = posted[0]["body"]
+            seen = review_link.decide("", [{"body": body, "created_at": "2026-10-26T01:00:00Z", "url": "c1"}],
+                                      commit="abc1234def", domain="review.example.dev")
+            self.assertEqual((seen["action"], seen["link"], seen["serves"]), ("test", link, "abc1234def"))
+            self.assertEqual(review_link.decide("", [{"body": body, "created_at": "x", "url": "c1"}],
+                                                commit="fff9999")["action"], "wait")
+
+            # the next deploy edits that comment instead of adding one; closing the PR marks it down
+            mine = {"id": 11, "user": {"type": "Bot"}, "body": body}
+            scenario["comments"] = {"42": [mine]}
+            out = self.node(tmp, steps["Publish the review link"]["with"]["script"], scenario)
+            on_ticket = [c[0] for c in out["calls"] if c[0] == "createComment" and c[1]["issue_number"] == 42]
+            on_ticket += [c[0] for c in out["calls"] if c[0] == "updateComment" and c[1]["comment_id"] == 11]
+            self.assertEqual(on_ticket, ["updateComment"])
+            out = self.node(tmp, steps["Take the review link down"]["with"]["script"], scenario)
+            down = [c[1]["body"] for c in out["calls"] if c[0] == "updateComment" and c[1]["comment_id"] == 11]
+            self.assertEqual(len(down), 1)
+            self.assertEqual(review_link.decide("", [{"body": down[0], "created_at": "x", "url": "c1"}])["action"], "none")
+
+    def test_render_deploys_reach_the_tickets_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "api", FASTAPI)
+            self.assertEqual(run(SCRIPTS / "scaffold.py", "preview", "--root", root).returncode, 0)
+            script = self.steps(root, "review-link.yml")["Post the review link to the PR's tickets"]["with"]["script"]
+            scenario = {"context": {"eventName": "deployment_status", "payload": {
+                "deployment": {"sha": "abc1234def"},
+                "deployment_status": {"environment_url": "https://api-pr-43.onrender.com", "log_url": "L"}}},
+                "prs": [{"number": 43, "state": "open"}, {"number": 40, "state": "closed"}],
+                "closes": [{"number": 42, "repository": {"nameWithOwner": "me/shop"}}]}
+            out = self.node(tmp, script, scenario)
+            posted = [c[1] for c in out["calls"] if c[0] == "createComment"]
+            self.assertEqual([p["issue_number"] for p in posted], [42])
+            self.assertIn("link=https://api-pr-43.onrender.com commit=abc1234def pr=43 state=live", posted[0]["body"])
 
 
 class TriageTest(unittest.TestCase):
