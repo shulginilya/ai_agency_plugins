@@ -13,6 +13,10 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   and fix every blocker.
 - Bug, failing or flaky test, wrong output: `/developer:diagnose` to a proved mechanism,
   then `/developer:fix` with the failing test first. Known-good regression: `/developer:bisect`.
+- Merge conflicts on a PR: the developer resolves them with `/developer:resolve-conflicts`, but only
+  when this brief names the PR for it. It rebases onto the base branch, never merges it in, and pushes with
+  `--force-with-lease`, the only force-push allowed. A conflict that is a decision is reported, not chosen.
+  Otherwise, report the conflict and stop.
 - Before pushing: self-review your own diff against the developer's handoff checklist
   (`feature-implementation` skill) and fix what it finds; then `/developer:verify` must pass.
 - Ticket with acceptance criteria: `/qa:plan` before building, so every criterion has test

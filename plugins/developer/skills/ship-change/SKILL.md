@@ -4,7 +4,7 @@ description: Ships a finished, verified change for review — files a GitHub iss
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Ship a change
@@ -72,7 +72,8 @@ issue and puts it on the board in one step.
   `git add -A`. The message follows the repo's convention, explains why in the
   body, and ends with `Closes #I`.
 - **Push:** `git push -u origin HEAD`. Never force-push, and never push to the
-  default branch.
+  default branch. The one exception is the `merge-conflict-resolution` skill's
+  leased push after a rebase the user asked for.
 
 ## 4. Open the PR
 
@@ -87,7 +88,10 @@ Closes #I
 ## Checks           — what was run and its result; what was NOT run, and why
 ```
 
-Do not merge it and do not approve it. Review is the point.
+Do not merge it and do not approve it. Review is the point. If the PR
+conflicts with its base, report that and offer to resolve it, but don't
+start: resolving conflicts (the `merge-conflict-resolution` skill) needs the
+user's go-ahead.
 
 ## 5. Move the card — after the PR exists
 

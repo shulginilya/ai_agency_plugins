@@ -23,6 +23,8 @@ Follow the `ship-change` skill:
 4. **Branch** with the name from `board.py branch` and check it out. **Commit**
    only the change's files, ending the message with `Closes #<issue>`.
    **Push** with `-u`. Never force-push and never push to the default branch.
+   If the PR conflicts with its base, report it and offer `/resolve-conflicts`;
+   don't resolve it unasked.
 5. **Open the PR** against the default branch: `Closes #<issue>`, then What
    changed / Why / Checks.
 6. **Then** run `board.py move` to put the card in In review. It must run after

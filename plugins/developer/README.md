@@ -13,6 +13,7 @@ checks, and self-review before handing off. Plus the behaviour-preserving half
 | Skill | `safe-refactoring` | Pin behaviour, size the blast radius, apply mechanical moves |
 | Skill | `ship-change` | Ticket on a board, branch, commit, push, PR, card confirmed in review |
 | Skill | `root-cause-analysis` | Reproduce, narrow, prove the mechanism, fix the cause, leave a failing-first test |
+| Skill | `merge-conflict-resolution` | Only when asked: rebase a conflicting PR onto its base, resolve each file (generated: take base; decision: stop and ask), re-run checks, push with `--force-with-lease` |
 | Skill | `regression-triage` | "It worked before": bracket good and bad, script a verdict, bisect, read the culprit |
 | Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Skill (shared) | `test-driven-development` | Red-green-refactor, one behaviour per cycle; `tdd.py` tells a real red from an errored or empty run. Source: `plugins/_shared/skills/` |
@@ -23,6 +24,7 @@ checks, and self-review before handing off. Plus the behaviour-preserving half
 | Command | `/diagnose` | Diagnose a bug down to its root cause, without changing code |
 | Command | `/fix` | Fix a bug whose cause is proved, failing test first |
 | Command | `/tdd` | Build one behaviour, or a short list of them, test-first in red-green-refactor cycles |
+| Command | `/resolve-conflicts` | Rebase a PR with merge conflicts onto its base and push it, when the user asks |
 | Command | `/bisect` | Find the commit that introduced a regression |
 | Agent | `implementer` | One slice of the plan, in a fresh context, reported back |
 | Agent | `investigator` | Tests one hypothesis about a bug's cause, in a fresh context, with the evidence |
