@@ -4,7 +4,7 @@ description: Ships a finished, verified change for review — files a GitHub iss
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Ship a change
@@ -77,7 +77,7 @@ issue and puts it on the board in one step.
 
 ## 4. Open the PR
 
-`gh pr create --base <default branch> --title <issue title> --body-file ...`,
+`gh pr create --base <default branch> --title <issue title> --body-file ... --assignee @me`,
 with this body:
 
 ```
@@ -87,6 +87,13 @@ Closes #I
 ## Why              — anything a reviewer would otherwise ask
 ## Checks           — what was run and its result; what was NOT run, and why
 ```
+
+**The assignee is the user, always.** `@me` is the GitHub account `gh` is
+logged in as, which is the user's. Assign no one else, not a reviewer, a
+crewmate or someone the ticket mentions, unless the user explicitly asks for
+that person on this PR. If `--assignee` fails, the PR still exists: add the
+user with `gh api -X POST repos/<owner>/<repo>/issues/<PR>/assignees -f 'assignees[]=<login>'`
+and report it if that fails too.
 
 Do not merge it and do not approve it. Review is the point. If the PR
 conflicts with its base, report that and offer to resolve it, but don't
@@ -111,6 +118,7 @@ hold. Report that failure; do not claim the card is in review.
 Ticket:  <issue URL> — on <board>, column <column as last read>
 Branch:  <name>, checked out locally, pushed
 PR:      <PR URL>
+Assignee: <login>
 Checks:  <what ran before shipping>; Not run: <...>
 Left out: <uncommitted files not part of this change, or "nothing">
 ```
