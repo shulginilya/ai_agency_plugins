@@ -26,7 +26,8 @@ Follow the `ship-change` skill:
    If the PR conflicts with its base, report it and offer `/resolve-conflicts`;
    don't resolve it unasked.
 5. **Open the PR** against the default branch: `Closes #<issue>`, then What
-   changed / Why / Checks.
+   changed / Why / Checks, with `--assignee @me`. The user is the only
+   assignee unless they explicitly asked for someone else on this PR.
 6. **Then** run `board.py move` to put the card in In review. It must run after
    the PR exists, because the board's PR-linked automation moves the card to
    In progress.
