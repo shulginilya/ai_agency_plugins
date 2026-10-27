@@ -35,10 +35,25 @@ Ready for Merge column, QA adds it after In review, keeping every other card
 where it was. QA never blocks a ticket; when it can't check a criterion, the
 verdict is reject and the comment suggests blocking, for the Captain to decide.
 
-**Review links.** Any link shaped `<name>.<project_slug>.review.com` in the
-ticket's description or comments is a review link, whatever the name is
-(usually the branch). QA tests on the newest one, and re-tests, every case,
-when a new or different link appears after its last verdict.
+**Review links.** Any link shaped `<name>.<project_slug>.<review domain>` in
+the ticket's description or comments is a review link, whatever the name is
+(usually the branch). The review domain is the repo variable `REVIEW_DOMAIN`,
+or the placeholder `review.com` until one is set. Devops' preview workflow
+keeps one comment on the ticket, edited on every deploy. Its hidden marker
+says which commit the link serves. QA picks the latest version like this:
+
+1. **Newest wins.** The devops comment counts as new as of its last edit, and
+   a pasted link as of when it was posted.
+2. **Right build, or wait.** If the link serves an older commit than the PR's
+   head, the new build hasn't landed: QA waits (`wait`) and never tests it.
+3. **Re-test on change.** A different commit or a different link since QA's
+   last verdict means every case runs again (`retest`). The same link and
+   commit means nothing new (`up-to-date`).
+4. **No link on the ticket:** the PR's preview (`preview-link`), else a local
+   run.
+
+The whole flow, devops to QA, is drawn in
+[`../devops/docs/review-links.drawio`](../devops/docs/review-links.drawio).
 
 There are no hooks, because a crew plugin's hooks run in every crewmate
 session.
@@ -50,8 +65,10 @@ Three scripts, all standard-library Python:
   splits out Given/When/Then, and flags vague or unobservable criteria. It
   exits 2 when there are none.
 - `skills/acceptance-testing/scripts/review_link.py` finds the newest review
-  link on a ticket, compares it with QA's last verdict comment, and says
-  `test`, `retest`, `up-to-date` or `none`. It also lists the ticket's boards.
+  link on a ticket and the commit it serves (from the devops marker), compares
+  them with the commit under test and QA's last verdict comment, and says
+  `wait`, `test`, `retest`, `up-to-date` or `none`. `--wait` polls while the
+  new build hasn't landed. It also lists the ticket's boards.
 - `skills/acceptance-testing/scripts/qa_report.py` turns recorded results
   into the verdict and the ticket comment. Only when every criterion has a
   passing case with evidence and nothing failed is it **accept**. Anything

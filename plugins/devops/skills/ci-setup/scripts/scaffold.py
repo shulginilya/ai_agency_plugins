@@ -5,6 +5,7 @@
     scaffold.py preview [--root .] --provider cloudflare-pages --project NAME
                                                                    .github/workflows/preview.yml
     scaffold.py preview [--root .] --provider render [--name NAME] render.yaml (Render PR previews)
+                                                                   + .github/workflows/review-link.yml
 
 Common options: --dry-run prints the files instead of writing them; --force
 overwrites a file that exists (otherwise it is left alone and reported);
@@ -17,7 +18,13 @@ Every workflow runs the repo's own commands, has least-privilege
 `pull_request_target`. The preview workflow publishes the review link as a
 GitHub Deployment `preview-pr-<N>` plus one sticky PR comment, marks it
 inactive when the PR closes, and skips PRs from forks (they get no secrets).
-Secrets are referenced by name only.
+
+Review links: with the repository variable REVIEW_DOMAIN set, the Cloudflare
+workflow also serves each preview at `<branch>.<slug>.<REVIEW_DOMAIN>` (slug:
+REVIEW_SLUG, else the repository name) and publishes that as the link. Either
+host keeps one comment on every ticket the PR closes, edited on each deploy,
+with a `<!-- devops:review-link link=... commit=... pr=... state=live|down -->`
+marker that QA reads. Secrets are referenced by name only.
 
 Standard library only. Exit status: 0 written (or printed), 1 a file exists and
 was left alone, 2 bad input, 3 something the file needs is unknown.
@@ -47,8 +54,10 @@ ACTIONS = {
     "bun": "oven-sh/setup-bun@v2",
 }
 SECRETS = {"cloudflare-pages": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"], "render": []}
+REVIEW_SECRETS = {"cloudflare-pages": ["CLOUDFLARE_ZONE_ID"], "render": []}  # only with REVIEW_DOMAIN
 STEPS = ("lint", "typecheck", "test", "build")
 MARKER = "<!-- devops:preview -->"
+TICKET_MARKER = "<!-- devops:review-link"
 
 
 class Unknown(Exception):
@@ -157,7 +166,71 @@ def ci_workflow(facts: Dict[str, Any], branch: str) -> str:
 # --- preview.yml (Cloudflare Pages) -----------------------------------------
 
 
-PUBLISH_JS = """\
+# One comment per ticket the PR closes, edited on every deploy. QA's review_link.py
+# reads the marker: which link, which commit it serves, and whether it is still up.
+TICKETS_JS = """\
+async function postToTickets({ prNumber, url, sha, state, run }) {
+  const { owner, repo } = context.repo;
+  const found = await github.graphql(`query($owner: String!, $repo: String!, $n: Int!) {
+    repository(owner: $owner, name: $repo) { pullRequest(number: $n) {
+      closingIssuesReferences(first: 20) { nodes { number repository { nameWithOwner } } } } } }`,
+    { owner, repo, n: prNumber });
+  const issues = found.repository.pullRequest.closingIssuesReferences.nodes;
+  if (!issues.length) core.notice(`PR #${prNumber} closes no ticket, so no ticket gets the review link`);
+  const marker = `TICKET_MARKER link=${url || 'none'} commit=${sha} pr=${prNumber} state=${state} -->`;
+  const body = state === 'live'
+    ? `${marker}\\n**Review link:** ${url}\\n\\nServes commit \\`${sha.slice(0, 7)}\\` of #${prNumber} · updated ${new Date().toISOString()} · [deploy run](${run})`
+    : `${marker}\\n**Review link:** taken down, #${prNumber} is closed.`;
+  for (const issue of issues) {
+    if (issue.repository.nameWithOwner !== `${owner}/${repo}`) {
+      core.notice(`#${issue.number} is in ${issue.repository.nameWithOwner}: this token can't comment there`);
+      continue;
+    }
+    const comments = await github.paginate(github.rest.issues.listComments,
+      { owner, repo, issue_number: issue.number, per_page: 100 });
+    const mine = comments.find(c => c.user.type === 'Bot' && c.body.startsWith('TICKET_MARKER')
+      && c.body.includes(` pr=${prNumber} `));
+    if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+    else if (state === 'live') await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body });
+  }
+}
+""".replace("TICKET_MARKER", TICKET_MARKER)
+
+# Serve the preview at <branch>.<slug>.<REVIEW_DOMAIN>: a Pages custom domain plus a
+# proxied CNAME to the PR's branch alias (Cloudflare's "custom domain on a branch").
+DOMAIN_JS = """\
+const pr = context.payload.pull_request;
+const label = s => (s || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-')
+  .replace(/^-+/, '').slice(0, 63).replace(/-+$/, '');
+const host = `${label(pr.head.ref) || `pr-${pr.number}`}.${label(process.env.REVIEW_SLUG)}.${process.env.REVIEW_DOMAIN}`;
+const target = `pr-${pr.number}.${process.env.PAGES_PROJECT}.pages.dev`;
+async function cf(method, path, body) {
+  const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, { method,
+    headers: { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}`, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok && data.success !== false, data };
+}
+const domains = `/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/pages/projects/${process.env.PAGES_PROJECT}/domains`;
+const records = `/zones/${process.env.CLOUDFLARE_ZONE_ID}/dns_records`;
+const existing = ((await cf('GET', `${records}?type=CNAME&name=${host}`)).data.result || [])[0];
+if (process.env.ACTION === 'down') {
+  await cf('DELETE', `${domains}/${host}`);
+  if (existing) await cf('DELETE', `${records}/${existing.id}`);
+  return;
+}
+if (!(await cf('GET', `${domains}/${host}`)).ok) {
+  const added = await cf('POST', domains, { name: host });
+  if (!added.ok) { core.setFailed(`Pages refused ${host}: ${JSON.stringify(added.data.errors || added.data)}`); return; }
+}
+const record = { type: 'CNAME', name: host, content: target, proxied: true, ttl: 1,
+  comment: `review link of PR #${pr.number}` };
+const saved = existing ? await cf('PUT', `${records}/${existing.id}`, record) : await cf('POST', records, record);
+if (!saved.ok) { core.setFailed(`DNS refused ${host}: ${JSON.stringify(saved.data.errors || saved.data)}`); return; }
+core.setOutput('url', `https://${host}`);
+"""
+
+PUBLISH_JS = TICKETS_JS + """\
 const pr = context.payload.pull_request;
 const environment = `preview-pr-${pr.number}`;
 const url = process.env.PREVIEW_URL;
@@ -179,9 +252,10 @@ const comments = await github.paginate(github.rest.issues.listComments,
 const mine = comments.find(c => c.user.type === 'Bot' && c.body.startsWith('MARKER'));
 if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
 else await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+await postToTickets({ prNumber: pr.number, url, sha: pr.head.sha, state: 'live', run });
 """.replace("MARKER", MARKER)
 
-CLEANUP_JS = """\
+CLEANUP_JS = TICKETS_JS + """\
 const pr = context.payload.pull_request;
 const { owner, repo } = context.repo;
 const deployments = await github.paginate(github.rest.repos.listDeployments,
@@ -194,7 +268,28 @@ const comments = await github.paginate(github.rest.issues.listComments,
 const mine = comments.find(c => c.user.type === 'Bot' && c.body.startsWith('MARKER'));
 const body = `MARKER\\n**Preview:** taken down, the PR is ${pr.merged ? 'merged' : 'closed'}.`;
 if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+await postToTickets({ prNumber: pr.number, url: null, sha: pr.head.sha, state: 'down', run: '' });
 """.replace("MARKER", MARKER)
+
+# Render deploys previews itself and reports them as GitHub Deployments; this
+# workflow carries each one to the PR's tickets, and marks them down on close.
+RENDER_TICKETS_JS = TICKETS_JS + """\
+const { owner, repo } = context.repo;
+if (context.eventName === 'pull_request') {
+  const pr = context.payload.pull_request;
+  await postToTickets({ prNumber: pr.number, url: null, sha: pr.head.sha, state: 'down', run: '' });
+  return;
+}
+const deployment = context.payload.deployment;
+const status = context.payload.deployment_status;
+const prs = (await github.rest.repos.listPullRequestsAssociatedWithCommit(
+  { owner, repo, commit_sha: deployment.sha })).data.filter(p => p.state === 'open');
+if (!prs.length) { core.notice('not a deploy of an open PR, so no ticket gets a review link'); return; }
+for (const pr of prs) {
+  await postToTickets({ prNumber: pr.number, url: status.environment_url, sha: deployment.sha, state: 'live',
+    run: status.log_url || status.target_url || '' });
+}
+"""
 
 
 def script_block(js: str) -> List[str]:
@@ -211,8 +306,12 @@ def cloudflare_workflow(facts: Dict[str, Any], project: str) -> str:
         "name: Preview",
         "",
         "# One preview per PR on Cloudflare Pages: https://pr-<N>.%s.pages.dev" % project,
-        "# The review link is published as GitHub Deployment preview-pr-<N> and a sticky PR comment.",
-        "# Secrets (added by the repo owner with gh secret set): %s" % ", ".join(SECRETS["cloudflare-pages"]),
+        "# The review link is published as GitHub Deployment preview-pr-<N>, a sticky PR comment and",
+        "# one comment on each ticket the PR closes (marker: devops:review-link), which QA reads.",
+        "# With the repo variable REVIEW_DOMAIN set, the link is https://<branch>.<slug>.<REVIEW_DOMAIN>",
+        "# (slug: variable REVIEW_SLUG, else the repo name), served from the same preview.",
+        "# Secrets (added by the repo owner with gh secret set): %s; with REVIEW_DOMAIN also %s"
+        % (", ".join(SECRETS["cloudflare-pages"]), ", ".join(REVIEW_SECRETS["cloudflare-pages"])),
         "",
         "on:",
         "  pull_request:",
@@ -221,11 +320,17 @@ def cloudflare_workflow(facts: Dict[str, Any], project: str) -> str:
         "permissions:",
         "  contents: read",
         "  deployments: write",
+        "  issues: write",
         "  pull-requests: write",
         "",
         "concurrency:",
         "  group: preview-${{ github.event.pull_request.number }}",
         "  cancel-in-progress: true",
+        "",
+        "env:",
+        "  REVIEW_DOMAIN: ${{ vars.REVIEW_DOMAIN }}",
+        "  REVIEW_SLUG: ${{ vars.REVIEW_SLUG || github.event.repository.name }}",
+        "  PAGES_PROJECT: %s" % quote(project),
         "",
         "jobs:",
         "  deploy:",
@@ -247,10 +352,23 @@ def cloudflare_workflow(facts: Dict[str, Any], project: str) -> str:
         "            pages deploy %s --project-name=%s" % (facts["output_dir"], project),
         "            --branch=pr-${{ github.event.pull_request.number }}",
         "            --commit-hash=${{ github.event.pull_request.head.sha }}",
+        "      - name: Serve it on the review domain",
+        "        id: review",
+        "        if: env.REVIEW_DOMAIN != ''",
+        "        uses: %s" % ACTIONS["github-script"],
+        "        env:",
+        "          ACTION: up",
+        "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+        "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+        "          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}",
+        "        with:",
+    ]
+    lines += script_block(DOMAIN_JS)
+    lines += [
         "      - name: Publish the review link",
         "        uses: %s" % ACTIONS["github-script"],
         "        env:",
-        "          PREVIEW_URL: ${{ steps.deploy.outputs.pages-deployment-alias-url || "
+        "          PREVIEW_URL: ${{ steps.review.outputs.url || steps.deploy.outputs.pages-deployment-alias-url || "
         "steps.deploy.outputs.deployment-url }}",
         "        with:",
     ]
@@ -268,6 +386,18 @@ def cloudflare_workflow(facts: Dict[str, Any], project: str) -> str:
         "    runs-on: ubuntu-latest",
         "    timeout-minutes: 5",
         "    steps:",
+        "      - name: Take the review domain down",
+        "        if: env.REVIEW_DOMAIN != ''",
+        "        uses: %s" % ACTIONS["github-script"],
+        "        env:",
+        "          ACTION: down",
+        "          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+        "          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+        "          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}",
+        "        with:",
+    ]
+    lines += script_block(DOMAIN_JS)
+    lines += [
         "      - name: Take the review link down",
         "        uses: %s" % ACTIONS["github-script"],
         "        with:",
@@ -305,6 +435,42 @@ def render_blueprint(facts: Dict[str, Any], name: str) -> str:
     return "\n".join(header + lines) + "\n"
 
 
+def render_tickets_workflow() -> str:
+    lines = [
+        "name: Review link",
+        "",
+        "# Render deploys every PR's preview and reports it as a GitHub Deployment. This carries the",
+        "# link to each ticket the PR closes: one comment per ticket (marker: devops:review-link),",
+        "# edited on every deploy and marked down when the PR closes. QA reads it.",
+        "",
+        "on:",
+        "  deployment_status:",
+        "  pull_request:",
+        "    types: [closed]",
+        "",
+        "permissions:",
+        "  contents: read",
+        "  issues: write",
+        "  pull-requests: read",
+        "",
+        "jobs:",
+        "  tickets:",
+        "    if: >-",
+        "      (github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success'",
+        "      && github.event.deployment_status.environment_url != '')",
+        "      || (github.event_name == 'pull_request'",
+        "      && github.event.pull_request.head.repo.full_name == github.repository)",
+        "    runs-on: ubuntu-latest",
+        "    timeout-minutes: 5",
+        "    steps:",
+        "      - name: Post the review link to the PR's tickets",
+        "        uses: %s" % ACTIONS["github-script"],
+        "        with:",
+    ]
+    lines += script_block(RENDER_TICKETS_JS)
+    return "\n".join(lines) + "\n"
+
+
 # --- CLI ---------------------------------------------------------------------
 
 
@@ -315,7 +481,8 @@ def plan(args: argparse.Namespace, facts: Dict[str, Any], root: Path) -> List[Tu
         if not args.project:
             raise Unknown(["--project (the Cloudflare Pages project name)"])
         return [(root / ".github" / "workflows" / "preview.yml", cloudflare_workflow(facts, args.project))]
-    return [(root / "render.yaml", render_blueprint(facts, args.name or root.name))]
+    return [(root / "render.yaml", render_blueprint(facts, args.name or root.name)),
+            (root / ".github" / "workflows" / "review-link.yml", render_tickets_workflow())]
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -373,6 +540,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("secrets the repo owner adds (never paste their values into a chat):")
         for name in secrets:
             print("  gh secret set %s -R <owner>/<repo>" % name)
+        for name in REVIEW_SECRETS.get(args.provider or "", []):
+            print("  gh secret set %s -R <owner>/<repo>   # only with a review domain" % name)
+    if args.what == "preview" and args.provider == "cloudflare-pages":
+        print("review domain (optional; a variable, not a secret):")
+        print("  gh api -X POST repos/<owner>/<repo>/actions/variables -f name=REVIEW_DOMAIN -f value=<domain>")
     return code
 
 

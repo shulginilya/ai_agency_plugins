@@ -14,6 +14,7 @@ from pathlib import Path
 PLUGIN = Path(__file__).resolve().parent.parent
 CRITERIA = PLUGIN / "skills" / "test-planning" / "scripts" / "criteria.py"
 REPORT = PLUGIN / "skills" / "acceptance-testing" / "scripts" / "qa_report.py"
+REVIEW = REPORT.parent / "review_link.py"
 sys.path.insert(0, str(CRITERIA.parent))
 sys.path.insert(0, str(REPORT.parent))
 import criteria  # noqa: E402
@@ -199,6 +200,62 @@ class ReviewLinkTest(unittest.TestCase):
         d = review_link.decide("https://a.app.review.com", [self.verdict_comment("https://a.app.review.com")],
                                commit="abc1234ffff")
         self.assertEqual(d["action"], "up-to-date", "a longer form of the same commit is the same commit")
+
+
+    # --- the devops comment: one per ticket, edited on every deploy ----------
+
+    def devops_comment(self, commit, created="2026-10-25T01:00:00Z", updated=None, state="live",
+                       link="https://79-feat-x.app.review.com"):
+        c = comment("<!-- devops:review-link link=%s commit=%s pr=43 state=%s -->\n**Review link:** %s"
+                    % (link, commit, state, link), created)
+        c["updated_at"] = updated or created
+        return c
+
+    def test_the_devops_comment_says_which_commit_the_link_serves(self):
+        d = review_link.decide("", [self.devops_comment("abc1234")], commit="abc1234ffff")
+        self.assertEqual((d["action"], d["link"], d["serves"]), ("test", "https://79-feat-x.app.review.com", "abc1234"))
+
+    def test_an_older_build_on_the_link_means_wait_not_test(self):
+        d = review_link.decide("", [self.devops_comment("abc1234")], commit="def5678")
+        self.assertEqual(d["action"], "wait")
+        self.assertIn("abc1234", d["reason"])
+
+    def test_an_edited_devops_comment_counts_as_new_as_of_its_edit(self):
+        pasted = comment("try https://old.app.review.com", "2026-10-25T02:00:00Z")
+        edited = self.devops_comment("def5678", created="2026-10-25T01:00:00Z", updated="2026-10-25T03:00:00Z")
+        d = review_link.decide("", [edited, pasted], commit="def5678")
+        self.assertEqual(d["link"], "https://79-feat-x.app.review.com", "the edit came after the pasted link")
+        unedited = self.devops_comment("def5678", created="2026-10-25T01:00:00Z")
+        d = review_link.decide("", [unedited, pasted])
+        self.assertEqual(d["link"], "https://old.app.review.com")
+
+    def test_a_new_deploy_after_the_verdict_means_retest_and_a_rerun_does_not(self):
+        verdict = self.verdict_comment("https://79-feat-x.app.review.com", commit="abc1234")
+        same = self.devops_comment("abc1234", updated="2026-10-25T05:00:00Z")
+        d = review_link.decide("", [same, verdict], commit="abc1234")
+        self.assertEqual(d["action"], "up-to-date", "a re-run that deployed the same commit is nothing new")
+        newer = self.devops_comment("def5678", updated="2026-10-25T05:00:00Z")
+        d = review_link.decide("", [newer, verdict], commit="def5678")
+        self.assertEqual(d["action"], "retest")
+        d = review_link.decide("", [newer, verdict])
+        self.assertEqual(d["action"], "retest", "without --commit, the commit the link serves is what gets tested")
+
+    def test_a_link_taken_down_is_no_link(self):
+        d = review_link.decide("", [self.devops_comment("abc1234", state="down")])
+        self.assertEqual(d["action"], "none")
+
+    def test_the_review_domain_is_configurable(self):
+        text = "https://feat.app.review.example.dev and https://feat.app.review.com"
+        self.assertEqual(review_link.links_in(text, "review.example.dev"), ["https://feat.app.review.example.dev"])
+        self.assertEqual(review_link.links_in(text), ["https://feat.app.review.com"])
+        self.assertEqual(review_link.links_in("https://a.b.c.review.example.dev", "review.example.dev"), [])
+
+    def test_the_cli_takes_the_domain_and_refuses_a_bad_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            done = subprocess.run([sys.executable, str(REVIEW), "--issue", "1", "--repo", "me/app",
+                                   "--domain", "not a domain"], capture_output=True, text=True,
+                                  env=dict(os.environ, PATH=tmp))
+        self.assertEqual(done.returncode, 2, done.stderr)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ description: Verifies a built change — a branch, a PR, or the review link on i
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Acceptance testing
@@ -32,15 +32,31 @@ python ../ticket-management/scripts/board.py move --project N --issue 42 \
   be. The criteria decide that.
 - **The build:** the exact commit you test (`git rev-parse --short HEAD`).
   Record it, because a verdict on the wrong commit is worthless.
-- **The review link:** run `review_link.py --issue N --commit SHA`. A review
-  link is any link shaped `<name>.<project_slug>.review.com` (the name is
-  usually the branch, but can be anything) in the ticket's description or
-  comments. The newest one wins. Its `action` says what to do:
+- **The review link:** run `review_link.py --issue N --pr PR --wait 600`
+  (or `--commit SHA` instead of `--pr`). A review link is any link shaped
+  `<name>.<project_slug>.<review domain>` in the ticket's description or
+  comments. The name is usually the branch, but can be anything. The review
+  domain is the repo variable `REVIEW_DOMAIN`, and `review.com` until one is
+  set. **The newest one wins:**
+  - **The devops comment** is one comment on the ticket, edited by the
+    preview workflow on every deploy. Its hidden marker names the link, the
+    commit it serves and whether it's still up. It counts as new as of its
+    last edit, and the commit comes from the marker, not from guessing.
+  - **A pasted link** (description or comment) counts as of when it was
+    posted. Which build it serves is unknown, so confirm the PR's head
+    commit with `preview_link.py --pr N` before trusting it.
+
+  Its `action` says what to do:
+  - `wait`: the link still serves an older commit than the one under test,
+    because the new build hasn't landed. Never test it: you'd pass old code.
+    With `--wait` the script polls until the build lands and exits 3 if it
+    doesn't. Then report that the preview is stuck.
   - `test`: test against that link. It is the build the user will see, so
     every case runs there, not only locally.
-  - `retest`: a link came after your last verdict, or it's a different link
-    or commit. Run every case again, against the new link. A re-test is a
-    full test; a fix can break what passed before.
+  - `retest`: since your last verdict the link serves a different commit, or
+    it's a different link, or one was pasted after it. Run every case again,
+    against the new build. A re-test is a full test; a fix can break what
+    passed before.
   - `up-to-date`: you already gave a verdict on this link and commit. Say so,
     and stop. Nothing has changed to test.
   - `none`: no review link in the ticket. For a PR, look for its preview
