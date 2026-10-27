@@ -239,7 +239,7 @@ class InlineMarkerTest(unittest.TestCase):
         self.assertTrue(all(p["repo"] == "me/tasks" and p["board"] == 5 for p in plans.values()))
 
     def test_no_assignee_when_set_to_none(self):
-        self.assertTrue(all("assignees" not in i for p in self.export(assignee="none") for i in p["issues"]))
+        self.assertTrue(all(i["assignees"] == ["none"] for p in self.export(assignee="none") for i in p["issues"]))
 
     def test_link_back_after_the_marker_and_never_filed_twice(self):
         for n, plan in enumerate(self.export()):
