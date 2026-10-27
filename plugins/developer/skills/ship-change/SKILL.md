@@ -4,7 +4,7 @@ description: Ships a finished, verified change for review — files a GitHub iss
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # Ship a change
@@ -92,7 +92,8 @@ Closes #I
 logged in as, which is the user's. Assign no one else, not a reviewer, a
 crewmate or someone the ticket mentions, unless the user explicitly asks for
 that person on this PR. If `--assignee` fails, the PR still exists: add the
-user with `gh api -X POST repos/<owner>/<repo>/issues/<PR>/assignees -f 'assignees[]=<login>'`
+user with `echo '{"assignees":["<login>"]}' | gh api -X POST repos/<owner>/<repo>/issues/<PR>/assignees --input -`
+(`-f 'assignees[]=…'` is silently ignored by older `gh`)
 and report it if that fails too.
 
 Do not merge it and do not approve it. Review is the point. If the PR

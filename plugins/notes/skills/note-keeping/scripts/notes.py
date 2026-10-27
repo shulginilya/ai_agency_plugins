@@ -619,7 +619,7 @@ def export(root: Path, statuses: List[str], topic: Optional[str], repo: Optional
         target_board = note["meta"].get("board") or board
         target_assignee = note["meta"].get("assignee") or assignee
         if target_assignee and target_assignee.lower() == "none":
-            target_assignee = None
+            target_assignee = "none"  # tickets.py assigns the user by default; "none" files it unassigned
         items = note_items(note, text)
         orphans = attach_outcomes(text, items)
         for o in orphans:

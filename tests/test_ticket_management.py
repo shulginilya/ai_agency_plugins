@@ -158,6 +158,32 @@ class PlanTest(unittest.TestCase):
         args = gh.call_args[0]
         self.assertEqual([args[i + 1] for i, a in enumerate(args) if a == "--assignee"], ["@me", "pal"])
 
+    def test_the_user_is_the_assignee_unless_someone_else_is_named(self):
+        self.assertEqual(tickets.resolve_assignees(None), ["@me"])
+        self.assertEqual(tickets.resolve_assignees([]), ["@me"])
+        self.assertEqual(tickets.resolve_assignees(["pal"]), ["pal"])
+        self.assertEqual(tickets.resolve_assignees(["none"]), [])
+        self.assertEqual(tickets.resolve_assignees(None, "pal"), ["pal"])
+        self.assertEqual(tickets.resolve_assignees(None, "None"), [])
+
+    def test_create_assigns_the_user_by_default(self):
+        for flags, expected in (([], ["@me"]), (["--assignee", "pal"], ["pal"]), (["--assignee", "none"], [])):
+            with mock.patch.object(tickets, "gh", return_value="https://github.com/me/app/issues/9\n") as gh:
+                self.assertEqual(tickets.main(["create", "--title", "T", "--body", "B", *flags]), 0)
+            args = gh.call_args[0]
+            self.assertEqual([args[i + 1] for i, a in enumerate(args) if a == "--assignee"], expected, flags)
+
+    def test_batch_assigns_the_user_to_items_that_name_no_one(self):
+        plan = {"issues": [{"key": "a", "title": "A"}, {"key": "b", "title": "B", "assignees": ["pal"]},
+                           {"key": "c", "title": "C", "assignees": ["none"]}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "plan.json"
+            path.write_text(json.dumps(plan), encoding="utf-8")
+            with mock.patch.object(tickets, "existing_titles", return_value={}), \
+                 mock.patch.object(tickets, "create_issue", return_value={"number": 1}) as create:
+                self.assertEqual(tickets.main(["batch", "--plan", str(path)]), 0)
+        self.assertEqual([c[0][3] for c in create.call_args_list], [["@me"], ["pal"], []])
+
     def test_rerun_skips_titles_that_already_exist(self):
         actions = tickets.plan_actions(tickets.load_plan(self.PLAN), {"Session timeline view": 12})
         self.assertEqual([(a["action"], a["number"]) for a in actions], [("exists", 12), ("create", None)])
