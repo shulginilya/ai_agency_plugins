@@ -19,8 +19,14 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   Otherwise, report the conflict and stop.
 - Before pushing: self-review your own diff against the developer's handoff checklist
   (`feature-implementation` skill) and fix what it finds; then `/developer:verify` must pass.
+- Code review: after `/developer:ship`, `/code-reviewer:review <PR>` reads the PR's code in a
+  fresh context and posts a PR review (`gh pr review --comment`) with every finding backed by a
+  failure scenario. Approve: the ticket stays in In review for QA. Request changes (any blocker or
+  major): it moves the ticket to In progress; fix, push to the same PR, and it reviews the new head
+  again. QA verifies only a PR whose latest head the code reviewer approved. The code reviewer never
+  pushes code and never creates, edits or closes a ticket.
 - Ticket with acceptance criteria: `/qa:plan` before building, so every criterion has test
-  cases. After `/developer:ship`: `/qa:verify` against the ticket and its PR, on the ticket's
+  cases. After the code review approves: `/qa:verify` against the ticket and its PR, on the ticket's
   review link (any `<name>.<project>.<review domain>` link in its description or comments,
   including devops' review-link comment) when it has one. The newest wins; while it serves an
   older commit than the PR's head QA waits, never tests it; a new commit or link after QA's
@@ -45,12 +51,13 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
 - Tickets: the developer and scrum-master plugins manage them: create, edit or close
   tickets and move board cards with their `ticket-management` skill when the task calls for
   it. QA creates and edits tickets, never closes or deletes one, and labels every ticket it
-  creates "QA testing"; it moves a ticket it verified to Ready for Merge or In progress. List each ticket you write with its link in your report.
-  A designer or devops finding that needs a ticket, or a designer spec for a ticket, goes in your
+  creates "QA testing"; it moves a ticket it verified to Ready for Merge or In progress. The code reviewer only moves the
+  card of a PR it requested changes on to In progress. List each ticket you write with its link in your report.
+  A designer, devops or code-reviewer finding that needs a ticket, or a designer spec for a ticket, goes in your
   report for the developer or scrum-master step to file or attach. Delete a ticket only when this brief
   names it for deletion; otherwise close it as not planned.
 - New project board: `/scrum-master:create-board`, only when this brief asks for a board.
-- Only the developer, scrum-master, designer, qa and devops plugins are for crew work.
+- Only the developer, scrum-master, designer, qa, devops and code-reviewer plugins are for crew work.
   Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, notes, pair-programmer,
   prompt-engineer, recruiter-inbox or skill-trainer) belongs to the Captain: never invoke its commands,
   skills or subagents, even if one looks relevant.

@@ -20,7 +20,7 @@ from tools.apkit.targets import load_targets
 ROOT = Path(__file__).resolve().parent.parent
 SKILL = ROOT / "plugins" / "_shared" / "skills" / "ticket-management"
 SCRIPTS = SKILL / "scripts"
-CREW = ("developer", "scrum-master", "qa")  # the crew plugins that carry ticket-management
+CREW = ("developer", "scrum-master", "qa", "code-reviewer")  # the crew plugins that carry ticket-management
 NO_TICKETS = ("designer",)
 
 sys.path.insert(0, str(SCRIPTS))

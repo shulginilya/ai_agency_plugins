@@ -85,13 +85,22 @@
         "Why a pipeline is red and whose fix it is: pipeline failures fixed, code failures handed to the developer (/devops:triage)",
         "The secret names a workflow needs, for the Captain to add with gh secret set (never their values)"
       ]
+    },
+    "code-reviewer": {
+      "role": "Code Reviewer",
+      "owns": [
+        "A fresh-context review of every PR the developer ships, before QA: correctness and tests always; security, performance and accessibility when the diff touches them (/code-reviewer:review)",
+        "Findings that each carry a concrete failure scenario, posted as one PR review with an approve / request-changes verdict by fixed rules",
+        "On request changes, moving the ticket's card back to In progress; on approve, leaving it in In review for QA",
+        "A full re-review of the new head after every fix push (never pushes code, never files tickets)"
+      ]
     }
   },
-  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so on UI work one ship crewmate plays Designer, then Developer, then Designer again. Developer and Scrum Master carry the full ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. QA Engineer creates and edits tickets, labelling each one it creates \"QA testing\". Designer and DevOps Engineer propose tickets in the report. Firstmate can run several crewmates side by side.",
+  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so on UI work one ship crewmate plays Designer, then Developer, then Designer again. Developer and Scrum Master carry the full ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. QA Engineer creates and edits tickets, labelling each one it creates \"QA testing\". Code Reviewer only moves the card of a PR it requested changes on back to In progress. Designer, DevOps Engineer and Code Reviewer propose tickets in the report. Firstmate can run several crewmates side by side.",
   "gaps": [],
   "raci": {
     "legend": {"R": "does the work", "A": "signs off", "C": "consulted", "I": "informed"},
-    "columns": ["captain", "firstmate", "scrum-master", "designer", "qa", "developer", "devops"],
+    "columns": ["captain", "firstmate", "scrum-master", "designer", "qa", "developer", "devops", "code-reviewer"],
     "rows": [
       {"activity": "Set project intent and priorities", "captain": "A/R", "firstmate": "I"},
       {"activity": "Write spec, brief and delivery contract", "captain": "A", "firstmate": "R"},
@@ -108,8 +117,10 @@
       {"activity": "UX review of built UI before push", "designer": "R", "developer": "C"},
       {"activity": "Diagnose and fix a bug", "firstmate": "A", "developer": "R"},
       {"activity": "Review own diff before push", "developer": "R"},
+      {"activity": "Review the PR's code (approve / request changes)", "firstmate": "A", "code-reviewer": "R", "developer": "C", "qa": "I"},
+      {"activity": "Move a PR's ticket back to In progress on request changes", "code-reviewer": "R", "developer": "I"},
       {"activity": "Run repo checks before push", "developer": "R"},
-      {"activity": "Verify the change against its criteria (accept / reject)", "firstmate": "A", "qa": "R", "developer": "C", "devops": "C"},
+      {"activity": "Verify the change against its criteria (accept / reject)", "firstmate": "A", "qa": "R", "developer": "C", "devops": "C", "code-reviewer": "I"},
       {"activity": "File a reproducible bug ticket (labelled QA testing)", "qa": "R", "developer": "I"},
       {"activity": "Set up or fix CI for a repo", "captain": "I", "firstmate": "A", "devops": "R", "developer": "C"},
       {"activity": "PR preview environments (a review link per PR)", "captain": "A", "firstmate": "C", "devops": "R", "qa": "I"},
@@ -124,7 +135,7 @@
   },
   "scenario": {
     "title": "Example — a new project needs a board and a first backlog",
-    "lanes": ["captain", "firstmate", "scrum-master", "designer", "developer", "devops", "qa"],
+    "lanes": ["captain", "firstmate", "scrum-master", "designer", "developer", "devops", "code-reviewer", "qa"],
     "steps": [
       {"id": "s1", "lane": "captain", "kind": "decision", "text": "Intent: new project X. Create its board and a first backlog from these notes"},
       {"id": "s2", "lane": "firstmate", "text": "Spec, then a scout brief T1: draft the backlog and propose the board. No writes yet"},
@@ -147,7 +158,8 @@
       {"id": "s19", "lane": "developer", "text": "Self-review own diff against the handoff checklist; /developer:verify", "group": "Then: the delivery loop, per ticket"},
       {"id": "s20", "lane": "developer", "kind": "write", "text": "/developer:ship → branch, PR, card to In review", "group": "Then: the delivery loop, per ticket"},
       {"id": "s20b", "lane": "devops", "kind": "optional", "text": "Repo has PR previews: every push deploys <branch>.<slug>.<review domain> and edits the ticket's review-link comment (link + commit). Red CI: /devops:triage", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s21", "lane": "qa", "kind": "write", "text": "/qa:verify on the newest review link, once it serves the PR's head (else wait) → accept: card to Ready for Merge; reject: comment what fails, card to In progress, /qa:bug tickets", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s20c", "lane": "code-reviewer", "kind": "write", "text": "/code-reviewer:review the PR → PR review with findings. Approve: card stays in In review. Request changes: card to In progress, developer fixes and pushes, new head re-reviewed", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s21", "lane": "qa", "kind": "write", "text": "Once the code review approves: /qa:verify on the newest review link, once it serves the PR's head (else wait) → accept: card to Ready for Merge; reject: comment what fails, card to In progress, /qa:bug tickets", "group": "Then: the delivery loop, per ticket"},
       {"id": "s22", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}
     ]
   }

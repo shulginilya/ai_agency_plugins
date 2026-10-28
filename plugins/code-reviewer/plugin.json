@@ -1,0 +1,18 @@
+{
+  "name": "code-reviewer",
+  "displayName": "Code Reviewer",
+  "version": "0.1.0",
+  "description": "Code review for the crew: reads every pull request the developer ships, in a fresh context, for correctness, security, performance, accessibility and test gaps, and posts a PR review whose findings each carry a concrete failure scenario. Approve leaves the ticket in In review for QA; request changes moves it back to In progress. Never pushes code. Use when asked to review a PR or its code, check a diff before QA, or re-review a PR after a fix.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "license": "MIT",
+  "shared_skills": ["ticket-management"],
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "keywords": ["code-review", "pull-request", "review", "security", "quality"],
+  "targets": {
+    "exclude": [],
+    "overrides": {}
+  }
+}
