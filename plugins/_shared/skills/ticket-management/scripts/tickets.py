@@ -157,10 +157,9 @@ def create_issue(title: str, body: str, labels: List[str], assignees: Optional[L
 def place_on_board(project: Optional[int], status: Optional[str], number: int) -> Optional[Dict[str, Any]]:
     if project is None:
         return None
-    placed = board.cmd_add(argparse.Namespace(project=project, issue=number))
+    placed = board.cmd_add(board.args_for("add", project=project, issue=number))
     if status:
-        moved = board.cmd_move(argparse.Namespace(project=project, issue=number, status=status,
-                                                  attempts=3, settle=2.0))
+        moved = board.cmd_move(board.args_for("move", project=project, issue=number, status=status, settle=2.0))
         placed["status"] = moved["status"]
     return placed
 

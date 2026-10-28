@@ -155,6 +155,11 @@ def comment(body, at):
 
 
 class ReviewLinkTest(unittest.TestCase):
+    def test_comment_pages_are_decoded_even_when_a_body_holds_brackets(self):
+        out = '[{"body": "see [1][2]"}, {"body": "x]\\n[y"}]\n[{"body": "page two"}]'
+        self.assertEqual([c["body"] for c in review_link.concat_pages(out)], ["see [1][2]", "x]\n[y", "page two"])
+        self.assertEqual(review_link.concat_pages(""), [])
+
     def test_only_links_shaped_name_dot_slug_dot_review_dot_com_count(self):
         text = ("Review: https://71-feat-qa-link.my-app.review.com/login?next=1, also "
                 "feat_x.shop.REVIEW.com and (https://a.b.review.com). Not: https://review.com, "

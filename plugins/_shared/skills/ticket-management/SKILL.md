@@ -4,7 +4,7 @@ description: Creates, edits, closes and deletes GitHub issues, creates a whole b
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # Ticket management

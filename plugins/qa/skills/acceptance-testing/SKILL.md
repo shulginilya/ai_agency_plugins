@@ -4,7 +4,7 @@ description: Verifies a built change — a branch, a PR, or the review link on i
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # Acceptance testing

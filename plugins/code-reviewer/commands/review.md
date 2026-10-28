@@ -1,0 +1,30 @@
+---
+description: Review a pull request's code in a fresh context and post a PR review; approve leaves the ticket in In review for QA, request changes moves it back to In progress.
+argument_hint: "[PR number; nothing for the current branch's PR]"
+model: claude-opus-5-5
+effort: medium
+allowed_tools: Bash(gh:*) Bash(git:*) Bash(python:*) Bash Read Grep Glob Write
+---
+
+Review: {{ARGS}}
+
+With no argument, use the current branch's PR (`gh pr view --json number`).
+
+Follow the `pr-review` skill:
+
+1. Run `python {{PLUGIN_ROOT}}/skills/pr-review/scripts/pr_scope.py --pr <N>`. `up-to-date` or
+   `closed`: say so and stop. `review` or `re-review`: check out the head (`gh pr checkout <N>`) and
+   confirm `git rev-parse HEAD` is the head commit it printed. A re-review covers the whole new head.
+2. Read every changed file in full and the callers of anything whose contract changed. Run the
+   repo's checks (`/developer:verify`): a red check is a blocker.
+3. Run the correctness and tests passes always, and security, performance and accessibility when
+   the diff touches them. Give each pass to a `reviewer` subagent run. Never fix what you find.
+4. Write `findings.json` and run
+   `python {{PLUGIN_ROOT}}/skills/pr-review/scripts/review_report.py findings.json --commit <sha> > review.md`.
+   Any blocker or major means request changes; otherwise approve.
+5. Post it: `gh pr review <N> --comment --body-file review.md`. On request changes only, move each
+   closing ticket's card on every board pr_scope listed:
+   `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py move --project <B> --issue <I> --status "In progress"`.
+   On approve, leave the card in In review for QA. Never create, edit or close a ticket, and never push.
+6. Report the verdict, the commit reviewed, the passes run, the review's link, where each card is now,
+   and the findings, most severe first.

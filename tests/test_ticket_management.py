@@ -20,7 +20,7 @@ from tools.apkit.targets import load_targets
 ROOT = Path(__file__).resolve().parent.parent
 SKILL = ROOT / "plugins" / "_shared" / "skills" / "ticket-management"
 SCRIPTS = SKILL / "scripts"
-CREW = ("developer", "scrum-master", "qa")  # the crew plugins that carry ticket-management
+CREW = ("developer", "scrum-master", "qa", "code-reviewer")  # the crew plugins that carry ticket-management
 NO_TICKETS = ("designer",)
 
 sys.path.insert(0, str(SCRIPTS))
@@ -282,6 +282,24 @@ class BoardTest(unittest.TestCase):
         literal = board.options_literal(board.with_column(self.OPTIONS[:1], "Ready for Merge"))
         self.assertEqual(literal, '{id:"1",name:"Backlog",color:GRAY,description:""},'
                                   '{name:"Ready for Merge",color:GREEN,description:""}')
+
+    def test_create_with_a_status_runs_the_real_move(self):
+        proj = {"id": "P", "title": "Board", "field": {"id": "F", "options": self.OPTIONS}}
+        with mock.patch.object(board, "current_repo", return_value={"owner": "me", "name": "app"}), \
+             mock.patch.object(board, "project", return_value=proj), \
+             mock.patch.object(board, "cmd_add", return_value={"board": "Board", "added": True}), \
+             mock.patch.object(board, "issue_node", return_value={}), \
+             mock.patch.object(board, "item_on", return_value={"id": "I", "fieldValueByName": {"name": "In review"}}), \
+             mock.patch.object(board, "graphql", return_value={}), \
+             mock.patch.object(board.time, "sleep"):
+            placed = tickets.place_on_board(1, "In review", 9)
+        self.assertEqual(placed["status"], "In review")
+
+    def test_callers_get_every_move_option_with_its_default(self):
+        args = board.args_for("move", project=1, issue=9, status="Done")
+        self.assertEqual((args.project, args.issue, args.status), (1, 9, "Done"))
+        self.assertFalse(args.create_column)
+        self.assertEqual(args.after, "In review")
 
     def test_adding_a_column_fails_loudly_if_any_card_changed_column(self):
         before = [o for o in self.OPTIONS]
