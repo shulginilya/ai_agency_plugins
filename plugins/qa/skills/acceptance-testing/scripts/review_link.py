@@ -176,12 +176,22 @@ def current_repo(named: Optional[str]) -> str:
     return gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner").strip()
 
 
+def concat_pages(out: str) -> List[Dict[str, Any]]:
+    """--paginate prints one JSON array per page, back to back; decode them in turn,
+    since a comment body can itself contain "][" and defeat splitting on it."""
+    decoder, items, i = json.JSONDecoder(), [], 0
+    while True:
+        while i < len(out) and out[i].isspace():
+            i += 1
+        if i >= len(out):
+            return items
+        page, i = decoder.raw_decode(out, i)
+        items += page
+
+
 def fetch(repo: str, number: int) -> Dict[str, Any]:
     issue = json.loads(gh("api", "repos/%s/issues/%d" % (repo, number)))
-    pages = gh("api", "--paginate", "repos/%s/issues/%d/comments?per_page=100" % (repo, number))
-    comments: List[Dict[str, Any]] = []
-    for chunk in re.split(r"(?<=\])\s*(?=\[)", pages.strip()) if pages.strip() else []:
-        comments += json.loads(chunk)  # --paginate prints one JSON array per page
+    comments = concat_pages(gh("api", "--paginate", "repos/%s/issues/%d/comments?per_page=100" % (repo, number)))
     owner, name = repo.split("/")
     data = json.loads(gh("api", "graphql", "-f", "query=query($o:String!,$n:String!,$i:Int!){repository(owner:$o,name:$n)"
                          "{issue(number:$i){projectItems(first:20){nodes{project{number title}"

@@ -283,6 +283,24 @@ class BoardTest(unittest.TestCase):
         self.assertEqual(literal, '{id:"1",name:"Backlog",color:GRAY,description:""},'
                                   '{name:"Ready for Merge",color:GREEN,description:""}')
 
+    def test_create_with_a_status_runs_the_real_move(self):
+        proj = {"id": "P", "title": "Board", "field": {"id": "F", "options": self.OPTIONS}}
+        with mock.patch.object(board, "current_repo", return_value={"owner": "me", "name": "app"}), \
+             mock.patch.object(board, "project", return_value=proj), \
+             mock.patch.object(board, "cmd_add", return_value={"board": "Board", "added": True}), \
+             mock.patch.object(board, "issue_node", return_value={}), \
+             mock.patch.object(board, "item_on", return_value={"id": "I", "fieldValueByName": {"name": "In review"}}), \
+             mock.patch.object(board, "graphql", return_value={}), \
+             mock.patch.object(board.time, "sleep"):
+            placed = tickets.place_on_board(1, "In review", 9)
+        self.assertEqual(placed["status"], "In review")
+
+    def test_callers_get_every_move_option_with_its_default(self):
+        args = board.args_for("move", project=1, issue=9, status="Done")
+        self.assertEqual((args.project, args.issue, args.status), (1, 9, "Done"))
+        self.assertFalse(args.create_column)
+        self.assertEqual(args.after, "In review")
+
     def test_adding_a_column_fails_loudly_if_any_card_changed_column(self):
         before = [o for o in self.OPTIONS]
         after = before[:3] + [{"id": "9", "name": "Ready for Merge"}] + before[3:]

@@ -301,7 +301,7 @@ def cmd_branch(args: argparse.Namespace) -> Dict[str, Any]:
     return {"branch": branch_name(args.issue, title)}
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def parser_for() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("boards", help="list open boards, most used by recent issues first")
@@ -320,7 +320,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     p = sub.add_parser("branch", help="branch name for an issue")
     p.add_argument("--issue", type=int, required=True)
     p.add_argument("--title", help="use this title instead of fetching the issue")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def args_for(cmd: str, **values: Any) -> argparse.Namespace:
+    """The arguments `cmd` takes, with this CLI's own defaults, for a caller importing board.py.
+    An option added later then reaches every caller with its default, instead of an AttributeError."""
+    flags = [cmd]
+    for key, value in values.items():
+        flags += ["--" + key.replace("_", "-"), str(value)]
+    return parser_for().parse_args(flags)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    args = parser_for().parse_args(argv)
 
     handlers = {"boards": cmd_boards, "add": cmd_add, "move": cmd_move, "branch": cmd_branch}
     try:
