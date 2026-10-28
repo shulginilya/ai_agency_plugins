@@ -43,6 +43,8 @@ jobs:
   # merge. One job, one push, so two pushes to main never race.
   #   - the marketplace index, from every plugin.json
   #   - the crew diagram, from deploy.sh, brief-include.md, plugins/, team.json
+  #   - the ticket lifecycle diagram, from create_board.py, plugins/*/commands,
+  #     deploy.sh, team.json, lifecycle.json
   marketplace:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: check
@@ -62,6 +64,9 @@ jobs:
       - name: Regenerate the crew diagram
         run: python integrations/firstmate/team_diagram.py
 
+      - name: Regenerate the ticket lifecycle diagram
+        run: python integrations/firstmate/lifecycle_diagram.py
+
       - name: Commit what changed
         run: |
           git config user.name "github-actions[bot]"
@@ -75,6 +80,12 @@ jobs:
           if ! git diff --quiet -- docs/firstmate/team.drawio; then
             git add docs/firstmate/team.drawio
             git commit -m "chore(firstmate): regenerate crew diagram [skip ci]"
+            changed=1
+          fi
+          if ! git diff --quiet -- docs/firstmate/lifecycle.drawio || \
+             [ -n "$(git ls-files --others --exclude-standard -- docs/firstmate/lifecycle.drawio)" ]; then
+            git add docs/firstmate/lifecycle.drawio
+            git commit -m "chore(firstmate): regenerate ticket lifecycle diagram [skip ci]"
             changed=1
           fi
           if [ -z "$changed" ]; then
@@ -95,9 +106,11 @@ jobs:
       - name: Branch leaves CI-generated files alone
         run: |
           base="$(git merge-base "origin/${{ github.base_ref }}" HEAD)"
-          touched="$(git diff --name-only "$base" HEAD -- docs/firstmate/team.drawio)"
+          touched="$(git diff --name-only "$base" HEAD -- docs/firstmate/team.drawio docs/firstmate/lifecycle.drawio)"
           if [ -n "$touched" ]; then
-            echo "::error file=docs/firstmate/team.drawio::CI regenerates this on main after the merge. Drop it from the branch: git checkout origin/${{ github.base_ref }} -- docs/firstmate/team.drawio"
+            for f in $touched; do
+              echo "::error file=$f::CI regenerates this on main after the merge. Drop it from the branch: git checkout origin/${{ github.base_ref }} -- $f (or git rm --cached $f if main does not have it yet)"
+            done
             exit 1
           fi
           echo "no generated files touched"
