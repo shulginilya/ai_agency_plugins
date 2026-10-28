@@ -9,6 +9,24 @@ stays an unmodified upstream clone.
 | --- | --- | --- |
 | `brief-include.md` | `~/firstmate/config/brief-include.md` | Appended to every ship and scout brief: which plugin command a crewmate uses for which kind of task, and how it behaves with nobody watching. |
 
+## Diagrams
+
+Two diagrams are generated from this folder and the repo. CI regenerates them on
+`main` after each merge, so a branch never commits them (the `generated-files` check
+fails if one does):
+
+| Diagram | Script | Hand-kept half |
+| --- | --- | --- |
+| `docs/firstmate/team.drawio`: who does what, the RACI matrix, a worked example | `team_diagram.py` | `team.json` |
+| `docs/firstmate/lifecycle.drawio`: a ticket's columns, who moves it between them, and the ways back | `lifecycle_diagram.py` | `lifecycle.json` |
+
+When the ticket lifecycle changes (a column in board-setup's `DEFAULT_COLUMNS`, or a
+plugin command that moves cards with `board.py move` or `tickets.py ... --status`),
+update `lifecycle.json` in the same PR. `tests/test_lifecycle_diagram.py` runs the
+generator with `--strict` and fails on any drift. The warning names the column or the
+command and plugin to describe. Preview with
+`python integrations/firstmate/lifecycle_diagram.py --out /tmp/x`.
+
 ## Deploy
 
 From the repo root, inside WSL/Linux:

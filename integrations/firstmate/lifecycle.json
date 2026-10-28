@@ -1,0 +1,60 @@
+{
+  "_comment": "Hand-kept half of the ticket lifecycle diagram. The columns and their order come from DEFAULT_COLUMNS in plugins/_shared/skills/board-setup/scripts/create_board.py, the card moves each plugin command makes from plugins/*/commands/*.md, and the crew from deploy.sh; lifecycle_diagram.py reads those and warns about anything this file does not describe. Movers are a team.json lead id (captain, firstmate), a plugin name, or github (a board automation or GitHub itself). CI regenerates docs/firstmate/lifecycle.drawio on main after each merge; preview with python integrations/firstmate/lifecycle_diagram.py, but never commit the result on a branch.",
+  "title": "Ticket lifecycle — from idea to Done",
+  "columns": {
+    "In Definition": {
+      "meaning": "An idea not yet understood well enough to refine.",
+      "while_here": []
+    },
+    "Backlog": {
+      "meaning": "Refined into a story with user value and testable acceptance criteria, or waiting to be.",
+      "while_here": [
+        {"by": "scrum-master", "text": "/scrum-master:refine: value, criteria, size; items sized 13+ split by the story-splitter"}
+      ]
+    },
+    "Ready": {
+      "meaning": "Meets the Definition of Ready: testable criteria, a size, and small enough to finish inside one sprint.",
+      "while_here": [
+        {"by": "scrum-master", "text": "/scrum-master:plan-sprint picks the tickets that fit the sprint goal and capacity"}
+      ]
+    },
+    "In progress": {
+      "meaning": "Being built, or sent back by code review or QA to be fixed.",
+      "while_here": [
+        {"by": "qa", "text": "/qa:plan: test cases for every acceptance criterion, before it is built"},
+        {"by": "designer", "text": "UI ticket: /designer:spec before building, /designer:review before pushing"},
+        {"by": "developer", "text": "/developer:implement test-first; self-review the diff; /developer:verify passes"}
+      ]
+    },
+    "In review": {
+      "meaning": "A PR that closes the ticket is open. It leaves only by QA's verdict.",
+      "while_here": [
+        {"by": "devops", "text": "Repo with PR previews: every push deploys a review link and names its commit on the ticket"},
+        {"by": "code-reviewer", "text": "/code-reviewer:review: approve keeps the card here; request changes sends it back"},
+        {"by": "qa", "text": "/qa:verify, once code review approved the PR's head, on the newest review link that serves it"}
+      ]
+    },
+    "Ready for Merge": {
+      "meaning": "Passed QA with evidence for every criterion. Waiting for the Captain's merge.",
+      "while_here": [
+        {"by": "captain", "text": "Reviews and merges the PR"}
+      ]
+    },
+    "Done": {
+      "meaning": "Merged. GitHub closed the ticket through the PR's Closes #N.",
+      "while_here": []
+    }
+  },
+  "transitions": [
+    {"from": null, "to": "In Definition", "by": ["captain", "notes"], "how": "A raw idea; notes:to-tickets files (optional) items here"},
+    {"from": null, "to": "Backlog", "by": ["scrum-master", "qa", "notes"], "how": "Refined stories filed with tickets.py batch; /qa:bug files each bug labelled QA testing; notes files TODO items"},
+    {"from": "In Definition", "to": "Backlog", "by": ["scrum-master"], "how": "/scrum-master:refine turns the idea into a story"},
+    {"from": "Backlog", "to": "Ready", "by": ["scrum-master"], "how": "Meets the Definition of Ready"},
+    {"from": "Ready", "to": "In progress", "by": ["firstmate", "developer"], "how": "Firstmate dispatches a ship brief; the developer starts the ticket"},
+    {"from": "In progress", "to": "In review", "by": ["developer"], "how": "/developer:ship: branch, PR that closes the ticket, card moved after the PR exists"},
+    {"from": "In review", "to": "In progress", "by": ["code-reviewer"], "how": "Request changes: any blocker or major finding", "back": true},
+    {"from": "In review", "to": "In progress", "by": ["qa"], "how": "Reject: a comment on what fails, a bug ticket per failure", "back": true},
+    {"from": "In review", "to": "Ready for Merge", "by": ["qa"], "how": "/qa:verify accept: every criterion passed with evidence (adds the column if the board lacks it)"},
+    {"from": "Ready for Merge", "to": "Done", "by": ["captain", "github"], "how": "The Captain merges; GitHub closes the ticket and the board moves it"}
+  ]
+}
