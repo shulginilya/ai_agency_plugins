@@ -1,10 +1,10 @@
 ---
 name: board-setup
-description: Creates a GitHub Projects board for a repository, with the team's Status columns (In Definition, Backlog, Ready, In progress, In review, Ready for Merge, Done, or your own), linked to the repository and ready for a backlog. Use when asked to create, set up or start a project board, kanban board or GitHub Project, or when a backlog is about to be created for a repository that has no board yet.
+description: Creates a GitHub Projects board for a repository, with the team's Status columns (In Definition, Backlog, Ready, In progress, In review, In approval, QA, Ready for Merge, Done, or your own), linked to the repository and ready for a backlog. Use when asked to create, set up or start a project board, kanban board or GitHub Project, or when a backlog is about to be created for a repository that has no board yet.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.2"
+  version: "0.1.3"
 ---
 
 # Board setup
@@ -35,13 +35,15 @@ Show the user:
 
 - **Title:** the project's name, as people already say it.
 - **Columns, in order.** The default flow is In Definition → Backlog → Ready →
-  In progress → In review → Ready for Merge → Done:
+  In progress → In review → In approval → QA → Ready for Merge → Done:
   - **In Definition:** ideas not yet understood well enough to refine. The
     notes plugin files `"text"(optional)` items here.
   - **Backlog:** refined, or waiting to be.
   - **Ready:** meets the Definition of Ready (see `backlog-refinement`).
   - **In progress:** being worked on, or sent back by QA.
   - **In review:** a PR is open.
+  - **In approval** and **QA:** on every new board, but no step moves cards
+    through them yet. Leave them empty until the workflow says otherwise.
   - **Ready for Merge:** passed QA, waiting for the merge.
   - **Done:** merged.
 

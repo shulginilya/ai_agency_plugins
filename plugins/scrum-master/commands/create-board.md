@@ -15,7 +15,7 @@ Follow the `board-setup` skill:
    already holds this repository's issues, say so and stop unless the user still
    wants a new one.
 2. Settle the title and the columns. The default is In Definition, Backlog, Ready,
-   In progress, In review, Ready for Merge, Done. Show the plan with
+   In progress, In review, In approval, QA, Ready for Merge, Done. Show the plan with
    `python {{PLUGIN_ROOT}}/skills/board-setup/scripts/create_board.py --title "<title>" --dry-run`.
 3. Wait for the user's yes. Under a crew brief, go ahead only if the brief asks
    for a board.

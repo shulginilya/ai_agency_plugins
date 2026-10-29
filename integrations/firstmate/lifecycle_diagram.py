@@ -17,7 +17,9 @@ Two sources, so the picture follows the lifecycle as it changes:
   who makes it and how.
 
 Add a column or a card move and rerun: the script warns about whatever
-lifecycle.json does not describe yet, and draws it in red. A test runs it with
+lifecycle.json does not describe yet, and draws it in red. A column described
+with "workflow_pending": true is on the board before anything moves cards
+through it, so having no way in or out of it is not drift. A test runs it with
 --strict, so that drift fails CI.
 
 Writes one file, lifecycle.drawio, with one page.
@@ -135,6 +137,8 @@ def check(life: Dict, columns: List[str], moves: Dict[Tuple[str, str], List[str]
             warn(f"transition {label} says nobody makes it")
         drawable.append(t)
     for i, c in enumerate(columns):
+        if (described.get(c) or {}).get("workflow_pending"):
+            continue
         if i and not any(t["to"] == c for t in drawable):
             warn(f"nothing moves a card into '{c}'")
         if i < len(columns) - 1 and not any(t.get("from") == c and not t.get("back") for t in drawable):
@@ -205,6 +209,8 @@ def page_lifecycle(m: Dict) -> Tuple[str, List, float, float]:
             lines = [Line(c, 16, True), Line(d.get("meaning", ""), 11, italic=True, color="#444444")]
             lines += section("While here", [f"{movers.get(w['by'], w['by'])}: {w['text']}"
                                             for w in d.get("while_here", [])])
+            if d.get("workflow_pending"):
+                lines.append(Line("No step moves cards through this column yet", 10, italic=True, color="#777777"))
             style = "done" if i == len(columns) - 1 else "column"
         src = []
         ey = y

@@ -2,7 +2,8 @@
 """Create a GitHub Projects (v2) board for this repository, with the team's columns.
 
     create_board.py --title "Agent Run Observatory" [--columns "Backlog,Ready,In progress,In review,Done"]
-                    (default: In Definition, Backlog, Ready, In progress, In review, Ready for Merge, Done)
+                    (default: In Definition, Backlog, Ready, In progress, In review, In approval, QA,
+                     Ready for Merge, Done)
                     [--no-link] [--dry-run]
 
 Creates the board under the repository's owner (a user or an organization),
@@ -45,7 +46,9 @@ except ImportError:  # the plugin was built without its shared skill
              "list both board-setup and ticket-management in the plugin's shared_skills")
 
 # In Definition holds the notes plugin's optional items; Ready for Merge holds what passed QA.
-DEFAULT_COLUMNS = ["In Definition", "Backlog", "Ready", "In progress", "In review", "Ready for Merge", "Done"]
+# In approval and QA are on every board, but no command moves cards through them yet.
+DEFAULT_COLUMNS = ["In Definition", "Backlog", "Ready", "In progress", "In review", "In approval", "QA",
+                   "Ready for Merge", "Done"]
 NAME_MAX = 50
 # Colors by meaning, so a board reads the same at a glance whatever it is called.
 KNOWN = {
@@ -54,6 +57,8 @@ KNOWN = {
     "ready": ("BLUE", "Meets the Definition of Ready; can be planned"),
     "in progress": ("YELLOW", "Being worked on"),
     "in review": ("PURPLE", "Pull request open, waiting for review"),
+    "in approval": ("PINK", "Waiting for approval"),
+    "qa": ("PURPLE", "Being tested by QA"),
     "ready for merge": ("ORANGE", "Passed QA; waiting to be merged"),
     "blocked": ("RED", "Cannot move until something outside it changes"),
     "done": ("GREEN", "Merged or otherwise finished"),

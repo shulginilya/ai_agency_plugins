@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-kept half of the ticket lifecycle diagram. The columns and their order come from DEFAULT_COLUMNS in plugins/_shared/skills/board-setup/scripts/create_board.py, the card moves each plugin command makes from plugins/*/commands/*.md, and the crew from deploy.sh; lifecycle_diagram.py reads those and warns about anything this file does not describe. Movers are a team.json lead id (captain, firstmate), a plugin name, or github (a board automation or GitHub itself). CI regenerates docs/firstmate/lifecycle.drawio on main after each merge; preview with python integrations/firstmate/lifecycle_diagram.py, but never commit the result on a branch.",
+  "_comment": "Hand-kept half of the ticket lifecycle diagram. The columns and their order come from DEFAULT_COLUMNS in plugins/_shared/skills/board-setup/scripts/create_board.py, the card moves each plugin command makes from plugins/*/commands/*.md, and the crew from deploy.sh; lifecycle_diagram.py reads those and warns about anything this file does not describe. A column with \"workflow_pending\": true is on the board before any step moves cards through it. Movers are a team.json lead id (captain, firstmate), a plugin name, or github (a board automation or GitHub itself). CI regenerates docs/firstmate/lifecycle.drawio on main after each merge; preview with python integrations/firstmate/lifecycle_diagram.py, but never commit the result on a branch.",
   "title": "Ticket lifecycle — from idea to Done",
   "columns": {
     "In Definition": {
@@ -33,6 +33,16 @@
         {"by": "code-reviewer", "text": "/code-reviewer:review: approve keeps the card here; request changes sends it back"},
         {"by": "qa", "text": "/qa:verify, once code review approved the PR's head, on the newest review link that serves it"}
       ]
+    },
+    "In approval": {
+      "meaning": "Waiting for approval. On every board; how cards move through it is not defined yet.",
+      "workflow_pending": true,
+      "while_here": []
+    },
+    "QA": {
+      "meaning": "Being tested by QA. On every board; how cards move through it is not defined yet.",
+      "workflow_pending": true,
+      "while_here": []
     },
     "Ready for Merge": {
       "meaning": "Passed QA with evidence for every criterion. Waiting for the Captain's merge.",
