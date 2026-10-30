@@ -1,5 +1,5 @@
 ---
-description: Review a pull request's code in a fresh context and post a PR review; approve leaves the ticket in In review for QA, request changes moves it back to In progress.
+description: Review a pull request's code in a fresh context and post a PR review; approve moves the ticket to In approval for the Captain's review (to QA when labelled skip_human_approval), request changes moves it back to In progress.
 argument_hint: "[PR number; nothing for the current branch's PR]"
 model: claude-opus-5-5
 effort: medium
@@ -21,10 +21,15 @@ Follow the `pr-review` skill:
    the diff touches them. Give each pass to a `reviewer` subagent run. Never fix what you find.
 4. Write `findings.json` and run
    `python {{PLUGIN_ROOT}}/skills/pr-review/scripts/review_report.py findings.json --commit <sha> > review.md`.
+   Add `--skip-human-approval` when pr_scope shows every closing ticket's approve as `QA`.
    Any blocker or major means request changes; otherwise approve.
-5. Post it: `gh pr review <N> --comment --body-file review.md`. On request changes only, move each
-   closing ticket's card on every board pr_scope listed:
-   `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py move --project <B> --issue <I> --status "In progress"`.
-   On approve, leave the card in In review for QA. Never create, edit or close a ticket, and never push.
+5. Post it: `gh pr review <N> --comment --body-file review.md`. Then move each closing ticket's card
+   on every board pr_scope listed:
+   - request changes: `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py move --project <B> --issue <I> --status "In progress"`;
+   - approve, to the column pr_scope printed for that ticket: In approval, for the Captain's own code review,
+     `... board.py move --project <B> --issue <I> --status "In approval" --create-column --after "In review"`;
+     or, when it is labelled `skip_human_approval`, QA:
+     `... board.py move --project <B> --issue <I> --status "QA" --create-column --after "In approval"`.
+   Never create, edit or close a ticket, and never push.
 6. Report the verdict, the commit reviewed, the passes run, the review's link, where each card is now,
    and the findings, most severe first.

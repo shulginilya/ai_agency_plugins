@@ -21,12 +21,13 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   (`feature-implementation` skill) and fix what it finds; then `/developer:verify` must pass.
 - Code review: after `/developer:ship`, `/code-reviewer:review <PR>` reads the PR's code in a
   fresh context and posts a PR review (`gh pr review --comment`) with every finding backed by a
-  failure scenario. Approve: the ticket stays in In review for QA. Request changes (any blocker or
-  major): it moves the ticket to In progress; fix, push to the same PR, and it reviews the new head
-  again. QA verifies only a PR whose latest head the code reviewer approved. The code reviewer never
-  pushes code and never creates, edits or closes a ticket.
+  failure scenario. Approve: it moves the ticket to In approval, where the Captain reviews the code
+  personally and moves it to QA; a ticket labelled `skip_human_approval` goes straight to QA. Request
+  changes (any blocker or major): it moves the ticket to In progress; fix, push to the same PR, and
+  it reviews the new head again. Never move a card out of In approval: that is the Captain's call.
+  The code reviewer never pushes code and never creates, edits or closes a ticket.
 - Ticket with acceptance criteria: `/qa:plan` before building, so every criterion has test
-  cases. After the code review approves: `/qa:verify` against the ticket and its PR, on the ticket's
+  cases. Once the card is in QA (never from In review or In approval): `/qa:verify` against the ticket and its PR, on the ticket's
   review link (any `<name>.<project>.<review domain>` link in its description or comments,
   including devops' review-link comment) when it has one. The newest wins; while it serves an
   older commit than the PR's head QA waits, never tests it; a new commit or link after QA's
@@ -52,7 +53,7 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   tickets and move board cards with their `ticket-management` skill when the task calls for
   it. QA creates and edits tickets, never closes or deletes one, and labels every ticket it
   creates "QA testing"; it moves a ticket it verified to Ready for Merge or In progress. The code reviewer only moves the
-  card of a PR it requested changes on to In progress. List each ticket you write with its link in your report.
+  card of a PR it reviewed: to In progress, In approval or QA. List each ticket you write with its link in your report.
   A designer, devops or code-reviewer finding that needs a ticket, or a designer spec for a ticket, goes in your
   report for the developer or scrum-master step to file or attach. Delete a ticket only when this brief
   names it for deletion; otherwise close it as not planned.

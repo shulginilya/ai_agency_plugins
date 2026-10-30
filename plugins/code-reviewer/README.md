@@ -16,14 +16,16 @@ performance, accessibility and test gaps.
 | Component | Name | Purpose |
 | --- | --- | --- |
 | Skill | `pr-review` | Scope the PR (review, re-review or up-to-date), read whole files and callers, run the passes, record findings, verdict approve / request changes, post the PR review, move the card on request changes |
-| Skill (shared) | `ticket-management` | Bundled only to move a ticket's card to In progress. The code reviewer never creates, edits, closes or deletes a ticket. Source: `plugins/_shared/skills/` |
+| Skill (shared) | `ticket-management` | Bundled only to move a ticket's card: to In progress, In approval or QA. The code reviewer never creates, edits, closes or deletes a ticket. Source: `plugins/_shared/skills/` |
 | Command | `/review` | Review one PR and post the verdict |
 | Agent | `reviewer` | One pass (correctness, tests, security, performance or accessibility) in a fresh context, returning only findings that carry a failure scenario |
 
 **Verdicts.** There are two, and only two:
 
-- **approve**: no blocker and no major finding. The ticket stays in **In
-  review**, and QA verifies it next.
+- **approve**: no blocker and no major finding. The ticket moves to **In
+  approval**, where the Captain reviews the code personally and moves it on
+  to **QA**. A ticket labelled `skip_human_approval` skips that review and
+  goes straight to **QA**.
 - **request changes**: at least one blocker or major. The ticket moves back
   to **In progress**. The developer fixes it, pushes to the same PR, and the
   new head gets a full re-review.

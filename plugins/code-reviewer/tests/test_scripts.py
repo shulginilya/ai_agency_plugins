@@ -43,10 +43,22 @@ class VerdictTest(unittest.TestCase):
             self.assertEqual(result["move_to"], "In progress")
             self.assertEqual(result["findings"][0]["severity"], severity, "most severe first")
 
-    def test_minor_and_nit_approve_and_leave_the_card(self):
+    def test_minor_and_nit_approve_into_in_approval(self):
         result = review_report.judge(review_report.load(findings(finding("minor"), finding("nit", failure=""))))
         self.assertEqual(result["verdict"], "approve")
-        self.assertIsNone(result["move_to"])
+        self.assertEqual(result["move_to"], "In approval")
+        self.assertIn("Moving the ticket to **In approval**", review_report.render(result))
+
+    def test_skip_human_approval_sends_an_approve_straight_to_qa(self):
+        data = dict(findings(), skip_human_approval=True)
+        result = review_report.judge(review_report.load(data))
+        self.assertEqual(result["move_to"], "QA")
+        self.assertIn("skip_human_approval", review_report.render(result))
+        self.assertEqual(review_report.move_to("approve", ["bug", "skip_human_approval"]), "QA")
+        self.assertEqual(review_report.move_to("approve", ["bug"]), "In approval")
+        self.assertEqual(review_report.move_to("request-changes", ["skip_human_approval"]), "In progress")
+        done = run_report(findings(), "--skip-human-approval", "--json")
+        self.assertEqual(json.loads(done.stdout)["move_to"], "QA")
 
     def test_no_findings_is_an_approve(self):
         self.assertEqual(review_report.judge(review_report.load(findings()))["verdict"], "approve")

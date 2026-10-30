@@ -4,8 +4,9 @@
     pr_scope.py --pr 43 [--repo owner/name] [--json]
 
 Reads the PR through `gh`: its head commit, base branch, changed files with
-added and removed line counts, the tickets it closes with the boards they are
-on, and every earlier review. A review counts as a verdict when its body
+added and removed line counts, the tickets it closes with their labels, the
+boards they are on and the column an approve moves each one to (In approval,
+or QA when it is labelled skip_human_approval), and every earlier review. A review counts as a verdict when its body
 carries the `<!-- code-review:verdict ... -->` marker review_report.py
 prints. Then it says what to do:
 
@@ -30,7 +31,7 @@ import sys
 from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from review_report import verdict_of  # noqa: E402
+from review_report import move_to, verdict_of  # noqa: E402
 
 
 class ScopeError(Exception):
@@ -110,7 +111,7 @@ def current_repo(named: Optional[str]) -> str:
 def closing_tickets(repo: str, number: int) -> List[Dict[str, Any]]:
     owner, name = repo.split("/")
     data = json.loads(gh("api", "graphql", "-f", "query=query($o:String!,$n:String!,$i:Int!){repository(owner:$o,name:$n)"
-                         "{pullRequest(number:$i){closingIssuesReferences(first:10){nodes{number title"
+                         "{pullRequest(number:$i){closingIssuesReferences(first:10){nodes{number title labels(first:50){nodes{name}}"
                          " projectItems(first:20){nodes{project{number title}"
                          " fieldValueByName(name:\"Status\"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}}}",
                          "-f", "o=%s" % owner, "-f", "n=%s" % name, "-F", "i=%d" % number))
@@ -120,7 +121,9 @@ def closing_tickets(repo: str, number: int) -> List[Dict[str, Any]]:
         boards = [{"number": i["project"]["number"], "title": i["project"]["title"],
                    "status": (i.get("fieldValueByName") or {}).get("name")}
                   for i in (issue.get("projectItems") or {}).get("nodes", [])]
-        tickets.append({"number": issue["number"], "title": issue.get("title"), "boards": boards})
+        labels = [n["name"] for n in (issue.get("labels") or {}).get("nodes", [])]
+        tickets.append({"number": issue["number"], "title": issue.get("title"), "labels": labels,
+                        "approve_to": move_to("approve", labels), "boards": boards})
     return tickets
 
 
@@ -159,7 +162,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     for f in result["files"]:
         print("  %-9s +%-5d -%-5d %s" % (f["status"], f["added"], f["removed"], f["file"]))
     for t in result["tickets"]:
-        print("closes #%d %s" % (t["number"], t["title"]))
+        print("closes #%d %s (on approve: %s)" % (t["number"], t["title"], t["approve_to"]))
         for b in t["boards"]:
             print("  board #%d %s: %s" % (b["number"], b["title"], b["status"] or "(no column)"))
     if not result["tickets"]:

@@ -8,7 +8,9 @@
 
 Creates the board under the repository's owner (a user or an organization),
 links it to the repository unless --no-link, and replaces the default Status
-options with the columns given. Refuses if an open board with the same title
+options with the columns given. It also makes sure the repository has the
+skip_human_approval label: a ticket carrying it goes from code review straight
+to QA, past In approval and the Captain's own review. Refuses if an open board with the same title
 already exists, so a rerun never makes a second one.
 
 A new board starts with the columns Todo, In Progress and Done, and its
@@ -33,6 +35,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import urllib.parse
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -40,13 +43,13 @@ SKILLS = Path(__file__).resolve().parent.parent.parent
 # ticket-management sits beside this skill: in plugins/_shared/skills, and in a built bundle's skills/.
 sys.path.insert(0, str(SKILLS / "ticket-management" / "scripts"))
 try:
-    from board import BoardError, InputError, current_repo, graphql  # noqa: E402
+    from board import BoardError, InputError, current_repo, gh, graphql  # noqa: E402
 except ImportError:  # the plugin was built without its shared skill
     sys.exit("create_board: ticket-management/scripts/board.py is missing beside this skill; "
              "list both board-setup and ticket-management in the plugin's shared_skills")
 
 # In Definition holds the notes plugin's optional items; Ready for Merge holds what passed QA.
-# In approval and QA are on every board, but no command moves cards through them yet.
+# Code review approves into In approval, where the Captain reviews the code, then QA; see LABELS.
 DEFAULT_COLUMNS = ["In Definition", "Backlog", "Ready", "In progress", "In review", "In approval", "QA",
                    "Ready for Merge", "Done"]
 NAME_MAX = 50
@@ -63,6 +66,8 @@ KNOWN = {
     "blocked": ("RED", "Cannot move until something outside it changes"),
     "done": ("GREEN", "Merged or otherwise finished"),
 }
+# Labels every board's repository needs: {name: (color, description)}.
+LABELS = {"skip_human_approval": ("fbca04", "Code review approval moves it straight to QA, past In approval")}
 
 
 # --- pure helpers (unit-tested) ---------------------------------------------
@@ -126,6 +131,21 @@ def find_duplicate(boards: List[Dict[str, Any]], title: str) -> Optional[Dict[st
 # --- GitHub ------------------------------------------------------------------
 
 
+def ensure_labels(repo: Dict[str, str]) -> List[str]:
+    """Create each of LABELS the repository lacks; return the ones created."""
+    created = []
+    for name, (color, description) in LABELS.items():
+        try:
+            gh("api", "repos/%s/%s/labels/%s" % (repo["owner"], repo["name"], urllib.parse.quote(name, safe="")))
+        except BoardError as exc:
+            if "Not Found" not in str(exc) and "404" not in str(exc):
+                raise
+            gh("api", "-X", "POST", "repos/%s/%s/labels" % (repo["owner"], repo["name"]),
+               "-f", "name=%s" % name, "-f", "color=%s" % color, "-f", "description=%s" % description)
+            created.append(name)
+    return created
+
+
 def owner_and_repo(repo: Dict[str, str]) -> Dict[str, Any]:
     nodes = "projectsV2(first:100){nodes{number title url closed}}"
     data = graphql(
@@ -179,7 +199,8 @@ def create(title: str, columns: List[str], link: bool) -> Dict[str, Any]:
     workflows = {w["name"]: w["enabled"] for w in check["node"]["workflows"]["nodes"]}
     result = {"number": made["number"], "url": made["url"], "title": title, "columns": got,
               "linked": "%s/%s" % (repo["owner"], repo["name"]) if link else None,
-              "kept_from_github": kept, "workflows": workflows}
+              "kept_from_github": kept, "workflows": workflows,
+              "labels": sorted(LABELS), "labels_created": ensure_labels(repo)}
     off = sorted(name for name, on in workflows.items() if not on)
     if off:
         result["workflows_off"] = off
@@ -202,7 +223,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         columns = parse_columns(args.columns)
         if args.dry_run:
             result: Dict[str, Any] = {"dry_run": True, "title": title, "columns": column_options(columns),
-                                      "link": not args.no_link, "keeps_from_github": keep_starting(columns)}
+                                      "link": not args.no_link, "keeps_from_github": keep_starting(columns),
+                                      "labels": sorted(LABELS)}
         else:
             result = create(title, columns, link=not args.no_link)
         print(json.dumps(result, indent=2))
