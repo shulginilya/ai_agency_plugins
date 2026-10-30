@@ -49,15 +49,15 @@ class VerdictTest(unittest.TestCase):
         self.assertEqual(result["move_to"], "In approval")
         self.assertIn("Moving the ticket to **In approval**", review_report.render(result))
 
-    def test_skip_human_approval_sends_an_approve_straight_to_qa(self):
-        data = dict(findings(), skip_human_approval=True)
+    def test_skip_approval_sends_an_approve_straight_to_qa(self):
+        data = dict(findings(), skip_approval=True)
         result = review_report.judge(review_report.load(data))
         self.assertEqual(result["move_to"], "QA")
-        self.assertIn("skip_human_approval", review_report.render(result))
-        self.assertEqual(review_report.move_to("approve", ["bug", "skip_human_approval"]), "QA")
+        self.assertIn("skip_approval", review_report.render(result))
+        self.assertEqual(review_report.move_to("approve", ["bug", "skip_approval"]), "QA")
         self.assertEqual(review_report.move_to("approve", ["bug"]), "In approval")
-        self.assertEqual(review_report.move_to("request-changes", ["skip_human_approval"]), "In progress")
-        done = run_report(findings(), "--skip-human-approval", "--json")
+        self.assertEqual(review_report.move_to("request-changes", ["skip_approval"]), "In progress")
+        done = run_report(findings(), "--skip-approval", "--json")
         self.assertEqual(json.loads(done.stdout)["move_to"], "QA")
 
     def test_no_findings_is_an_approve(self):

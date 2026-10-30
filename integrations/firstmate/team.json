@@ -91,12 +91,12 @@
       "owns": [
         "A fresh-context review of every PR the developer ships, before QA: correctness and tests always; security, performance and accessibility when the diff touches them (/code-reviewer:review)",
         "Findings that each carry a concrete failure scenario, posted as one PR review with an approve / request-changes verdict by fixed rules",
-        "On request changes, moving the ticket's card back to In progress; on approve, moving it to In approval for the Captain's review, or straight to QA when the ticket is labelled skip_human_approval",
+        "On request changes, moving the ticket's card back to In progress; on approve, moving it to In approval for the Captain's review, or straight to QA when the ticket is labelled skip_approval",
         "A full re-review of the new head after every fix push (never pushes code, never files tickets)"
       ]
     }
   },
-  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so on UI work one ship crewmate plays Designer, then Developer, then Designer again. Developer and Scrum Master carry the full ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. QA Engineer creates and edits tickets, labelling each one it creates \"QA testing\". Code Reviewer only moves the card of a PR it reviewed: back to In progress, or on to In approval (QA when labelled skip_human_approval). The Captain moves a card from In approval to QA after reviewing the code. Designer, DevOps Engineer and Code Reviewer propose tickets in the report. Firstmate can run several crewmates side by side.",
+  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so on UI work one ship crewmate plays Designer, then Developer, then Designer again. Developer and Scrum Master carry the full ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. QA Engineer creates and edits tickets, labelling each one it creates \"QA testing\". Code Reviewer only moves the card of a PR it reviewed: back to In progress, or on to In approval (QA when labelled skip_approval). The Captain moves a card from In approval to QA after reviewing the code. Designer, DevOps Engineer and Code Reviewer propose tickets in the report. Firstmate can run several crewmates side by side.",
   "gaps": [],
   "raci": {
     "legend": {"R": "does the work", "A": "signs off", "C": "consulted", "I": "informed"},
@@ -118,7 +118,7 @@
       {"activity": "Diagnose and fix a bug", "firstmate": "A", "developer": "R"},
       {"activity": "Review own diff before push", "developer": "R"},
       {"activity": "Review the PR's code (approve / request changes)", "firstmate": "A", "code-reviewer": "R", "developer": "C", "qa": "I"},
-      {"activity": "Move a reviewed PR's ticket: In progress on request changes, In approval (or QA if skip_human_approval) on approve", "code-reviewer": "R", "developer": "I"},
+      {"activity": "Move a reviewed PR's ticket: In progress on request changes, In approval (or QA if skip_approval) on approve", "code-reviewer": "R", "developer": "I"},
       {"activity": "Review the code of a ticket in In approval and move it to QA", "captain": "A/R", "code-reviewer": "I", "qa": "I"},
       {"activity": "Run repo checks before push", "developer": "R"},
       {"activity": "Verify the change against its criteria (accept / reject)", "firstmate": "A", "qa": "R", "developer": "C", "devops": "C", "code-reviewer": "I"},
@@ -146,7 +146,7 @@
       {"id": "s6", "lane": "firstmate", "text": "Relay the backlog, the board plan and open questions"},
       {"id": "s7", "lane": "captain", "kind": "decision", "text": "Answer questions, approve the board and the backlog"},
       {"id": "s8", "lane": "firstmate", "text": "Brief T2: create the board, then file the approved plan on it"},
-      {"id": "s9", "lane": "scrum-master", "kind": "write", "text": "/scrum-master:create-board → board N, columns In Definition → Backlog → Ready → In progress → In review → In approval → QA → Ready for Merge → Done, plus the skip_human_approval label"},
+      {"id": "s9", "lane": "scrum-master", "kind": "write", "text": "/scrum-master:create-board → board N, columns In Definition → Backlog → Ready → In progress → In review → In approval → QA → Ready for Merge → Done, plus the skip_approval label"},
       {"id": "s10", "lane": "scrum-master", "kind": "write", "text": "tickets.py batch --plan plan.json --project N --status Ready (safe to rerun; slices linked to epics)"},
       {"id": "s11", "lane": "scrum-master", "text": "/scrum-master:plan-sprint → sprint goal, capacity, issues that fit (proposal)"},
       {"id": "s12", "lane": "captain", "kind": "decision", "text": "Approve sprint 1"},
@@ -159,7 +159,7 @@
       {"id": "s19", "lane": "developer", "text": "Self-review own diff against the handoff checklist; /developer:verify", "group": "Then: the delivery loop, per ticket"},
       {"id": "s20", "lane": "developer", "kind": "write", "text": "/developer:ship → branch, PR, card to In review", "group": "Then: the delivery loop, per ticket"},
       {"id": "s20b", "lane": "devops", "kind": "optional", "text": "Repo has PR previews: every push deploys <branch>.<slug>.<review domain> and edits the ticket's review-link comment (link + commit). Red CI: /devops:triage", "group": "Then: the delivery loop, per ticket"},
-      {"id": "s20c", "lane": "code-reviewer", "kind": "write", "text": "/code-reviewer:review the PR → PR review with findings. Approve: card to In approval (QA if labelled skip_human_approval). Request changes: card to In progress, developer fixes and pushes, new head re-reviewed", "group": "Then: the delivery loop, per ticket"},
+      {"id": "s20c", "lane": "code-reviewer", "kind": "write", "text": "/code-reviewer:review the PR → PR review with findings. Approve: card to In approval (QA if labelled skip_approval). Request changes: card to In progress, developer fixes and pushes, new head re-reviewed", "group": "Then: the delivery loop, per ticket"},
       {"id": "s20d", "lane": "captain", "kind": "decision", "text": "Card in In approval: review the code personally; approve → move the card to QA", "group": "Then: the delivery loop, per ticket"},
       {"id": "s21", "lane": "qa", "kind": "write", "text": "Card in QA: /qa:verify on the newest review link, once it serves the PR's head (else wait) → accept: card to Ready for Merge; reject: comment what fails, card to In progress, /qa:bug tickets", "group": "Then: the delivery loop, per ticket"},
       {"id": "s22", "lane": "captain", "kind": "decision", "text": "Review and merge", "group": "Then: the delivery loop, per ticket"}

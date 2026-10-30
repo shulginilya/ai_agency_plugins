@@ -22,7 +22,7 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
 - Code review: after `/developer:ship`, `/code-reviewer:review <PR>` reads the PR's code in a
   fresh context and posts a PR review (`gh pr review --comment`) with every finding backed by a
   failure scenario. Approve: it moves the ticket to In approval, where the Captain reviews the code
-  personally and moves it to QA; a ticket labelled `skip_human_approval` goes straight to QA. Request
+  personally and moves it to QA; a ticket labelled `skip_approval` goes straight to QA. Request
   changes (any blocker or major): it moves the ticket to In progress; fix, push to the same PR, and
   it reviews the new head again. Never move a card out of In approval: that is the Captain's call.
   The code reviewer never pushes code and never creates, edits or closes a ticket.

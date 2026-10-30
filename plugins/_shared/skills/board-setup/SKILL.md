@@ -45,14 +45,14 @@ Show the user:
   - **In approval:** code review approved; the Captain reviews the code
     personally and moves it to QA.
   - **QA:** waiting for QA to verify it. A ticket labelled
-    `skip_human_approval` comes here straight from code review.
+    `skip_approval` comes here straight from code review.
   - **Ready for Merge:** passed QA, waiting for the merge.
   - **Done:** merged.
 
   Add `Blocked` only if the team will actually use it. Every column is a promise that
   someone moves cards into and out of it.
 - **Linked to this repository**, unless the user says otherwise.
-- **The `skip_human_approval` label** in this repository. The script creates
+- **The `skip_approval` label** in this repository. The script creates
   it if it's missing. A ticket carrying it skips In approval.
 
 `--dry-run` prints exactly this. Create the board only after the user agrees.
@@ -72,7 +72,7 @@ Run the same command without `--dry-run`. The script:
    and then a closed or merged ticket never reaches Done,
 4. reads the columns and workflows back, fails if the columns do not match,
    and lists any workflow that is off (`workflows_off`), and
-5. creates the `skip_human_approval` label in the repository if it is missing
+5. creates the `skip_approval` label in the repository if it is missing
    (`labels_created`).
 
 It needs the token's `project` scope. If GitHub refuses with a scope error,
@@ -93,7 +93,7 @@ tell the user to run `gh auth refresh -s project`. Do not work around it.
 Board:   #<number> <title> — <url>
 Columns: <in order>
 Linked:  <owner/repo, or "not linked">
-Labels:  skip_human_approval (created, or already there)
+Labels:  skip_approval (created, or already there)
 Workflows: all on, or "off: <names>, enable them under ⋯ → Workflows"
 Next:    <the backlog step, or what the user should check>
 ```

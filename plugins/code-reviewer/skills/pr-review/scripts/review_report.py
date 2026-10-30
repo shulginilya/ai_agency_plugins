@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Turn recorded review findings into a verdict, approve or request changes, and the PR review body that says so.
 
-    review_report.py findings.json [--commit SHA] [--skip-human-approval] [--json]
+    review_report.py findings.json [--commit SHA] [--skip-approval] [--json]
 
 findings.json:
 
-    {"pr": 43, "ticket": "#42", "commit": "abc1234", "skip_human_approval": false,
+    {"pr": 43, "ticket": "#42", "commit": "abc1234", "skip_approval": false,
      "passes": ["correctness", "tests", "security"],
      "findings": [{"severity": "blocker|major|minor|nit", "file": "src/a.py", "line": 12,
                    "claim": "...", "why": "...", "failure": "...", "fix": "..."}]}
@@ -25,8 +25,8 @@ The printed text is the PR review body. It ends with a
 `<!-- code-review:verdict ... -->` marker naming the verdict, the PR and the
 reviewed commit, which pr_scope.py reads to tell a re-review from an
 up-to-date one. An approved ticket moves to In approval, for the Captain's own
-code review, or straight to QA when it is labelled skip_human_approval
-(`--skip-human-approval`, or "skip_human_approval": true in the file); a
+code review, or straight to QA when it is labelled skip_approval
+(`--skip-approval`, or "skip_approval": true in the file); a
 ticket with changes requested moves back to In progress.
 
 Standard library only. Exit status: 0 approve, 1 request changes, 2 bad input.
@@ -44,7 +44,7 @@ SEVERITIES = ("blocker", "major", "minor", "nit")
 BLOCKING = ("blocker", "major")
 REQUIRED_PASSES = ("correctness", "tests")
 PASSES = ("correctness", "security", "performance", "accessibility", "tests")
-SKIP_HUMAN_APPROVAL = "skip_human_approval"
+SKIP_APPROVAL = "skip_approval"
 MOVE_TO = {"approve": "In approval", "request-changes": "In progress"}
 MARKER_RE = re.compile(r"<!--\s*code-review:verdict\b([^>]*)-->")
 ATTR_RE = re.compile(r'(\w+)=("[^"]*"|\S+)')
@@ -56,7 +56,7 @@ class ReportError(Exception):
 
 def move_to(verdict: str, labels: Optional[List[str]] = None) -> str:
     """The column a ticket moves to on this verdict: an approve skips In approval for QA when it carries the label."""
-    if verdict == "approve" and SKIP_HUMAN_APPROVAL in (labels or []):
+    if verdict == "approve" and SKIP_APPROVAL in (labels or []):
         return "QA"
     return MOVE_TO[verdict]
 
@@ -104,7 +104,7 @@ def judge(data: Dict[str, Any]) -> Dict[str, Any]:
     verdict = "request-changes" if any(counts[s] for s in BLOCKING) else "approve"
     return {"pr": data.get("pr"), "ticket": data.get("ticket"), "commit": data.get("commit"),
             "passes": list(data["passes"]), "verdict": verdict,
-            "move_to": move_to(verdict, [SKIP_HUMAN_APPROVAL] if data.get("skip_human_approval") else []),
+            "move_to": move_to(verdict, [SKIP_APPROVAL] if data.get("skip_approval") else []),
             "counts": counts, "findings": findings}
 
 
@@ -123,7 +123,7 @@ def render(result: Dict[str, Any]) -> str:
                      "and it is reviewed again." % result["move_to"])
     elif result["move_to"] == "QA":
         lines.append("Moving the ticket to **QA**: it is labelled `%s`, so it skips the Captain's review."
-                     % SKIP_HUMAN_APPROVAL)
+                     % SKIP_APPROVAL)
     else:
         lines.append("Moving the ticket to **In approval**, for the Captain's code review before QA.")
     real = [f for f in result["findings"] if f["severity"] != "nit"]
@@ -151,8 +151,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("findings")
     parser.add_argument("--commit", help="the commit reviewed; overrides findings.json commit")
-    parser.add_argument("--skip-human-approval", action="store_true",
-                        help="the ticket is labelled %s: an approve moves it to QA" % SKIP_HUMAN_APPROVAL)
+    parser.add_argument("--skip-approval", action="store_true",
+                        help="the ticket is labelled %s: an approve moves it to QA" % SKIP_APPROVAL)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
@@ -160,8 +160,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             data = load(json.load(handle))
         if args.commit:
             data["commit"] = args.commit
-        if args.skip_human_approval:
-            data["skip_human_approval"] = True
+        if args.skip_approval:
+            data["skip_approval"] = True
     except (OSError, ValueError, ReportError) as exc:
         print("review_report: %s" % exc, file=sys.stderr)
         return 2

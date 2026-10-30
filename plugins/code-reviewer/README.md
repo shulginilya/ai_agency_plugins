@@ -24,7 +24,7 @@ performance, accessibility and test gaps.
 
 - **approve**: no blocker and no major finding. The ticket moves to **In
   approval**, where the Captain reviews the code personally and moves it on
-  to **QA**. A ticket labelled `skip_human_approval` skips that review and
+  to **QA**. A ticket labelled `skip_approval` skips that review and
   goes straight to **QA**.
 - **request changes**: at least one blocker or major. The ticket moves back
   to **In progress**. The developer fixes it, pushes to the same PR, and the

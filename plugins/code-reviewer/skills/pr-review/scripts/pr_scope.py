@@ -6,7 +6,7 @@
 Reads the PR through `gh`: its head commit, base branch, changed files with
 added and removed line counts, the tickets it closes with their labels, the
 boards they are on and the column an approve moves each one to (In approval,
-or QA when it is labelled skip_human_approval), and every earlier review. A review counts as a verdict when its body
+or QA when it is labelled skip_approval), and every earlier review. A review counts as a verdict when its body
 carries the `<!-- code-review:verdict ... -->` marker review_report.py
 prints. Then it says what to do:
 

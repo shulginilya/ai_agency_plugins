@@ -9,7 +9,7 @@
 Creates the board under the repository's owner (a user or an organization),
 links it to the repository unless --no-link, and replaces the default Status
 options with the columns given. It also makes sure the repository has the
-skip_human_approval label: a ticket carrying it goes from code review straight
+skip_approval label: a ticket carrying it goes from code review straight
 to QA, past In approval and the Captain's own review. Refuses if an open board with the same title
 already exists, so a rerun never makes a second one.
 
@@ -67,7 +67,7 @@ KNOWN = {
     "done": ("GREEN", "Merged or otherwise finished"),
 }
 # Labels every board's repository needs: {name: (color, description)}.
-LABELS = {"skip_human_approval": ("fbca04", "Code review approval moves it straight to QA, past In approval")}
+LABELS = {"skip_approval": ("fbca04", "Code review approval moves it straight to QA, past In approval")}
 
 
 # --- pure helpers (unit-tested) ---------------------------------------------

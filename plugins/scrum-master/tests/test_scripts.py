@@ -373,9 +373,9 @@ class CreateBoardTest(unittest.TestCase):
              mock.patch.object(create_board, "owner_and_repo",
                                return_value={"owner_id": "O", "repo_id": "R", "boards": []}), \
              mock.patch.object(create_board, "graphql", fake_graphql), \
-             mock.patch.object(create_board, "ensure_labels", return_value=["skip_human_approval"]):
+             mock.patch.object(create_board, "ensure_labels", return_value=["skip_approval"]):
             result = create_board.create("Demo", list(create_board.DEFAULT_COLUMNS), link=False)
-        self.assertEqual(result["labels_created"], ["skip_human_approval"])
+        self.assertEqual(result["labels_created"], ["skip_approval"])
         update = next(q for q in calls if "updateProjectV2Field" in q)
         self.assertIn('{id:"t1",name:"Backlog"', update)
         self.assertIn('{id:"p1",name:"In progress"', update)
@@ -384,18 +384,18 @@ class CreateBoardTest(unittest.TestCase):
         self.assertEqual(result["workflows_off"], ["Pull request merged"])
         self.assertIn("Workflows, and enable: Pull request merged", result["to_do"])
 
-    def test_the_skip_human_approval_label_is_created_only_when_missing(self):
+    def test_the_skip_approval_label_is_created_only_when_missing(self):
         calls = []
 
         def fake_gh(*args):
             calls.append(args)
-            if args[:2] == ("api", "repos/me/app/labels/skip_human_approval") and len(args) == 2:
+            if args[:2] == ("api", "repos/me/app/labels/skip_approval") and len(args) == 2:
                 raise create_board.BoardError("HTTP 404: Not Found")
             return "{}"
 
         with mock.patch.object(create_board, "gh", fake_gh):
-            self.assertEqual(create_board.ensure_labels({"owner": "me", "name": "app"}), ["skip_human_approval"])
-        self.assertIn("name=skip_human_approval", calls[-1])
+            self.assertEqual(create_board.ensure_labels({"owner": "me", "name": "app"}), ["skip_approval"])
+        self.assertIn("name=skip_approval", calls[-1])
         self.assertEqual(calls[-1][:4], ("api", "-X", "POST", "repos/me/app/labels"))
         with mock.patch.object(create_board, "gh", return_value="{}") as found:
             self.assertEqual(create_board.ensure_labels({"owner": "me", "name": "app"}), [])

@@ -29,7 +29,7 @@ files carries the **QA testing** label, and it may append a test plan to a
 ticket. Proposed criterion rewrites go to whoever owns the ticket.
 
 It picks up only tickets in the **QA** column: code review and, unless the
-ticket is labelled `skip_human_approval`, the Captain have approved them.
+ticket is labelled `skip_approval`, the Captain have approved them.
 When it's done testing, it comments the verdict on the ticket and moves the
 card: an **accept** to **Ready for Merge**, a **reject** back to **In
 progress**, with the comment saying exactly what fails. If the board has no

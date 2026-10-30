@@ -24,7 +24,7 @@ python ../ticket-management/scripts/board.py move --project N --issue 42 \
 
 **Pick up only tickets in the QA column.** A card reaches QA after the code
 review approves it and the Captain approves it in In approval, or straight
-from code review when the ticket is labelled `skip_human_approval`.
+from code review when the ticket is labelled `skip_approval`.
 `review_link.py` lists the card's column on every board. In In review it is
 waiting for code review, and in In approval for the Captain's review. Say
 where it is and stop: verifying it early tests code nobody has approved yet.

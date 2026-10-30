@@ -65,7 +65,7 @@
     {"from": "In progress", "to": "In review", "by": ["developer"], "how": "/developer:ship: branch, PR that closes the ticket, card moved after the PR exists"},
     {"from": "In review", "to": "In progress", "by": ["code-reviewer"], "how": "Request changes: any blocker or major finding", "back": true},
     {"from": "In review", "to": "In approval", "by": ["code-reviewer"], "how": "/code-reviewer:review approve: no blocker or major finding"},
-    {"from": "In review", "to": "QA", "by": ["code-reviewer"], "how": "Approve on a ticket labelled skip_human_approval: skips the Captain's review"},
+    {"from": "In review", "to": "QA", "by": ["code-reviewer"], "how": "Approve on a ticket labelled skip_approval: skips the Captain's review"},
     {"from": "In approval", "to": "QA", "by": ["captain"], "how": "The Captain approves the code"},
     {"from": "QA", "to": "In progress", "by": ["qa"], "how": "Reject: a comment on what fails, a bug ticket per failure", "back": true},
     {"from": "QA", "to": "Ready for Merge", "by": ["qa"], "how": "/qa:verify accept: every criterion passed with evidence (adds the column if the board lacks it)"},
