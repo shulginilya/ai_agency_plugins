@@ -91,6 +91,13 @@ class DriftTest(unittest.TestCase):
         self.assertTrue(any("unknown mover 'intern'" in w for w in lc.warnings))
         self.assertNotIn("Shipped", [t["to"] for t in drawable])
 
+    def test_a_pending_column_needs_no_way_in_or_out(self):
+        lc.check(life(Staging={"meaning": "x", "workflow_pending": True}), COLUMNS[:-1] + ["Staging", "Done"], {},
+                 MOVERS)
+        self.assertEqual(lc.warnings, [])
+        lc.check(life(Staging={"meaning": "x"}), COLUMNS[:-1] + ["Staging", "Done"], {}, MOVERS)
+        self.assertIn("nothing moves a card into 'Staging'", lc.warnings)
+
     def test_a_column_nothing_reaches_or_leaves(self):
         data = life()
         data["transitions"] = [t for t in data["transitions"] if t["to"] != "Done"]

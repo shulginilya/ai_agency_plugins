@@ -340,9 +340,10 @@ class McpServerTest(unittest.TestCase):
 class CreateBoardTest(unittest.TestCase):
     def test_default_columns_are_the_team_flow(self):
         self.assertEqual(create_board.parse_columns(None),
-                         ["In Definition", "Backlog", "Ready", "In progress", "In review", "Ready for Merge", "Done"])
+                         ["In Definition", "Backlog", "Ready", "In progress", "In review", "In approval", "QA",
+                          "Ready for Merge", "Done"])
         self.assertEqual([o["color"] for o in create_board.column_options(create_board.parse_columns(None))],
-                         ["GRAY", "GRAY", "BLUE", "YELLOW", "PURPLE", "ORANGE", "GREEN"])
+                         ["GRAY", "GRAY", "BLUE", "YELLOW", "PURPLE", "PINK", "PURPLE", "ORANGE", "GREEN"])
 
     def test_github_starting_columns_keep_their_ids_on_the_new_board(self):
         self.assertEqual(create_board.keep_starting(create_board.parse_columns(None)),
@@ -402,7 +403,7 @@ class CreateBoardTest(unittest.TestCase):
         result = subprocess.run([sys.executable, str(CREATE_BOARD), "--title", "Demo", "--dry-run"],
                                 capture_output=True, text=True, env={**os.environ, "PATH": ""}, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(json.loads(result.stdout)["columns"]), 7)
+        self.assertEqual(len(json.loads(result.stdout)["columns"]), 9)
 
 
 if __name__ == "__main__":
