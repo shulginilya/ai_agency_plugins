@@ -1,7 +1,8 @@
 ---
 description: Plan the next sprint — capacity, one goal, the issues that fit, and the risks that would sink it.
 argument_hint: "[sprint name, dates, team size, or nothing to infer from the repo]"
-model: sonnet
+model: claude-sonnet-5-5
+effort: medium
 allowed_tools: Bash(gh:*) Bash(python:*) Read Grep Glob
 ---
 

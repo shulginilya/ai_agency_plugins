@@ -1,7 +1,8 @@
 ---
 description: Diagnose a bug down to its root cause — reproduce it, narrow it, prove the mechanism — without changing code.
 argument_hint: "[the symptom: an error, a failing test, wrong behaviour]"
-model: sonnet
+model: claude-opus-5-5
+effort: high
 allowed_tools: Bash Read Grep Glob
 ---
 
