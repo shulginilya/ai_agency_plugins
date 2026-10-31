@@ -23,7 +23,9 @@ Host drift: every preview file starts with `# devops:preview kind=<k>
 provider=<p>`, the stack it was set up for. The scan is copied into the repo as
 .github/devops/stack_scan.py, and every PR runs `stack_scan.py --expect <k>`,
 which fails with a `devops:stack-changed` error when the repo has become the
-other kind. Scaffolding the other provider later removes the first one's files.
+other kind. Scaffolding the other provider later removes the first one's files;
+scaffolding the same provider for a new kind rewrites them (only files this
+script wrote, so no --force is needed for those).
 
 Review links: with the repository variable REVIEW_DOMAIN set, the Cloudflare
 workflow also serves each preview at `<branch>.<slug>.<REVIEW_DOMAIN>` (slug:
@@ -40,6 +42,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -66,6 +69,11 @@ MARKER = "<!-- devops:preview -->"
 TICKET_MARKER = "<!-- devops:review-link"
 SCANNER = Path(".github") / "devops" / "stack_scan.py"  # stack_scan.py, copied for the drift check
 RECORD = "# devops:preview kind=%s provider=%s"
+RECORD_RE = re.compile(r"^# devops:preview kind=(\S+) provider=(\S+)")
+# The copy lives in someone else's repo: keep its linters and formatters off it.
+SCANNER_HEADER = ("# Copied by the devops plugin (scaffold.py preview) for the per-PR preview host check.\n"
+                  "# Regenerate it with the plugin rather than editing it here.\n"
+                  "# flake8: noqa\n# ruff: noqa\n# pylint: skip-file\n# fmt: off\n")
 
 
 class Unknown(Exception):
@@ -315,9 +323,10 @@ def cloudflare_workflow(facts: Dict[str, Any], project: str) -> str:
         raise Unknown(["a static build (the scan says kind=%s; Cloudflare Pages serves built files only)"
                        % facts.get("kind")])
     need(facts, "install", "build", "output_dir")
+    kind = stack_scan.preview_kind(facts)  # static, or static+api: the API is previewed elsewhere
     same_repo = "github.event.pull_request.head.repo.full_name == github.repository"
     lines = [
-        RECORD % ("static", "cloudflare-pages"),
+        RECORD % (kind, "cloudflare-pages"),
         "name: Preview",
         "",
         "# One preview per PR on Cloudflare Pages: https://pr-<N>.%s.pages.dev" % project,
@@ -355,7 +364,7 @@ def cloudflare_workflow(facts: Dict[str, Any], project: str) -> str:
         "    steps:",
     ]
     setup = setup_steps(facts)
-    lines += setup[:1] + drift_step("static", "cloudflare-pages") + setup[1:]
+    lines += setup[:1] + drift_step(kind, "cloudflare-pages") + setup[1:]
     lines += run_step("build", facts["build"])
     lines += [
         "      - name: Deploy to Cloudflare Pages",
@@ -520,6 +529,22 @@ def ours(path: Path) -> bool:
             or text.startswith("# Render Blueprint."))
 
 
+def recorded_kind(path: Path) -> Optional[str]:
+    """The kind on a preview file's record line, or None for a file without one."""
+    try:
+        with path.open(encoding="utf-8") as handle:
+            match = RECORD_RE.match(handle.readline())
+    except OSError:
+        return None
+    return match.group(1) if match else None
+
+
+def outdated(path: Path, kind: str) -> bool:
+    """A preview file this script wrote for another kind of stack: safe to rewrite without --force."""
+    found = recorded_kind(path) if path.is_file() else None
+    return found is not None and found != kind
+
+
 def replaced(provider: str, root: Path) -> List[Path]:
     """The other provider's preview files in the repo, which this preview replaces."""
     return [root / rel for other, files in PREVIEW_FILES.items() if other != provider
@@ -529,7 +554,9 @@ def replaced(provider: str, root: Path) -> List[Path]:
 def plan(args: argparse.Namespace, facts: Dict[str, Any], root: Path) -> List[Tuple[Path, str]]:
     if args.what == "ci":
         return [(root / ".github" / "workflows" / "ci.yml", ci_workflow(facts, args.branch or default_branch(root)))]
-    scanner = (root / SCANNER, Path(stack_scan.__file__).read_text(encoding="utf-8"))
+    source = Path(stack_scan.__file__).read_text(encoding="utf-8")
+    shebang, rest = source.split("\n", 1) if source.startswith("#!") else ("", source)
+    scanner = (root / SCANNER, (shebang + "\n" if shebang else "") + SCANNER_HEADER + rest)
     if args.provider == "cloudflare-pages":
         if not args.project:
             raise Unknown(["--project (the Cloudflare Pages project name)"])
@@ -577,19 +604,23 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("  scan: %s" % item, file=sys.stderr)
         return 3
     code = 0
+    kind = None
+    if args.what == "preview":
+        kind = stack_scan.preview_kind(facts) if args.provider == "cloudflare-pages" else facts["kind"]
     for path, text in files:
         rel = path.relative_to(root)
         if args.dry_run:
             print("--- %s\n%s" % (rel, text))
             continue
-        if path.exists() and not args.force and path != root / SCANNER:
+        was = recorded_kind(path) if kind and outdated(path, kind) else None
+        if path.exists() and not args.force and path != root / SCANNER and not was:
             if path.read_text(encoding="utf-8") != text:
                 print("exists, left alone (compare with --dry-run, replace with --force): %s" % rel)
                 code = 1
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
-        print("wrote %s" % rel)
+        print("rewrote %s (it was set up for kind=%s)" % (rel.as_posix(), was) if was else "wrote %s" % rel)
     stale = replaced(args.provider, root) if args.what == "preview" else []
     for path in stale:
         rel = path.relative_to(root).as_posix()
@@ -601,6 +632,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     if stale and code == 0:
         print("review links now look like %s: say so in the report, QA reads them from the ticket comment"
               % LINKS[args.provider])
+    if kind == "static+api":
+        print("the API (%s) isn't previewed by this workflow: give it its own Render preview "
+              "(the preview-environments skill, 'a static frontend and an API')" % ", ".join(facts["api"]))
     secrets = SECRETS.get(args.provider or "", [])
     if args.what == "preview" and secrets:
         print("secrets the repo owner adds (never paste their values into a chat):")

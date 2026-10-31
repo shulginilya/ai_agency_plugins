@@ -111,11 +111,21 @@ Render needs no GitHub secret. It creates the GitHub Deployment itself.
   error naming the new kind once the repo has become the other one, for
   example a Next.js app that dropped `output: "export"` for a database. A scan
   that can't tell only warns.
-- **Changing host.** When that check fails, or the scan's provider differs
-  from the preview the repo has, run this skill again for the scan's
-  provider. Scaffolding it removes the old provider's files (only files this
-  script wrote) and prints the new link shape. Put that in the report, since
-  QA's links change. Moving to Render needs the owner's steps above first.
+  The copy starts with lint and format opt-outs (`# flake8: noqa`,
+  `# ruff: noqa`, `# fmt: off`), so the repo's own checks stay green.
+- **Changing host.** When that check fails, run this skill again; the error
+  says which case it is.
+  - **Another host** (static ↔ server): scaffold the scan's provider. It
+    removes the old provider's files (only files this script wrote) and
+    prints the new link shape. Put that in the report, since QA's links
+    change. Moving to Render needs the owner's steps above first.
+  - **Same host, new kind** (a Render static site that became a server):
+    scaffold the same provider. It rewrites its own files for the new kind
+    without `--force`; a file without the record line is still left alone.
+  - **A static frontend that grew an API** (`static+api`: express, hono…
+    in its runtime dependencies): the frontend stays on Pages, rewritten for
+    `kind=static+api`, and the API gets its own Render preview, as in the
+    table's "a static frontend and an API" row.
 - The app must work from the root of its own host. If it has a hardcoded base
   path or an absolute API URL, make the API URL a build-time variable.
 - Same rules as `ci-setup`: least-privilege `permissions` (the preview job
