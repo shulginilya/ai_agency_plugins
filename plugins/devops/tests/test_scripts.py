@@ -334,6 +334,77 @@ class ScaffoldTest(unittest.TestCase):
             self.assertIn("the API (express) isn't previewed by this workflow", result.stdout)
             self.check_passes(root, "preview.yml")
 
+    def test_render_is_refused_for_a_static_frontend_with_an_api(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "vite", FLIPS["vite"][1])
+            self.assertEqual(self.scaffold(root, "preview", "--project", "shop").returncode, 0)
+            pages = (root / ".github" / "workflows" / "preview.yml").read_text()
+            self.assertTrue(pages.startswith("# devops:preview kind=static+api provider=cloudflare-pages\n"))
+            self.check_passes(root, "preview.yml")
+            result = self.scaffold(root, "preview", "--provider", "render")
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("write that service by hand", result.stderr)
+            self.assertEqual((root / ".github" / "workflows" / "preview.yml").read_text(), pages,
+                             "the frontend's Pages preview stays")
+            self.assertFalse((root / "render.yaml").exists())
+
+    def test_previews_scaffolded_before_the_record_line_are_still_replaced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def strip_record(path):  # what main's scaffold wrote: the same file without the record line
+                text = path.read_text()
+                self.assertTrue(text.startswith("# devops:preview "))
+                path.write_text(text.split("\n", 1)[1])
+
+            root = project(tmp, "next", NEXT_EXPORT)
+            self.assertEqual(self.scaffold(root, "preview", "--project", "obs").returncode, 0)
+            strip_record(root / ".github" / "workflows" / "preview.yml")
+            (root / "next.config.ts").write_text(NEXT_SERVER_CONFIG)
+            result = self.scaffold(root, "preview")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse((root / ".github" / "workflows" / "preview.yml").exists())
+
+            strip_record(root / "render.yaml")
+            strip_record(root / ".github" / "workflows" / "review-link.yml")
+            (root / "next.config.ts").write_text(NEXT_EXPORT["next.config.ts"])
+            result = self.scaffold(root, "preview", "--project", "obs")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse((root / "render.yaml").exists())
+            self.assertFalse((root / ".github" / "workflows" / "review-link.yml").exists())
+
+    def test_an_older_copy_of_the_scanner_is_refreshed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "vite", VITE)
+            self.assertEqual(self.scaffold(root, "preview", "--project", "shop").returncode, 0)
+            copied = root / ".github" / "devops" / "stack_scan.py"
+            fresh = copied.read_text()
+            copied.write_text("# old\n")
+            result = self.scaffold(root, "preview", "--project", "shop")  # no --force
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(copied.read_text(), fresh)
+
+    def test_the_old_preview_stays_when_the_new_one_could_not_be_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "next", NEXT_EXPORT)
+            self.assertEqual(self.scaffold(root, "preview", "--project", "obs").returncode, 0)
+            (root / "render.yaml").write_text("services: []  # the team's own\n")
+            (root / "next.config.ts").write_text(NEXT_SERVER_CONFIG)
+            result = self.scaffold(root, "preview")
+            self.assertEqual(result.returncode, 1)
+            self.assertTrue((root / ".github" / "workflows" / "preview.yml").exists(),
+                            "never leave the repo with no working preview")
+            self.assertNotIn("removed", result.stdout)
+
+    def test_a_hand_edit_to_a_file_of_the_same_kind_still_needs_force(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "vite", VITE)
+            self.assertEqual(self.scaffold(root, "preview", "--project", "shop").returncode, 0)
+            workflow = root / ".github" / "workflows" / "preview.yml"
+            workflow.write_text(workflow.read_text() + "# team edit\n")
+            result = self.scaffold(root, "preview", "--project", "shop")
+            self.assertEqual(result.returncode, 1)
+            self.assertTrue(workflow.read_text().endswith("# team edit\n"))
+            self.assertNotIn("rewrote", result.stdout)
+
     def test_a_file_it_did_not_record_is_still_left_alone(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = project(tmp, "api", FASTAPI)

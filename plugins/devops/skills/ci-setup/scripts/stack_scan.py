@@ -296,6 +296,8 @@ def expect(facts: Dict[str, Any], kind: str, host: str) -> int:
     if fits != host:
         tail = ("It needs %s. Run /devops:preview again: it replaces this preview with the %s one."
                 % (HOSTS[fits], HOSTS[fits]))
+        if now == "static+api":
+            tail += " The API keeps a Render service of its own, written by hand."
     elif now == "static+api":
         tail = ("The frontend stays on %s, but the API needs its own preview on a backend host (Render). "
                 "Run /devops:preview again: it rewrites this preview for kind=static+api, and the API gets its own Render preview."

@@ -35,7 +35,8 @@ with a `<!-- devops:review-link link=... commit=... pr=... state=live|down -->`
 marker that QA reads. Secrets are referenced by name only.
 
 Standard library only. Exit status: 0 written (or printed), 1 a file exists and
-was left alone, 2 bad input, 3 something the file needs is unknown.
+was left alone, 2 bad input or a refused request (Render for a static frontend
+with an API), 3 something the file needs is unknown.
 """
 
 from __future__ import annotations
@@ -74,6 +75,10 @@ RECORD_RE = re.compile(r"^# devops:preview kind=(\S+) provider=(\S+)")
 SCANNER_HEADER = ("# Copied by the devops plugin (scaffold.py preview) for the per-PR preview host check.\n"
                   "# Regenerate it with the plugin rather than editing it here.\n"
                   "# flake8: noqa\n# ruff: noqa\n# pylint: skip-file\n# fmt: off\n")
+
+
+class Refused(Exception):
+    """A request this script won't carry out, with what to do instead."""
 
 
 class Unknown(Exception):
@@ -563,6 +568,13 @@ def plan(args: argparse.Namespace, facts: Dict[str, Any], root: Path) -> List[Tu
         return [(root / PREVIEW_FILES["cloudflare-pages"][0], cloudflare_workflow(facts, args.project)), scanner]
     if facts.get("kind") not in ("static", "server"):
         raise Unknown(["kind (static or server)"])
+    if stack_scan.preview_kind(facts) == "static+api":
+        # The blueprint describes the root, which here is the static frontend, not the API; and the
+        # Pages preview of that frontend must stay, so nothing of it may be removed either.
+        raise Refused("this root is a static frontend with an API (%s): the frontend's preview is Cloudflare "
+                      "Pages (scaffold.py preview --project NAME), and the API's Render service isn't the root, "
+                      "so write that service by hand (the preview-environments skill, 'a static frontend and "
+                      "an API'). Nothing was written or removed." % ", ".join(facts["api"]))
     return [(root / "render.yaml", render_blueprint(facts, args.name or root.name)),
             (root / PREVIEW_FILES["render"][1], render_tickets_workflow(facts["kind"])), scanner]
 
@@ -598,6 +610,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 3
     try:
         files = plan(args, facts, root)
+    except Refused as err:
+        print("scaffold: %s" % err, file=sys.stderr)
+        return 2
     except Unknown as err:
         print("scaffold: unknown, so nothing was written: %s" % err, file=sys.stderr)
         for item in facts["unknowns"]:
