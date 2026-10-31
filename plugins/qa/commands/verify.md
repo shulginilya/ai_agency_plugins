@@ -1,7 +1,7 @@
 ---
 description: Verify a built change, on the ticket's review link when there is one, against its acceptance criteria with evidence; accept moves it to Ready for Merge, reject back to In progress.
 argument_hint: "[issue number and branch or PR, e.g. \"#42 PR #43\"]"
-model: claude-opus-5-5
+model: claude-sonnet-5-5
 effort: medium
 allowed_tools: Bash(gh:*) Bash(git:*) Bash(python:*) Bash Read Grep Glob Write
 ---

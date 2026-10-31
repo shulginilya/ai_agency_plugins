@@ -1,7 +1,8 @@
 ---
 description: Report how much of the backlog is actually ready to plan, and what the top items are missing.
 argument_hint: "[milestone or label to scope to, or nothing for all open issues]"
-model: sonnet
+model: claude-sonnet-5-5
+effort: medium
 allowed_tools: Bash(gh:*) Bash(python:*) Read
 ---
 
