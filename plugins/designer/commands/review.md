@@ -1,7 +1,7 @@
 ---
 description: Review UI for usability, accessibility (WCAG 2.2 AA) and design-system consistency, and report findings ranked by severity.
 argument_hint: "[flow, screen, path or base branch; nothing for the current UI diff]"
-model: claude-opus-5-5
+model: claude-sonnet-5-5
 effort: medium
 allowed_tools: Bash(git:*) Bash(python:*) Read Grep Glob
 ---

@@ -6,7 +6,7 @@
       "why": "Narrow, low-ambiguity work. The cheapest fast profile is enough, and the crew plugins are installed for Claude Code only."
     },
     {
-      "when": "The task is read-only and plans or reports rather than changes code: a scout investigation, a UX review of existing UI, a QA test plan or acceptance check, backlog refinement, sprint planning, triaging why a CI run failed, or drafting a backlog or board plan.",
+      "when": "The task is read-only and plans or reports rather than changes code: a scout investigation other than a bug diagnosis (a bug scout falls under the bug rule below), a UX review of existing UI, a QA test plan or acceptance check, backlog refinement, sprint planning, triaging why a CI run failed, or drafting a backlog or board plan.",
       "use": { "harness": "claude", "model": "claude-sonnet-5-5", "effort": "medium" },
       "why": "Reading and judging, not building: /designer:review, /qa:plan and /qa:verify (which comments its verdict and moves the card, but never changes code), /scrum-master:refine and plan-sprint, and /devops:triage as a scout, all run well on Sonnet."
     },
