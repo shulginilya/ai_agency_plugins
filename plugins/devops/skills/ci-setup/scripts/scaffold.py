@@ -592,7 +592,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("wrote %s" % rel)
     stale = replaced(args.provider, root) if args.what == "preview" else []
     for path in stale:
-        rel = path.relative_to(root)
+        rel = path.relative_to(root).as_posix()
         if args.dry_run:
             print("would remove %s (the old preview's)" % rel)
         elif code == 0:
