@@ -159,10 +159,24 @@ def scan_node(root: Path, facts: Dict[str, Any]) -> None:
 # --- python ------------------------------------------------------------------
 
 
+def python_text(root: Path) -> str:
+    """The declared Python dependencies, lowercased: pyproject, requirements files and Pipfile."""
+    return "\n".join(read(root / n) for n in ("pyproject.toml", "requirements.txt", "requirements-dev.txt",
+                                              "Pipfile")).lower()
+
+
+def python_server(root: Path) -> Optional[str]:
+    """The Python web framework this repo serves with, if any."""
+    if (root / "manage.py").exists():
+        return "django"
+    text = python_text(root)
+    return next((f for f in PY_SERVERS if re.search(r"(^|[\s\"'\[,])%s\b" % f, text)), None)
+
+
 def scan_python(root: Path, facts: Dict[str, Any]) -> None:
     pyproject = read(root / "pyproject.toml")
     requirements = read(root / "requirements.txt") + read(root / "requirements-dev.txt")
-    text = (pyproject + "\n" + requirements + "\n" + read(root / "Pipfile")).lower()
+    text = python_text(root)
     facts["language"] = "python"
     if (root / "uv.lock").exists():
         facts.update(package_manager="uv", install="uv sync --frozen", run="uv run ")
@@ -193,9 +207,7 @@ def scan_python(root: Path, facts: Dict[str, Any]) -> None:
     if "mypy" in text:
         facts["typecheck"] = "%smypy ." % run
 
-    framework = next((f for f in PY_SERVERS if re.search(r"(^|[\s\"'\[,])%s\b" % f, text)), None)
-    if (root / "manage.py").exists():
-        framework = "django"
+    framework = python_server(root)
     if not framework:
         return
     facts.update(framework=framework, kind="server", output_dir=None)
@@ -230,7 +242,13 @@ def scan(root: Path) -> Dict[str, Any]:
     facts: Dict[str, Any] = {"root": str(root), "kind": "unknown", "language": None, "framework": None,
                              "package_manager": None, "install": None, "output_dir": None,
                              "unknowns": [], "notes": []}
-    if (root / "package.json").exists():
+    # A Python server with a package.json is a server whose package.json builds its assets
+    # (Vite for Django, say): the Python side decides the kind.
+    if (root / "package.json").exists() and python_server(root):
+        scan_python(root, facts)
+        facts["notes"].append("package.json is asset tooling for the %s server: build its assets in the "
+                              "server's build command" % facts.get("framework"))
+    elif (root / "package.json").exists():
         scan_node(root, facts)
     elif first(root, "pyproject.toml", "requirements.txt", "Pipfile", "manage.py", "setup.py"):
         scan_python(root, facts)
@@ -297,7 +315,8 @@ def expect(facts: Dict[str, Any], kind: str, host: str) -> int:
         tail = ("It needs %s. Run /devops:preview again: it replaces this preview with the %s one."
                 % (HOSTS[fits], HOSTS[fits]))
         if now == "static+api":
-            tail += " The API keeps a Render service of its own, written by hand."
+            tail = ("The frontend needs Cloudflare Pages. Run /devops:preview again: it puts the frontend on "
+                    "Cloudflare Pages and keeps this Render service for the API.")
     elif now == "static+api":
         tail = ("The frontend stays on %s, but the API needs its own preview on a backend host (Render). "
                 "Run /devops:preview again: it rewrites this preview for kind=static+api, and the API gets its own Render preview."

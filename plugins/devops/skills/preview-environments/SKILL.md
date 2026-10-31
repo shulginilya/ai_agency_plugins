@@ -128,7 +128,12 @@ Render needs no GitHub secret. It creates the GitHub Deployment itself.
     table's "a static frontend and an API" row. Write the API's Render
     service by hand: `scaffold.py preview --provider render` refuses such a
     root (exit 2), because its blueprint would describe the frontend and its
-    run would remove the Pages preview.
+    run would remove the Pages preview. A server already on Render that grows a
+    static frontend keeps its Render service as the API's preview: scaffolding
+    Pages re-records it as `kind=static+api` instead of removing it.
+  - A Python server (Django, Flask, FastAPI) with a `package.json` for its
+    assets stays `server`; the scan notes that the server's build command has
+    to build those assets.
 - The app must work from the root of its own host. If it has a hardcoded base
   path or an absolute API URL, make the API URL a build-time variable.
 - Same rules as `ci-setup`: least-privilege `permissions` (the preview job

@@ -142,11 +142,29 @@ class ExpectTest(unittest.TestCase):
 
     def test_server_to_static_fails_too(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "api", dict(FASTAPI, **VITE))  # a package.json frontend took over the root
+            root = project(tmp, "api", FASTAPI)
+            self.assertEqual(self.expect(root, "server", "render").returncode, 0)
+            shutil.rmtree(root / "app")  # the Python server is gone, a Vite app replaced it
+            (root / "requirements.txt").unlink()
+            project(tmp, "api", VITE)
             result = self.expect(root, "server", "render")
             self.assertEqual(result.returncode, 4)
             self.assertIn("recorded=server now=static host=render", result.stdout)
             self.assertIn("needs Cloudflare Pages", result.stdout)
+
+    def test_a_python_server_with_asset_tooling_stays_a_server(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            django = {"manage.py": "", "mysite/wsgi.py": "", "requirements.txt": "django\ngunicorn\n"}
+            assets = {"package.json": {"scripts": {"build": "vite build"}, "devDependencies": {"vite": "5"}},
+                      "package-lock.json": "{}"}
+            for name, files in (("django", django), ("fastapi", FASTAPI)):
+                with self.subTest(name):
+                    root = project(tmp, name, dict(files, **assets))
+                    facts = stack_scan.scan(root)
+                    self.assertEqual((facts["kind"], facts["framework"]), ("server", name))
+                    self.assertTrue(any("asset tooling" in n for n in facts["notes"]), facts["notes"])
+                    result = self.expect(root, "server", "render")
+                    self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_every_known_stack_that_outgrows_static_hosting_is_caught(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -273,6 +291,12 @@ class ScaffoldTest(unittest.TestCase):
             review = (api / ".github" / "workflows" / "review-link.yml").read_text()
             self.assertTrue(review.startswith("# devops:preview kind=server provider=render\n"))
             self.assertIn("run: python3 .github/devops/stack_scan.py . --expect server --host render", review)
+            # the stack job runs on every push, and has the repo checked out before it runs the copy
+            self.assertIn("types: [opened, synchronize, reopened, closed]", review)
+            job = review[review.index("  stack:"):review.index("  tickets:")]
+            self.assertIn("if: github.event_name == 'pull_request' && github.event.action != 'closed'", job)
+            self.assertIn("uses: actions/checkout", job)
+            self.assertLess(job.index("uses: actions/checkout"), job.index("--expect server --host render"))
             self.assertTrue((api / ".github" / "devops" / "stack_scan.py").is_file())
 
     def check_passes(self, root, workflow):
@@ -347,6 +371,32 @@ class ScaffoldTest(unittest.TestCase):
             self.assertEqual((root / ".github" / "workflows" / "preview.yml").read_text(), pages,
                              "the frontend's Pages preview stays")
             self.assertFalse((root / "render.yaml").exists())
+
+    def test_a_server_that_grows_a_static_frontend_keeps_its_render_service_for_the_api(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            express = pkg({"express": "5"})
+            root = project(tmp, "api", express)
+            self.assertEqual(self.scaffold(root, "preview").returncode, 0)
+            self.assertTrue((root / "render.yaml").read_text().startswith("# devops:preview kind=server provider=render"))
+            frontend = pkg({"express": "5", "react": "19"}, {"build": "vite build"}, dev={"vite": "7"})
+            root.joinpath("package.json").write_text(json.dumps(frontend["package.json"]))
+            check = run(root / ".github" / "devops" / "stack_scan.py", root, "--expect", "server", "--host", "render")
+            self.assertEqual(check.returncode, 4)
+            self.assertIn("keeps this Render service for the API", check.stdout)
+
+            before = (root / "render.yaml").read_text()
+            dry = self.scaffold(root, "preview", "--project", "app", "--dry-run")
+            self.assertIn("would keep render.yaml", dry.stdout)
+            self.assertEqual((root / "render.yaml").read_text(), before, "a dry run changes nothing")
+
+            result = self.scaffold(root, "preview", "--project", "app")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertNotIn("removed", result.stdout)
+            blueprint = (root / "render.yaml").read_text()
+            self.assertTrue(blueprint.startswith("# devops:preview kind=static+api provider=render\n"))
+            self.assertEqual(blueprint.split("\n", 1)[1], before.split("\n", 1)[1], "the service itself is untouched")
+            self.check_passes(root, "review-link.yml")
+            self.check_passes(root, "preview.yml")
 
     def test_previews_scaffolded_before_the_record_line_are_still_replaced(self):
         with tempfile.TemporaryDirectory() as tmp:

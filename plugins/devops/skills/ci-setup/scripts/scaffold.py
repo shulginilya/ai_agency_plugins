@@ -550,10 +550,39 @@ def outdated(path: Path, kind: str) -> bool:
     return found is not None and found != kind
 
 
-def replaced(provider: str, root: Path) -> List[Path]:
-    """The other provider's preview files in the repo, which this preview replaces."""
+def api_service(root: Path) -> bool:
+    """A Render preview of this script's that runs a process (not a static site): the API's, on static+api."""
+    blueprint = root / "render.yaml"
+    if not (blueprint.is_file() and ours(blueprint)):
+        return False
+    found = recorded_kind(blueprint)
+    return found in ("server", "static+api") or (found is None and "startCommand:" in blueprint.read_text(
+        encoding="utf-8"))
+
+
+def replaced(provider: str, root: Path, kind: Optional[str] = None) -> List[Path]:
+    """The other provider's preview files in the repo, which this preview replaces.
+
+    On static+api the Render service of a former server is the API's preview, so it stays.
+    """
+    keep_render = kind == "static+api" and api_service(root)
     return [root / rel for other, files in PREVIEW_FILES.items() if other != provider
+            and not (other == "render" and keep_render)
             for rel in files if (root / rel).is_file() and ours(root / rel)]
+
+
+def keep_for_api(root: Path, dry_run: bool) -> List[str]:
+    """Re-record a former server's Render preview as the API half of static+api, so its check passes."""
+    blueprint, workflow = root / "render.yaml", root / PREVIEW_FILES["render"][1]
+    lines = blueprint.read_text(encoding="utf-8").split("\n")
+    if RECORD_RE.match(lines[0]):
+        lines = lines[1:]
+    if not dry_run:
+        blueprint.write_text("\n".join([RECORD % ("static+api", "render")] + lines), encoding="utf-8")
+        if workflow.is_file() and ours(workflow):
+            workflow.write_text(render_tickets_workflow("static+api"), encoding="utf-8")
+    return ["%s render.yaml for the API's preview, recorded as kind=static+api, and review-link.yml with it"
+            % ("would keep" if dry_run else "kept")]
 
 
 def plan(args: argparse.Namespace, facts: Dict[str, Any], root: Path) -> List[Tuple[Path, str]]:
@@ -636,7 +665,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         print("rewrote %s (it was set up for kind=%s)" % (rel.as_posix(), was) if was else "wrote %s" % rel)
-    stale = replaced(args.provider, root) if args.what == "preview" else []
+    stale = replaced(args.provider, root, kind) if args.what == "preview" else []
     for path in stale:
         rel = path.relative_to(root).as_posix()
         if args.dry_run:
@@ -647,7 +676,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     if stale and code == 0:
         print("review links now look like %s: say so in the report, QA reads them from the ticket comment"
               % LINKS[args.provider])
-    if kind == "static+api":
+    if kind == "static+api" and args.provider == "cloudflare-pages" and api_service(root) and code == 0:
+        for line in keep_for_api(root, args.dry_run):
+            print(line)
+    elif kind == "static+api":
         print("the API (%s) isn't previewed by this workflow: give it its own Render preview "
               "(the preview-environments skill, 'a static frontend and an API')" % ", ".join(facts["api"]))
     secrets = SECRETS.get(args.provider or "", [])
