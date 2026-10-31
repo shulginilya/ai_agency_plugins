@@ -16,8 +16,8 @@
         "path": "claude-code/code-reviewer",
         "ref": "dist"
       },
-      "description": "Code review for the crew: reads every pull request the developer ships, in a fresh context, for correctness, security, performance, accessibility and test gaps, and posts a PR review whose findings each carry a concrete failure scenario. Approve leaves the ticket in In review for QA; request changes moves it back to In progress. Never pushes code. Use when asked to review a PR or its code, check a diff before QA, or re-review a PR after a fix.",
-      "version": "0.1.0",
+      "description": "Code review for the crew: reads every pull request the developer ships, in a fresh context, for correctness, security, performance, accessibility and test gaps, and posts a PR review whose findings each carry a concrete failure scenario. Approve moves the ticket to In approval (QA if labelled skip_approval); request changes moves it back to In progress. Never pushes code. Use when asked to review a PR or its code, check a diff before QA, or re-review a PR after a fix.",
+      "version": "0.2.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -252,8 +252,8 @@
         "path": "claude-code/qa",
         "ref": "dist"
       },
-      "description": "Quality assurance for the crew: turns a ticket's acceptance criteria into a test plan before work starts, verifies the finished change against every criterion with evidence, on the ticket's review link if any, gives an accept or reject verdict and moves the ticket to Ready for Merge or back to In progress, and files reproducible bug tickets labelled \"QA testing\". Use when asked to test, QA or verify a change, check acceptance criteria, write test cases or a test plan, or report a bug.",
-      "version": "0.5.2",
+      "description": "Quality assurance for the crew: turns a ticket's acceptance criteria into a test plan before work starts, verifies a change in the QA column against every criterion with evidence, on the ticket's review link if any, gives an accept or reject verdict and moves the ticket to Ready for Merge or back to In progress, and files reproducible bug tickets labelled \"QA testing\". Use when asked to test, QA or verify a change, check acceptance criteria, write test cases or a test plan, or report a bug.",
+      "version": "0.6.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -300,7 +300,7 @@
         "ref": "dist"
       },
       "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, builds a sprint plan with one goal and a realistic capacity, and creates the GitHub Projects board the backlog goes on. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, plan the next sprint, or create a project board.",
-      "version": "0.3.5",
+      "version": "0.4.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
