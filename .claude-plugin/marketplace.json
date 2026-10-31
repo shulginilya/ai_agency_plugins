@@ -39,7 +39,7 @@
         "ref": "dist"
       },
       "description": "UI and UX for the crew: writes the design spec a developer builds and tests against (flow, every screen state, layout, copy, accessibility) and reviews existing UI for usability, WCAG 2.2 AA and consistency with the project's own tokens. Use when asked to design or spec a screen or flow, review UX or UI, check accessibility or contrast, or make an interface consistent.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -62,7 +62,7 @@
         "ref": "dist"
       },
       "description": "The development loop end to end, test-first: implement a feature in red-green-refactor slices, refactor without changing behaviour, diagnose a bug to its proved root cause, fix it with the failing test first, bisect a regression to its commit, run the repo's checks, ship it as a ticket, branch and PR, and, when asked, rebase a PR to clear its conflicts. Use when asked to implement, refactor, debug, fix a failing or flaky test, find what broke, open a PR, or resolve its merge conflicts.",
-      "version": "0.6.3",
+      "version": "0.6.4",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -253,7 +253,7 @@
         "ref": "dist"
       },
       "description": "Quality assurance for the crew: turns a ticket's acceptance criteria into a test plan before work starts, verifies a change in the QA column against every criterion with evidence, on the ticket's review link if any, gives an accept or reject verdict and moves the ticket to Ready for Merge or back to In progress, and files reproducible bug tickets labelled \"QA testing\". Use when asked to test, QA or verify a change, check acceptance criteria, write test cases or a test plan, or report a bug.",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -300,7 +300,7 @@
         "ref": "dist"
       },
       "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, builds a sprint plan with one goal and a realistic capacity, and creates the GitHub Projects board the backlog goes on. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, plan the next sprint, or create a project board.",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
