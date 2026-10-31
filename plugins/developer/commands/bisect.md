@@ -1,7 +1,8 @@
 ---
 description: Find the commit that introduced a regression by bisecting a scripted reproduction, then read the culprit.
 argument_hint: "[last known good ref] [and/or the verdict command]"
-model: sonnet
+model: claude-opus-5-5
+effort: high
 allowed_tools: Bash(git:*) Bash Read Grep Glob
 ---
 

@@ -1,7 +1,8 @@
 ---
 name: first-time-user
 description: Walks one user flow in a fresh context as a first-time user who knows only what the screens say — not the code's intent, the ticket or the design discussion — and reports every point where they would hesitate, misread or fail. Use when a flow has been designed or built and should be checked by someone who has not seen how it is supposed to work, before it reaches real users.
-model: sonnet
+model: claude-sonnet-5-5
+effort: medium
 tools: Read, Grep, Glob, Bash
 ---
 
