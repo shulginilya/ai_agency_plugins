@@ -1,7 +1,8 @@
 ---
 name: investigator
 description: Tests one hypothesis about the cause of a bug in a fresh context and returns a verdict with the evidence behind it. Use when a diagnosis has more than one plausible mechanism and each should be examined without the bias of the others, or when a hypothesis needs checking without disturbing the main investigation.
-model: sonnet
+model: claude-opus-5-5
+effort: high
 tools: Read, Grep, Glob, Bash
 ---
 

@@ -1,7 +1,8 @@
 ---
 description: Implement a fix for a bug whose root cause is already proved, with the failing test written first.
 argument_hint: "[the proved root cause, or nothing to use the current diagnosis]"
-model: sonnet
+model: claude-opus-5-5
+effort: high
 allowed_tools: Bash Read Edit Write Grep Glob
 ---
 

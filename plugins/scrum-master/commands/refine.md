@@ -1,7 +1,8 @@
 ---
 description: Refine a backlog item into a ready story — value, acceptance criteria, size, and a split if it is too big.
 argument_hint: "[issue number, URL, or a plain description of the work]"
-model: sonnet
+model: claude-sonnet-5-5
+effort: medium
 allowed_tools: Bash(gh:*) Bash(python:*) Read Grep Glob
 ---
 

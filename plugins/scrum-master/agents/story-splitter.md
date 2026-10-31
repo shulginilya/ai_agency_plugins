@@ -1,7 +1,8 @@
 ---
 name: story-splitter
 description: Splits one oversized backlog item into vertical slices that each ship something, and returns the slices as candidate stories with acceptance criteria. Use when an item is estimated at 13 or more, spans a whole sprint, or has more than eight acceptance criteria, and you want the split worked out in a fresh context rather than mid-refinement.
-model: sonnet
+model: claude-sonnet-5-5
+effort: medium
 tools: Read, Grep, Glob, Bash
 ---
 

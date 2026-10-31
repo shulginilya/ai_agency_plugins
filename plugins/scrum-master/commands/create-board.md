@@ -1,7 +1,7 @@
 ---
 description: Create a GitHub Projects board for this repository with the team's columns, linked and ready for a backlog.
 argument_hint: "[board title, and optionally the columns in order]"
-model: claude-opus-5-5
+model: claude-sonnet-5-5
 effort: medium
 allowed_tools: Bash(gh:*) Bash(python:*) Read Grep Glob
 ---
