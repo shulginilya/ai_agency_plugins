@@ -43,8 +43,7 @@ Render previews keep their `onrender.com` link.
 **When the stack outgrows its host.** Every preview file records the kind it
 was set up for (`# devops:preview kind=static provider=cloudflare-pages`), and
 every PR reruns the scan from `.github/devops/stack_scan.py` with
-`--expect <kind>`. If a static app becomes a server app (or the reverse), or a
-static frontend gains an API server in its dependencies (`static+api`), that
+`--expect <kind>`. If a static app becomes a server app (or the reverse), that
 step fails with `devops:stack-changed` and names the new kind. `/triage` files
 it as devops' job, and `/preview` run again scaffolds the right host and
 removes the old one's files.

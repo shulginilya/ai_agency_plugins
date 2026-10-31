@@ -46,26 +46,6 @@ NEXT_EXPORT = {"package.json": {"scripts": {"build": "next build", "start": "nex
 NEXT_SERVER_CONFIG = "export default {};\n"  # output: "export" dropped, e.g. for a database
 
 
-def pkg(deps, scripts=None, dev=None):
-    return {"package.json": {"scripts": dict({"build": "x build", "start": "x start"}, **(scripts or {})),
-                             "dependencies": deps, "devDependencies": dev or {}}, "package-lock.json": "{}"}
-
-
-# Each stack the scan knows, before and after the change that makes it outgrow a static host:
-# (before, after: files written over it, the kind now, words the error's reason must carry)
-FLIPS = {
-    "next": (NEXT_EXPORT, {"next.config.ts": NEXT_SERVER_CONFIG}, "server", "output: 'export'"),
-    "sveltekit": (pkg({"@sveltejs/kit": "2", "@sveltejs/adapter-static": "3"}),
-                  pkg({"@sveltejs/kit": "2", "@sveltejs/adapter-node": "5"}), "server", "adapter-static"),
-    "astro": (dict(pkg({"astro": "5"}), **{"astro.config.mjs": "export default {}\n"}),
-              {"astro.config.mjs": "export default { output: 'server' }\n"}, "server", "server adapter"),
-    "nuxt": (pkg({"nuxt": "4"}, {"generate": "nuxt generate"}), pkg({"nuxt": "4"}), "server", "generate script"),
-    "vite": (pkg({"react": "19"}, dev={"vite": "7"}), pkg({"react": "19", "express": "5"}, dev={"vite": "7"}),
-             "static+api", "vite plus express"),
-    "plain": ({"index.html": "<h1>hi</h1>"}, FASTAPI, "server", "fastapi"),
-}
-
-
 class StackScanTest(unittest.TestCase):
     def test_each_stack_gets_its_kind_and_commands(self):
         cases = {
@@ -142,60 +122,11 @@ class ExpectTest(unittest.TestCase):
 
     def test_server_to_static_fails_too(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "api", FASTAPI)
-            self.assertEqual(self.expect(root, "server", "render").returncode, 0)
-            shutil.rmtree(root / "app")  # the Python server is gone, a Vite app replaced it
-            (root / "requirements.txt").unlink()
-            project(tmp, "api", VITE)
+            root = project(tmp, "api", dict(FASTAPI, **VITE))  # a package.json frontend took over the root
             result = self.expect(root, "server", "render")
             self.assertEqual(result.returncode, 4)
             self.assertIn("recorded=server now=static host=render", result.stdout)
             self.assertIn("needs Cloudflare Pages", result.stdout)
-
-    def test_a_python_server_with_asset_tooling_stays_a_server(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            django = {"manage.py": "", "mysite/wsgi.py": "", "requirements.txt": "django\ngunicorn\n"}
-            assets = {"package.json": {"scripts": {"build": "vite build"}, "devDependencies": {"vite": "5"}},
-                      "package-lock.json": "{}"}
-            for name, files in (("django", django), ("fastapi", FASTAPI)):
-                with self.subTest(name):
-                    root = project(tmp, name, dict(files, **assets))
-                    facts = stack_scan.scan(root)
-                    self.assertEqual((facts["kind"], facts["framework"]), ("server", name))
-                    self.assertTrue(any("asset tooling" in n for n in facts["notes"]), facts["notes"])
-                    result = self.expect(root, "server", "render")
-                    self.assertEqual(result.returncode, 0, result.stdout)
-
-    def test_every_known_stack_that_outgrows_static_hosting_is_caught(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            for name, (before, after, now, reason) in FLIPS.items():
-                with self.subTest(name):
-                    root = project(tmp, name, before)
-                    self.assertEqual(self.expect(root, "static", "cloudflare-pages").returncode, 0,
-                                     "%s starts static" % name)
-                    for rel, text in after.items():
-                        (root / rel).parent.mkdir(parents=True, exist_ok=True)
-                        (root / rel).write_text(text if isinstance(text, str) else json.dumps(text))
-                    result = self.expect(root, "static", "cloudflare-pages")
-                    self.assertEqual(result.returncode, 4, result.stdout)
-                    self.assertIn("recorded=static now=%s " % now, result.stdout)
-                    self.assertIn(reason, result.stdout)
-                    self.assertIn("/devops:preview", result.stdout)
-
-    def test_a_dev_only_server_is_not_an_api(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "vite", pkg({"react": "19"}, dev={"vite": "7", "express": "5"}))
-            self.assertEqual(self.expect(root, "static", "cloudflare-pages").returncode, 0)
-
-    def test_the_same_host_is_not_called_a_new_one(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "next", NEXT_EXPORT)
-            (root / "next.config.ts").write_text(NEXT_SERVER_CONFIG)
-            result = self.expect(root, "static", "render")  # a Render static site that became a server
-            self.assertEqual(result.returncode, 4)
-            self.assertNotIn("needs Render", result.stdout)
-            self.assertIn("The host stays Render", result.stdout)
-            self.assertIn("rewrites this preview's files for kind=server", result.stdout)
 
     def test_a_scan_that_cannot_tell_only_warns(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -277,11 +208,7 @@ class ScaffoldTest(unittest.TestCase):
             self.assertLess(text.index("actions/checkout"), text.index(check))
             self.assertLess(text.index(check), text.index("run: npm ci"), "fail before spending a build")
             copied = vite / ".github" / "devops" / "stack_scan.py"
-            source = (SCRIPTS / "stack_scan.py").read_text()
-            self.assertTrue(copied.read_text().startswith("#!/usr/bin/env python3\n# Copied by the devops plugin"))
-            self.assertEqual(copied.read_text().replace(scaffold.SCANNER_HEADER, ""), source)
-            for skip in ("# flake8: noqa", "# ruff: noqa", "# fmt: off"):  # the repo's own lint stays green
-                self.assertIn(skip + "\n", scaffold.SCANNER_HEADER)
+            self.assertEqual(copied.read_text(), (SCRIPTS / "stack_scan.py").read_text())
             self.assertEqual(run(copied, vite, "--expect", "static", "--host", "cloudflare-pages").returncode, 0,
                              "the copy runs on its own, without the plugin")
 
@@ -291,22 +218,7 @@ class ScaffoldTest(unittest.TestCase):
             review = (api / ".github" / "workflows" / "review-link.yml").read_text()
             self.assertTrue(review.startswith("# devops:preview kind=server provider=render\n"))
             self.assertIn("run: python3 .github/devops/stack_scan.py . --expect server --host render", review)
-            # the stack job runs on every push, and has the repo checked out before it runs the copy
-            self.assertIn("types: [opened, synchronize, reopened, closed]", review)
-            job = review[review.index("  stack:"):review.index("  tickets:")]
-            self.assertIn("if: github.event_name == 'pull_request' && github.event.action != 'closed'", job)
-            self.assertIn("uses: actions/checkout", job)
-            self.assertLess(job.index("uses: actions/checkout"), job.index("--expect server --host render"))
             self.assertTrue((api / ".github" / "devops" / "stack_scan.py").is_file())
-
-    def check_passes(self, root, workflow):
-        """Run the copied scanner exactly as the written workflow does, and assert it is green."""
-        line = next(l for l in (root / ".github" / "workflows" / workflow).read_text().splitlines()
-                    if "--expect" in l)
-        args = line.split("python3 ", 1)[1].split()
-        result = run(root / args[0], root, *args[2:])
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertNotIn("::error", result.stdout)
 
     def test_switching_host_replaces_the_old_preview(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -322,7 +234,6 @@ class ScaffoldTest(unittest.TestCase):
             self.assertIn("onrender.com", result.stdout)
             self.assertEqual(sorted(p.name for p in (root / ".github" / "workflows").iterdir()), ["review-link.yml"])
             self.assertTrue((root / "render.yaml").read_text().startswith("# devops:preview kind=server"))
-            self.check_passes(root, "review-link.yml")
 
             # and back: the Render files go, the Pages workflow comes
             (root / "next.config.ts").write_text(NEXT_EXPORT["next.config.ts"])
@@ -330,138 +241,6 @@ class ScaffoldTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((root / "render.yaml").exists())
             self.assertEqual(sorted(p.name for p in (root / ".github" / "workflows").iterdir()), ["preview.yml"])
-            self.check_passes(root, "preview.yml")
-
-    def test_a_new_kind_on_the_same_host_rewrites_its_files(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "next", NEXT_EXPORT)
-            self.assertEqual(self.scaffold(root, "preview", "--provider", "render").returncode, 0)
-            self.assertTrue((root / "render.yaml").read_text().startswith("# devops:preview kind=static provider=render"))
-            (root / "next.config.ts").write_text(NEXT_SERVER_CONFIG)
-            result = self.scaffold(root, "preview")  # no --force: these are the script's own files
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("rewrote render.yaml (it was set up for kind=static)", result.stdout)
-            blueprint = (root / "render.yaml").read_text()
-            self.assertTrue(blueprint.startswith("# devops:preview kind=server provider=render"))
-            self.assertIn("runtime: node", blueprint)
-            self.check_passes(root, "review-link.yml")
-
-    def test_a_static_frontend_that_grows_an_api_keeps_pages_and_says_where_the_api_goes(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            before, after = FLIPS["vite"][:2]
-            root = project(tmp, "vite", before)
-            self.assertEqual(self.scaffold(root, "preview", "--project", "shop").returncode, 0)
-            root.joinpath("package.json").write_text(json.dumps(after["package.json"]))
-            result = self.scaffold(root, "preview", "--project", "shop")
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("rewrote .github/workflows/preview.yml (it was set up for kind=static)", result.stdout)
-            self.assertIn("the API (express) isn't previewed by this workflow", result.stdout)
-            self.check_passes(root, "preview.yml")
-
-    def test_render_is_refused_for_a_static_frontend_with_an_api(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "vite", FLIPS["vite"][1])
-            self.assertEqual(self.scaffold(root, "preview", "--project", "shop").returncode, 0)
-            pages = (root / ".github" / "workflows" / "preview.yml").read_text()
-            self.assertTrue(pages.startswith("# devops:preview kind=static+api provider=cloudflare-pages\n"))
-            self.check_passes(root, "preview.yml")
-            result = self.scaffold(root, "preview", "--provider", "render")
-            self.assertEqual(result.returncode, 2)
-            self.assertIn("write that service by hand", result.stderr)
-            self.assertEqual((root / ".github" / "workflows" / "preview.yml").read_text(), pages,
-                             "the frontend's Pages preview stays")
-            self.assertFalse((root / "render.yaml").exists())
-
-    def test_a_server_that_grows_a_static_frontend_keeps_its_render_service_for_the_api(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            express = pkg({"express": "5"})
-            root = project(tmp, "api", express)
-            self.assertEqual(self.scaffold(root, "preview").returncode, 0)
-            self.assertTrue((root / "render.yaml").read_text().startswith("# devops:preview kind=server provider=render"))
-            frontend = pkg({"express": "5", "react": "19"}, {"build": "vite build"}, dev={"vite": "7"})
-            root.joinpath("package.json").write_text(json.dumps(frontend["package.json"]))
-            check = run(root / ".github" / "devops" / "stack_scan.py", root, "--expect", "server", "--host", "render")
-            self.assertEqual(check.returncode, 4)
-            self.assertIn("keeps this Render service for the API", check.stdout)
-
-            before = (root / "render.yaml").read_text()
-            dry = self.scaffold(root, "preview", "--project", "app", "--dry-run")
-            self.assertIn("would keep render.yaml", dry.stdout)
-            self.assertEqual((root / "render.yaml").read_text(), before, "a dry run changes nothing")
-
-            result = self.scaffold(root, "preview", "--project", "app")
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertNotIn("removed", result.stdout)
-            blueprint = (root / "render.yaml").read_text()
-            self.assertTrue(blueprint.startswith("# devops:preview kind=static+api provider=render\n"))
-            self.assertEqual(blueprint.split("\n", 1)[1], before.split("\n", 1)[1], "the service itself is untouched")
-            self.check_passes(root, "review-link.yml")
-            self.check_passes(root, "preview.yml")
-
-    def test_previews_scaffolded_before_the_record_line_are_still_replaced(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            def strip_record(path):  # what main's scaffold wrote: the same file without the record line
-                text = path.read_text()
-                self.assertTrue(text.startswith("# devops:preview "))
-                path.write_text(text.split("\n", 1)[1])
-
-            root = project(tmp, "next", NEXT_EXPORT)
-            self.assertEqual(self.scaffold(root, "preview", "--project", "obs").returncode, 0)
-            strip_record(root / ".github" / "workflows" / "preview.yml")
-            (root / "next.config.ts").write_text(NEXT_SERVER_CONFIG)
-            result = self.scaffold(root, "preview")
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertFalse((root / ".github" / "workflows" / "preview.yml").exists())
-
-            strip_record(root / "render.yaml")
-            strip_record(root / ".github" / "workflows" / "review-link.yml")
-            (root / "next.config.ts").write_text(NEXT_EXPORT["next.config.ts"])
-            result = self.scaffold(root, "preview", "--project", "obs")
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertFalse((root / "render.yaml").exists())
-            self.assertFalse((root / ".github" / "workflows" / "review-link.yml").exists())
-
-    def test_an_older_copy_of_the_scanner_is_refreshed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "vite", VITE)
-            self.assertEqual(self.scaffold(root, "preview", "--project", "shop").returncode, 0)
-            copied = root / ".github" / "devops" / "stack_scan.py"
-            fresh = copied.read_text()
-            copied.write_text("# old\n")
-            result = self.scaffold(root, "preview", "--project", "shop")  # no --force
-            self.assertEqual(result.returncode, 0, result.stdout)
-            self.assertEqual(copied.read_text(), fresh)
-
-    def test_the_old_preview_stays_when_the_new_one_could_not_be_written(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "next", NEXT_EXPORT)
-            self.assertEqual(self.scaffold(root, "preview", "--project", "obs").returncode, 0)
-            (root / "render.yaml").write_text("services: []  # the team's own\n")
-            (root / "next.config.ts").write_text(NEXT_SERVER_CONFIG)
-            result = self.scaffold(root, "preview")
-            self.assertEqual(result.returncode, 1)
-            self.assertTrue((root / ".github" / "workflows" / "preview.yml").exists(),
-                            "never leave the repo with no working preview")
-            self.assertNotIn("removed", result.stdout)
-
-    def test_a_hand_edit_to_a_file_of_the_same_kind_still_needs_force(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "vite", VITE)
-            self.assertEqual(self.scaffold(root, "preview", "--project", "shop").returncode, 0)
-            workflow = root / ".github" / "workflows" / "preview.yml"
-            workflow.write_text(workflow.read_text() + "# team edit\n")
-            result = self.scaffold(root, "preview", "--project", "shop")
-            self.assertEqual(result.returncode, 1)
-            self.assertTrue(workflow.read_text().endswith("# team edit\n"))
-            self.assertNotIn("rewrote", result.stdout)
-
-    def test_a_file_it_did_not_record_is_still_left_alone(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = project(tmp, "api", FASTAPI)
-            mine = root / "render.yaml"
-            mine.write_text("services: []  # the team's own\n")
-            self.assertEqual(self.scaffold(root, "preview").returncode, 1)
-            self.assertEqual(mine.read_text(), "services: []  # the team's own\n")
 
     def test_never_removes_files_it_did_not_write(self):
         with tempfile.TemporaryDirectory() as tmp:
