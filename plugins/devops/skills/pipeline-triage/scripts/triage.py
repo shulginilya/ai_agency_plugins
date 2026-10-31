@@ -9,6 +9,8 @@
 For each failed job it finds the step that failed, cuts that step's part of the
 log, pulls out the lines that carry the failure, and names a category:
 
+    stack       the repo changed kind (static <-> server), so the preview
+                host it was set up for no longer fits       -> devops
     test        a test ran and failed                       -> developer
     build       compile, type or bundling error             -> developer
     lint        a linter or formatter refused the code      -> developer
@@ -32,7 +34,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-OWNER = {"test": "developer", "build": "developer", "lint": "developer", "dependency": "devops",
+OWNER = {"stack": "devops", "test": "developer", "build": "developer", "lint": "developer", "dependency": "devops",
          "workflow": "devops", "infra": "devops", "unknown": "devops"}
 TIMESTAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z ?")
 STEP = re.compile(r"^##\[group\]Run (.+)$")
@@ -42,6 +44,7 @@ EXCERPT_LINES = 12
 # specific causes (a missing secret, a resolution error, a lint report) beat the
 # generic ones (a failure count, an exit code) they also produce.
 SIGNATURES: List[Tuple[str, List[str]]] = [
+    ("stack", [r"devops:stack-changed"]),  # stack_scan.py --expect, in a preview workflow
     ("workflow", [r"Invalid workflow file", r"Unable to resolve action", r"Unrecognized named-value",
                   r"Input required and not supplied", r"Resource not accessible by integration",
                   r"secret .* (is )?not (set|found|defined)", r"Authentication error \[code: 10000\]",

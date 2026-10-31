@@ -3,6 +3,9 @@
 
     stack_scan.py [ROOT]           summary
     stack_scan.py [ROOT] --json    the facts scaffold.py builds workflows from
+    stack_scan.py [ROOT] --expect static --host cloudflare-pages
+                                   the preview workflow's check: does the stack
+                                   still fit the host it was set up for?
 
 Nothing is invented: a command is reported only when the repo declares it (a
 package.json script, a pytest config, a manage.py), and everything the scan
@@ -10,7 +13,12 @@ can't tell goes into `unknowns` for the agent to settle by reading the repo or
 asking. `kind` is `static` (a folder of built files any static host serves),
 `server` (needs a running process, so a backend host) or `unknown`.
 
-Standard library only. Exit status: 0 the kind is known, 3 it is unknown, 2 bad input.
+scaffold.py copies this file into the repository as .github/devops/stack_scan.py,
+so the check runs in CI without the plugin.
+
+Standard library only. Exit status: 0 the kind is known (with --expect: it is
+the expected one, or the scan can't tell), 3 it is unknown, 4 with --expect: it
+changed, 2 bad input.
 """
 
 from __future__ import annotations
@@ -246,16 +254,49 @@ def render(facts: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+HOSTS = {"cloudflare-pages": "Cloudflare Pages", "render": "Render"}
+DRIFT = "devops:stack-changed"  # pipeline-triage files a failure carrying this as devops' own
+
+
+def expect(facts: Dict[str, Any], kind: str, host: str) -> int:
+    """The preview workflow's check: 0 the stack still fits the host, 4 it changed kind.
+
+    Prints GitHub workflow commands, so the reason shows on the PR's checks. A
+    scan that can't tell is a warning, not a failure: no false alarm.
+    """
+    now = facts["kind"]
+    where = HOSTS.get(host, host)
+    if now == kind:
+        print("stack still fits %s: kind=%s, framework=%s" % (where, now, facts.get("framework")))
+        return 0
+    if now == "unknown":
+        print("::warning title=Preview host check::the scan can't tell static from server any more; "
+              "previews stay on %s. %s" % (where, "; ".join(facts["unknowns"])))
+        return 0
+    fits = HOSTS[facts["provider"]]
+    why = "; ".join(facts["notes"]) or "framework %s" % facts.get("framework")
+    print("::error title=Preview host no longer fits the stack::%s recorded=%s now=%s host=%s. "
+          "This repo's previews were set up for a %s build on %s, but it is now %s (%s), "
+          "which needs %s. Run /devops:preview again: it replaces this preview with the %s one."
+          % (DRIFT, kind, now, host, kind, where, now, why, fits, fits))
+    return 4
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("root", nargs="?", default=".")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--expect", choices=["static", "server"],
+                        help="the kind the preview was set up for; exit 4 when the scan says otherwise")
+    parser.add_argument("--host", choices=sorted(HOSTS), help="with --expect: the host the preview runs on")
     args = parser.parse_args(argv)
     root = Path(args.root).resolve()
     if not root.is_dir():
         print("stack_scan: not a directory: %s" % root, file=sys.stderr)
         return 2
     facts = scan(root)
+    if args.expect:
+        return expect(facts, args.expect, args.host or {"static": "cloudflare-pages", "server": "render"}[args.expect])
     print(json.dumps(facts, indent=2) if args.json else render(facts))
     return 0 if facts["kind"] != "unknown" else 3
 

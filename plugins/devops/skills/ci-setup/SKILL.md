@@ -4,7 +4,7 @@ description: Sets up or repairs continuous integration for a repository on GitHu
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # CI setup

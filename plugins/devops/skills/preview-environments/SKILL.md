@@ -4,7 +4,7 @@ description: Gives every pull request its own review link — a running preview 
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Preview environments
@@ -103,6 +103,19 @@ Render needs no GitHub secret. It creates the GitHub Deployment itself.
   and `.github/workflows/review-link.yml`. Render deploys by itself. The
   workflow runs on Render's `deployment_status`, and carries the link to the
   tickets, marking it down when the PR closes.
+- **The host is checked on every PR.** Each file starts with
+  `# devops:preview kind=<kind> provider=<provider>`, the stack it was set up
+  for. The scan is copied into the repo as `.github/devops/stack_scan.py`
+  (commit it with the workflow). Every PR runs
+  `stack_scan.py . --expect <kind>`, which fails with a `devops:stack-changed`
+  error naming the new kind once the repo has become the other one, for
+  example a Next.js app that dropped `output: "export"` for a database. A scan
+  that can't tell only warns.
+- **Changing host.** When that check fails, or the scan's provider differs
+  from the preview the repo has, run this skill again for the scan's
+  provider. Scaffolding it removes the old provider's files (only files this
+  script wrote) and prints the new link shape. Put that in the report, since
+  QA's links change. Moving to Render needs the owner's steps above first.
 - The app must work from the root of its own host. If it has a hardcoded base
   path or an absolute API URL, make the API URL a build-time variable.
 - Same rules as `ci-setup`: least-privilege `permissions` (the preview job
@@ -136,6 +149,7 @@ DNS record are gone.
 ```
 Repo:      <owner/repo>
 Host:      <provider> — why (scan: <kind, framework>)
+Replaced:  <the old provider's files removed, and the new link shape> | nothing
 Wrote:     <files>  (actionlint: clean | not installed)
 Owner to do: <account, project and secret steps still open, or none>
 Review domain: <domain> (slug <slug>) | not set
