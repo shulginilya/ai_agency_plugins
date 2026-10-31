@@ -1,7 +1,7 @@
 {
   "name": "scrum-master",
   "displayName": "Scrum Master",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, builds a sprint plan with one goal and a realistic capacity, and creates the GitHub Projects board the backlog goes on. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, plan the next sprint, or create a project board.",
   "author": {
     "name": "Ilya Shulgin",

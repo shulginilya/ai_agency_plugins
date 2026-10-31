@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-kept half of the ticket lifecycle diagram. The columns and their order come from DEFAULT_COLUMNS in plugins/_shared/skills/board-setup/scripts/create_board.py, the card moves each plugin command makes from plugins/*/commands/*.md, and the crew from deploy.sh; lifecycle_diagram.py reads those and warns about anything this file does not describe. A column with \"workflow_pending\": true is on the board before any step moves cards through it. Movers are a team.json lead id (captain, firstmate), a plugin name, or github (a board automation or GitHub itself). CI regenerates docs/firstmate/lifecycle.drawio on main after each merge; preview with python integrations/firstmate/lifecycle_diagram.py, but never commit the result on a branch.",
+  "_comment": "Hand-kept half of the ticket lifecycle diagram. The columns and their order come from DEFAULT_COLUMNS in plugins/_shared/skills/board-setup/scripts/create_board.py, the card moves each plugin command makes from plugins/*/commands/*.md, and the crew from deploy.sh; lifecycle_diagram.py reads those and warns about anything this file does not describe. Movers are a team.json lead id (captain, firstmate), a plugin name, or github (a board automation or GitHub itself). CI regenerates docs/firstmate/lifecycle.drawio on main after each merge; preview with python integrations/firstmate/lifecycle_diagram.py, but never commit the result on a branch.",
   "title": "Ticket lifecycle — from idea to Done",
   "columns": {
     "In Definition": {
@@ -27,22 +27,23 @@
       ]
     },
     "In review": {
-      "meaning": "A PR that closes the ticket is open. It leaves only by QA's verdict.",
+      "meaning": "A PR that closes the ticket is open, waiting for code review.",
       "while_here": [
         {"by": "devops", "text": "Repo with PR previews: every push deploys a review link and names its commit on the ticket"},
-        {"by": "code-reviewer", "text": "/code-reviewer:review: approve keeps the card here; request changes sends it back"},
-        {"by": "qa", "text": "/qa:verify, once code review approved the PR's head, on the newest review link that serves it"}
+        {"by": "code-reviewer", "text": "/code-reviewer:review: approve moves it on; request changes sends it back"}
       ]
     },
     "In approval": {
-      "meaning": "Waiting for approval. On every board; how cards move through it is not defined yet.",
-      "workflow_pending": true,
-      "while_here": []
+      "meaning": "Code review approved. The Captain reviews the code personally before QA sees it.",
+      "while_here": [
+        {"by": "captain", "text": "Reviews the PR's code; on approval moves the card to QA"}
+      ]
     },
     "QA": {
-      "meaning": "Being tested by QA. On every board; how cards move through it is not defined yet.",
-      "workflow_pending": true,
-      "while_here": []
+      "meaning": "Approved for testing. QA picks up tickets only from this column.",
+      "while_here": [
+        {"by": "qa", "text": "/qa:verify on the newest review link that serves the PR's head"}
+      ]
     },
     "Ready for Merge": {
       "meaning": "Passed QA with evidence for every criterion. Waiting for the Captain's merge.",
@@ -63,8 +64,11 @@
     {"from": "Ready", "to": "In progress", "by": ["firstmate", "developer"], "how": "Firstmate dispatches a ship brief; the developer starts the ticket"},
     {"from": "In progress", "to": "In review", "by": ["developer"], "how": "/developer:ship: branch, PR that closes the ticket, card moved after the PR exists"},
     {"from": "In review", "to": "In progress", "by": ["code-reviewer"], "how": "Request changes: any blocker or major finding", "back": true},
-    {"from": "In review", "to": "In progress", "by": ["qa"], "how": "Reject: a comment on what fails, a bug ticket per failure", "back": true},
-    {"from": "In review", "to": "Ready for Merge", "by": ["qa"], "how": "/qa:verify accept: every criterion passed with evidence (adds the column if the board lacks it)"},
+    {"from": "In review", "to": "In approval", "by": ["code-reviewer"], "how": "/code-reviewer:review approve: no blocker or major finding"},
+    {"from": "In review", "to": "QA", "by": ["code-reviewer"], "how": "Approve on a ticket labelled skip_approval: skips the Captain's review"},
+    {"from": "In approval", "to": "QA", "by": ["captain"], "how": "The Captain approves the code"},
+    {"from": "QA", "to": "In progress", "by": ["qa"], "how": "Reject: a comment on what fails, a bug ticket per failure", "back": true},
+    {"from": "QA", "to": "Ready for Merge", "by": ["qa"], "how": "/qa:verify accept: every criterion passed with evidence (adds the column if the board lacks it)"},
     {"from": "Ready for Merge", "to": "Done", "by": ["captain", "github"], "how": "The Captain merges; GitHub closes the ticket and the board moves it"}
   ]
 }

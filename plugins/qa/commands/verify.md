@@ -15,7 +15,10 @@ Follow the `acceptance-testing` skill:
    change and its commit (`gh pr view`, `git rev-parse --short HEAD`). Without a test plan,
    write one first with the `test-planning` skill.
    Then run `python {{PLUGIN_ROOT}}/skills/acceptance-testing/scripts/review_link.py --issue <n> --pr <pr> --wait 600`
-   (the newest link wins; the devops comment's marker says which commit it serves):
+   (the newest link wins; the devops comment's marker says which commit it serves).
+   It lists the ticket's column on each board. Verify only a ticket whose card is in **QA**: in In
+   review it waits for code review, in In approval for the Captain's review. Say where it is and stop.
+   Then, by its action:
    `wait` means the link still serves an older build, so never test it (exit 3: the build never
    landed, so report that); `test` or `retest` means every case runs on that review link; `up-to-date`
    means you already verdicted this link and commit, so say so and stop; `none` means
@@ -31,7 +34,7 @@ Follow the `acceptance-testing` skill:
    `python {{PLUGIN_ROOT}}/skills/acceptance-testing/scripts/qa_report.py results.json --link <url> --commit <sha> > verdict.md`.
    Only accept or reject. Never block: unchecked criteria reject and are listed as "Suggest blocking".
 5. Post it: `gh issue comment <n> --body-file verdict.md`. Then, on every board the ticket is on:
-   - accept: `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py move --project <N> --issue <n> --status "Ready for Merge" --create-column`
+   - accept: `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py move --project <N> --issue <n> --status "Ready for Merge" --create-column --after QA`
      (adds the column, without asking, if the board lacks it);
    - reject: `... board.py move --project <N> --issue <n> --status "In progress"`.
 6. Report the verdict, the link and commit tested, the comment's link, where the card is now, any

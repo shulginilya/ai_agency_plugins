@@ -1,10 +1,10 @@
 ---
 name: pr-review
-description: Reviews a pull request's code in a fresh context — correctness and tests always, security, performance and accessibility when the diff touches them — and posts a PR review whose findings each carry a concrete failure scenario. Gives approve or request changes by fixed rules; approve leaves the ticket in In review for QA, request changes moves it back to In progress. Re-reviews the new head after a fix push. Use when asked to review a PR or its code, check a diff before QA, find bugs in a shipped change, or re-review a PR after a fix.
+description: Reviews a pull request's code in a fresh context — correctness and tests always, security, performance and accessibility when the diff touches them — and posts a PR review whose findings each carry a concrete failure scenario. Gives approve or request changes by fixed rules; approve moves the ticket to In approval for the Captain's review (to QA when labelled skip_approval), request changes moves it back to In progress. Re-reviews the new head after a fix push. Use when asked to review a PR or its code, check a diff before QA, find bugs in a shipped change, or re-review a PR after a fix.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # PR review
@@ -18,14 +18,17 @@ findings, by rules, so it can't be argued into an approve.
 python scripts/pr_scope.py --pr 43                        # head, files, tickets, and review / re-review / up-to-date
 python scripts/review_report.py findings.json --commit SHA > review.md   # exit 0 only on approve
 gh pr review 43 --comment --body-file review.md
-python ../ticket-management/scripts/board.py move --project N --issue 42 --status "In progress"   # request changes only
+python ../ticket-management/scripts/board.py move --project N --issue 42 --status "In progress"   # request changes
+python ../ticket-management/scripts/board.py move --project N --issue 42 --status "In approval" \
+    --create-column --after "In review"                                                  # approve (QA if skip_approval)
 ```
 
 ## 1. Scope the PR
 
 Run `pr_scope.py --pr N`. It prints the head commit, the base, every
-changed file with its line counts, the tickets the PR closes and the board
-column each one is in, and an `action`:
+changed file with its line counts, the tickets the PR closes, the board
+column each one is in and where an approve moves it (`In approval`, or `QA`
+when the ticket is labelled `skip_approval`), and an `action`:
 
 - `review`: no earlier verdict. Review it.
 - `re-review`: the last verdict covered an older commit. Review the new head
@@ -100,7 +103,7 @@ can't write one, you have a hunch, not a finding. Drop it.
 
 | Verdict | When | The ticket |
 | --- | --- | --- |
-| **approve** | no blocker and no major finding | stays in **In review**, for QA |
+| **approve** | no blocker and no major finding | moves to **In approval**, for the Captain's own code review; to **QA** when labelled `skip_approval` |
 | **request changes** | at least one blocker or major | moves to **In progress** |
 
 Minor findings go in the review either way. The developer decides whether
@@ -115,12 +118,20 @@ their own PR. The verdict is in the body, and its
 `<!-- code-review:verdict ... -->` marker is what `pr_scope.py` reads next
 time.
 
-Then, only on **request changes**, move the card of every ticket the PR
-closes, on every board `pr_scope.py` listed:
-`board.py move --project N --issue I --status "In progress"`. On approve,
-leave the card where it is. QA picks it up from In review.
+Then move the card of every ticket the PR closes, on every board
+`pr_scope.py` listed:
 
-The `ticket-management` skill is bundled only for that move. Never create,
+- **request changes**: `board.py move --project N --issue I --status "In progress"`.
+- **approve**: to the column `pr_scope.py` printed for that ticket.
+  `In approval` (`--create-column --after "In review"`) is where the Captain
+  reviews the code personally and, on approval, moves the card to QA. A
+  ticket labelled `skip_approval` goes straight to `QA`
+  (`--create-column --after "In approval"`), and QA picks it up from there.
+  `--create-column` adds the column without asking if the board lacks it;
+  say so in the report. Pass `--skip-approval` to `review_report.py`
+  when every closing ticket carries the label, so the review names QA.
+
+The `ticket-management` skill is bundled only for these moves. Never create,
 edit, close or delete a ticket, and never push a commit, not even a one-line
 fix. A reviewer who patches what they review is no longer reviewing. If a
 finding needs its own ticket, propose it in the report.
