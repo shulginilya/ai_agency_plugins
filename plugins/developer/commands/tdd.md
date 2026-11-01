@@ -2,7 +2,7 @@
 description: Build one behaviour, or a short list of them, test-first — red, green, refactor — with each step checked by running the tests.
 argument_hint: "[the behaviour to build, a ticket's acceptance criteria, or a bug to reproduce]"
 model: claude-opus-5-5
-effort: medium
+effort: high
 allowed_tools: Bash Read Edit Write Grep Glob
 ---
 
