@@ -2,7 +2,7 @@
 description: Implement a feature, ticket or fix end to end — orient, plan, build in slices, verify with the repo's own checks, self-review.
 argument_hint: "[what to build, a ticket reference, or a path]"
 model: claude-opus-5-5
-effort: medium
+effort: high
 allowed_tools: Bash(git:*) Bash(python:*) Read Edit Write Grep Glob
 ---
 

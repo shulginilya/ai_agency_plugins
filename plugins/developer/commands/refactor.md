@@ -2,7 +2,7 @@
 description: Restructure existing code without changing behaviour — pin it with tests, find every caller, then apply small mechanical moves that stay green.
 argument_hint: "[symbol, file, or what to clean up]"
 model: claude-opus-5-5
-effort: medium
+effort: high
 allowed_tools: Bash(git:*) Bash(python:*) Read Edit Write Grep Glob
 ---
 

@@ -2,7 +2,7 @@
 description: Review a pull request's code in a fresh context and post a PR review; approve moves the ticket to In approval for the Captain's review (to QA when labelled skip_approval), request changes moves it back to In progress.
 argument_hint: "[PR number; nothing for the current branch's PR]"
 model: claude-opus-5-5
-effort: medium
+effort: high
 allowed_tools: Bash(gh:*) Bash(git:*) Bash(python:*) Bash Read Grep Glob Write
 ---
 
