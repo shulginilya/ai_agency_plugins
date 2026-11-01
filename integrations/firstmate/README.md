@@ -11,7 +11,7 @@ stays an unmodified upstream clone.
 
 ## Diagrams
 
-Two diagrams are generated from this folder and the repo. CI regenerates them on
+Three diagrams are generated from this folder and the repo. CI regenerates them on
 `main` after each merge, so a branch never commits them (the `generated-files` check
 fails if one does):
 
@@ -19,6 +19,7 @@ fails if one does):
 | --- | --- | --- |
 | `docs/firstmate/team.drawio`: who does what, the RACI matrix, a worked example | `team_diagram.py` | `team.json` |
 | `docs/firstmate/lifecycle.drawio`: a ticket's columns, who moves it between them, and the ways back | `lifecycle_diagram.py` | `lifecycle.json` |
+| `docs/firstmate/skills.drawio`: every skill, the plugin that owns it, what loads it and what it hands off to, and the model and effort each command and subagent pins (plus the crew dispatch profiles) | `skills_diagram.py` | none: all read from `plugins/`, `deploy.sh`, `team.json`, `crew-dispatch.json` |
 
 When the ticket lifecycle changes (a column in board-setup's `DEFAULT_COLUMNS`, or a
 plugin command that moves cards with `board.py move` or `tickets.py ... --status`),
@@ -26,6 +27,13 @@ update `lifecycle.json` in the same PR. `tests/test_lifecycle_diagram.py` runs t
 generator with `--strict` and fails on any drift. The warning names the column or the
 command and plugin to describe. Preview with
 `python integrations/firstmate/lifecycle_diagram.py --out /tmp/x`.
+
+The skills diagram needs no hand-kept file: add a skill, command or subagent, or
+change a `model:`/`effort:` pin, and CI redraws it. `tests/test_skills_diagram.py`
+runs it with `--strict`, which fails when a command names no skill or subagent, a
+command or subagent pins no model, or a plugin uses a shared skill its
+`plugin.json` does not list in `shared_skills`. Preview with
+`python integrations/firstmate/skills_diagram.py --out /tmp/x`.
 
 ## Deploy
 

@@ -45,6 +45,8 @@ jobs:
   #   - the crew diagram, from deploy.sh, brief-include.md, plugins/, team.json
   #   - the ticket lifecycle diagram, from create_board.py, plugins/*/commands,
   #     deploy.sh, team.json, lifecycle.json
+  #   - the skills diagram, from plugins/ (skills, commands, agents, plugin.json),
+  #     deploy.sh, team.json, crew-dispatch.json
   marketplace:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: check
@@ -67,6 +69,9 @@ jobs:
       - name: Regenerate the ticket lifecycle diagram
         run: python integrations/firstmate/lifecycle_diagram.py
 
+      - name: Regenerate the skills diagram
+        run: python integrations/firstmate/skills_diagram.py
+
       - name: Commit what changed
         run: |
           git config user.name "github-actions[bot]"
@@ -88,6 +93,12 @@ jobs:
             git commit -m "chore(firstmate): regenerate ticket lifecycle diagram [skip ci]"
             changed=1
           fi
+          if ! git diff --quiet -- docs/firstmate/skills.drawio || \
+             [ -n "$(git ls-files --others --exclude-standard -- docs/firstmate/skills.drawio)" ]; then
+            git add docs/firstmate/skills.drawio
+            git commit -m "chore(firstmate): regenerate skills diagram [skip ci]"
+            changed=1
+          fi
           if [ -z "$changed" ]; then
             echo "generated files already current"
             exit 0
@@ -106,7 +117,7 @@ jobs:
       - name: Branch leaves CI-generated files alone
         run: |
           base="$(git merge-base "origin/${{ github.base_ref }}" HEAD)"
-          touched="$(git diff --name-only "$base" HEAD -- docs/firstmate/team.drawio docs/firstmate/lifecycle.drawio)"
+          touched="$(git diff --name-only "$base" HEAD -- docs/firstmate/team.drawio docs/firstmate/lifecycle.drawio docs/firstmate/skills.drawio)"
           if [ -n "$touched" ]; then
             for f in $touched; do
               echo "::error file=$f::CI regenerates this on main after the merge. Drop it from the branch: git checkout origin/${{ github.base_ref }} -- $f (or git rm --cached $f if main does not have it yet)"
