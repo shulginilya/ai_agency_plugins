@@ -101,7 +101,9 @@ def mentions(text: str, names: List[str]) -> List[str]:
     """The names this text refers to: `name`, "name skill|subagent|agent", or a skills/name/ path."""
     found = []
     for n in names:
-        if re.search(rf"`{re.escape(n)}`|\b{re.escape(n)} (?:skill|subagent|agent)\b|skills/{re.escape(n)}/", text):
+        # (?<![\w-]): "code-reviewer agent" is not the `reviewer` agent
+        if re.search(rf"`{re.escape(n)}`|(?<![\w-]){re.escape(n)} (?:skill|subagent|agent)\b|skills/{re.escape(n)}/",
+                     text):
             found.append(n)
     return found
 
@@ -117,6 +119,11 @@ def first_sentence(text: str, limit: int = 150) -> str:
     m = re.match(r"(.+?[.!?])(\s|$)", s)
     s = m.group(1) if m else s
     return s if len(s) <= limit else s[: limit - 1].rsplit(" ", 1)[0] + "…"
+
+
+def check_effort(who: str, effort: str) -> None:
+    if effort not in EFFORTS:
+        warn(f"{who} pins effort '{effort}', which is not one of {', '.join(e for e in EFFORTS if e)}")
 
 
 def load_plugins(plugins: Path) -> Dict:
@@ -143,9 +150,11 @@ def load_plugins(plugins: Path) -> Dict:
                             "effort": fm.get("effort", "")}
             if not fm.get("model"):
                 warn(f"subagent {d.name}:{name} pins no model, so it runs on whatever spawns it")
+            check_effort(f"subagent {d.name}:{name}", fm.get("effort", ""))
         commands = []
         for c in sorted(d.glob("commands/*.md")):
             fm = frontmatter(c)
+            check_effort(f"/{d.name}:{c.stem}", fm.get("effort", ""))
             commands.append({"name": f"/{d.name}:{c.stem}", "plugin": d.name, "model": fm.get("model", ""),
                              "effort": fm.get("effort", ""), "desc": fm.get("description", ""), "text": body(c)})
         out[d.name] = {"name": d.name, "display": meta.get("displayName", d.name), "version": meta.get("version", ""),
@@ -168,12 +177,14 @@ def link(plugins: Dict[str, Dict]) -> None:
         names = [n for n in owner_of if n != me]
         skills = []
         for n in mentions(text, names):
-            skills.append((n if n in own else n, plugin if n in own else (SHARED if n in shared else owner_of[n])))
-        # a script named in the text belongs to the skill whose scripts/ holds it
+            skills.append((n, plugin if n in own else (SHARED if n in shared else owner_of[n])))
+        # a script named in the text belongs to the skill whose scripts/ holds it: the plugin's own skill
+        # when one has it, else any shared skill (listed in shared_skills or not, so the check below sees it)
         for script in re.findall(r"scripts/([\w-]+\.py)", text):
-            pool = list(own.values()) + [shared[n] for n in plugins[plugin]["shared"] if n in shared]
-            for s in pool:
-                if script in s["scripts"] and s["name"] != me and (s["name"], s["plugin"]) not in skills:
+            holders = [s for s in own.values() if script in s["scripts"]] or \
+                      [s for s in shared.values() if script in s["scripts"]]
+            for s in holders:
+                if s["name"] != me and (s["name"], s["plugin"]) not in skills:
                     skills.append((s["name"], s["plugin"]))
         agents = []
         local = [n for (pl, n) in all_agents if pl == plugin]
@@ -196,10 +207,13 @@ def link(plugins: Dict[str, Dict]) -> None:
                 warn(f"{c['name']} pins no model, so it runs on whatever the session is on")
         for s in p["skills"].values():
             s["uses"], s["agents"] = resolve(p["name"], s["text"], me=s["name"])
+    for p in plugins.values():  # every skill is resolved now, the shared ones included
         if p["name"] == SHARED:
             continue
         used = [(c["name"], c["skills"]) for c in p["commands"]]
         used += [(s["name"], s["uses"]) for s in p["skills"].values()]
+        # a bundled shared skill ships inside this plugin, so what it hands off to must ship too
+        used += [(f"shared skill {n}", shared[n]["uses"]) for n in p["shared"] if n in shared]
         for who, refs in used:
             for n, owner in refs:
                 if owner == SHARED and n not in p["shared"]:
@@ -485,6 +499,7 @@ def page_models(m: Dict) -> Tuple[str, List, float, float]:
     rank = {"fable": 0, "opus": 1, "sonnet": 2, "haiku": 3, "inherit": 4}
     rows = sorted(dict.fromkeys(models), key=lambda mo: (rank[model_label(mo)[1]], mo.startswith("claude") is False, mo))
     cols = [e for e in EFFORTS if any(k[1] == e for k in cells)]
+    cols += sorted({k[1] for k in cells if k[1] not in EFFORTS})  # an unknown effort (a warning) is still drawn
     RX, RW, CW = X0, 200, 380
     y = 110
     for j, e in enumerate(cols):
