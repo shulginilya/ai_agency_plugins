@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -18,6 +19,8 @@ READY = REFINEMENT_SCRIPTS / "ready.py"
 BACKLOG = REFINEMENT_SCRIPTS / "backlog.py"
 CAPACITY = PLUGIN / "skills" / "sprint-planning" / "scripts" / "capacity.py"
 SPRINT_CONTEXT = PLUGIN / "scripts" / "sprint_context.py"
+CREW_CONTEXT = PLUGIN / "scripts" / "crew_context.py"
+CREW_SKILL = PLUGIN.parent / "_shared" / "skills" / "crew-workflow" / "SKILL.md"
 MCP_SERVER = PLUGIN / "mcp" / "server.py"
 CREATE_BOARD = PLUGIN.parent / "_shared" / "skills" / "board-setup" / "scripts" / "create_board.py"
 
@@ -250,6 +253,124 @@ class SprintContextHookTest(unittest.TestCase):
             sprint_context.pick_milestone([{"title": "Undated"}])["title"], "Undated"
         )
         self.assertIsNone(sprint_context.pick_milestone([]))
+
+
+def _board(title, columns, closed=False):
+    return {"title": title, "closed": closed, "field": {"options": [{"name": c} for c in columns]}}
+
+
+CREW_COLUMNS = ["Backlog", "Ready", "In progress", "In review", "In approval", "QA", "Done"]
+PLAIN_COLUMNS = ["Todo", "In Progress", "Done"]
+
+
+def _answer(linked=(), on_issues=()):
+    return {"data": {"repository": {
+        "projectsV2": {"nodes": list(linked)},
+        "issues": {"nodes": [{"projectItems": {"nodes": [{"project": b} for b in on_issues]}}]},
+    }}}
+
+
+class CrewContextHookTest(unittest.TestCase):
+    """The hook that points a session on a crew board at the crew-workflow skill."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.repo = self.root / "repo"
+        self.repo.mkdir()
+        run(["git", "init", "-q", str(self.repo)])
+        run(["git", "-C", str(self.repo), "remote", "add", "origin", "git@github.com:acme/shop.git"])
+        self.bin = self.root / "bin"
+        self.bin.mkdir()
+        self.data = self.root / "data"
+        self.calls = self.root / "gh-calls"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _fake_gh(self, stdout="", status=0):
+        script = self.bin / "gh"
+        script.write_text(
+            "#!%s\nimport sys\nopen(%r, 'a').write('call\\n')\nsys.stdout.write(%r)\nsys.exit(%d)\n"
+            % (sys.executable, str(self.calls), stdout, status)
+        )
+        script.chmod(0o755)
+
+    def _hook(self, cwd=None):
+        env = dict(os.environ, PATH="%s%s%s" % (self.bin, os.pathsep, os.environ.get("PATH", "")),
+                   CLAUDE_PLUGIN_DATA=str(self.data))
+        return run([sys.executable, str(CREW_CONTEXT)], input='{"hook_event_name":"SessionStart"}',
+                   cwd=str(cwd or self.repo), env=env)
+
+    def _gh_calls(self):
+        return len(self.calls.read_text().splitlines()) if self.calls.exists() else 0
+
+    def test_a_crew_board_on_the_repos_issues_prints_one_line(self):
+        self._fake_gh(json.dumps(_answer(on_issues=[_board("Shop board", CREW_COLUMNS)])))
+        result = self._hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = result.stdout.strip().splitlines()
+        self.assertEqual(len(lines), 1, result.stdout)
+        self.assertIn('crew board "Shop board"', lines[0])
+        self.assertIn("acme/shop", lines[0])
+        self.assertIn("crew-workflow skill", lines[0])
+
+    def test_a_board_without_the_crew_columns_is_silent(self):
+        self._fake_gh(json.dumps(_answer(linked=[_board("Plain", PLAIN_COLUMNS)])))
+        result = self._hook()
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), "")
+
+    def test_offline_or_signed_out_is_silent_and_caches_nothing(self):
+        self._fake_gh("", status=1)
+        result = self._hook()
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), "")
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse((self.data / "crew_boards.json").exists())
+
+    def test_an_answer_is_cached_so_the_next_start_makes_no_call(self):
+        self._fake_gh(json.dumps(_answer(linked=[_board("Shop board", CREW_COLUMNS)])))
+        self._hook()
+        self._fake_gh("", status=1)  # would be silent if it were asked again
+        result = self._hook()
+        self.assertIn('crew board "Shop board"', result.stdout)
+        self.assertEqual(self._gh_calls(), 1)
+
+    def test_outside_a_github_repository_it_never_calls_gh(self):
+        self._fake_gh(json.dumps(_answer(linked=[_board("Shop board", CREW_COLUMNS)])))
+        result = self._hook(cwd=self.root)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), "")
+        self.assertEqual(self._gh_calls(), 0)
+
+    def test_board_and_remote_rules(self):
+        sys.path.insert(0, str(CREW_CONTEXT.parent))
+        import crew_context  # noqa: WPS433
+
+        self.assertTrue(crew_context.is_crew_board(_board("x", ["in approval", " QA "])))
+        self.assertFalse(crew_context.is_crew_board(_board("x", CREW_COLUMNS, closed=True)))
+        self.assertFalse(crew_context.is_crew_board(_board("x", ["In approval"])))
+        self.assertFalse(crew_context.is_crew_board({"title": "no status field"}))
+        for url in ("git@github.com:acme/shop.git", "https://github.com/acme/shop",
+                    "https://github.com/acme/shop.git/", "ssh://git@github.com/acme/shop.git"):
+            self.assertEqual(crew_context.parse_remote(url), ("acme", "shop"), url)
+        self.assertIsNone(crew_context.parse_remote("git@gitlab.com:acme/shop.git"))
+        self.assertEqual(
+            crew_context.crew_board(_answer(linked=[_board("Plain", PLAIN_COLUMNS)],
+                                            on_issues=[_board("Crew", CREW_COLUMNS)])),
+            "Crew",
+        )
+
+    def test_the_skill_keeps_the_captains_gates_and_stays_cheap_to_load(self):
+        text = CREW_SKILL.read_text(encoding="utf-8")
+        description = re.search(r"^description: (.+)$", text, re.M).group(1)
+        self.assertLess(len(description.split()), 75, "keep the always-loaded description under ~100 tokens")
+        for rule in ("Stop at In approval", "Stop at Ready for Merge", "Never merge",
+                     "Show every ticket or board write before making it", "Never skip a column"):
+            self.assertIn(rule, text)
+        for unattended in ("No one is watching", "this brief", "Firstmate"):
+            self.assertNotIn(unattended, text)
 
 
 class McpServerTest(unittest.TestCase):

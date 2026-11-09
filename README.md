@@ -80,11 +80,13 @@ and the docs use it as the worked example:
 
 - **skills** — `backlog-refinement` (the Definition of Ready and the refinement
   loop, with references loaded on demand) and `sprint-planning`, plus the
-  shared `ticket-management` and `board-setup` skills from `plugins/_shared/skills/`
+  shared `ticket-management`, `board-setup` and `crew-workflow` skills from
+  `plugins/_shared/skills/`
 - **commands** — `/refine`, `/plan-sprint`, `/backlog-health` and
   `/create-board`, rendered into each harness's command dialect
 - **agent** — a `story-splitter` subagent (Claude Code; degrades to a skill elsewhere)
-- **hook** — a `SessionStart` hook that prints the active sprint (Claude Code only)
+- **hooks** — `SessionStart` hooks that print the active sprint and, in a
+  repository on a crew board, point the session at `crew-workflow` (Claude Code only)
 - **mcp** — a dependency-free stdio server (`backlog`, `readiness_check`,
   `scrum_checklist`), projected into each harness's MCP config
 - **scripts** — `ready.py`, `backlog.py`, `capacity.py` and the shared `create_board.py`,
@@ -96,6 +98,15 @@ Build it and diff the outputs to see exactly what each adapter does:
 python -m tools.apkit build --plugin scrum-master
 find dist -type f | sort
 ```
+
+## Starting a new project with the crew
+
+Run `/scrum-master:create-board` in the project's repository. That is the only
+setup: it creates the board with the crew's columns and the `skip_approval`
+label. From then on, every new session in that repository is told to follow the
+`crew-workflow` skill, so "do ticket #N" runs `/qa:plan`, `/developer:implement`,
+`/developer:ship` and `/code-reviewer:review`, and stops at In approval for you.
+Nothing workflow-related is added to the project's repository.
 
 ## Docs
 

@@ -12,6 +12,7 @@ standups and retros alone.
 | Skill | `backlog-refinement` | Definition of Ready, the refinement loop, the issue template |
 | Skill | `sprint-planning` | Capacity first, goal second, selection third, then the pre-flight checks |
 | Skill (shared) | `board-setup` | Create a GitHub Projects board with the team's columns, linked to the repo. Only scrum-master lists it. Source: `plugins/_shared/skills/` |
+| Skill (shared) | `crew-workflow` | Runs ticket work through the crew on a crew board: each step through its crew command, every ticket or board write shown first, stops at In approval and Ready for Merge. Only scrum-master lists it. Source: `plugins/_shared/skills/` |
 | Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Command | `/refine` | Refine one item into a ready story |
 | Command | `/plan-sprint` | Build a sprint plan from the ready backlog |
@@ -19,6 +20,7 @@ standups and retros alone.
 | Command | `/create-board` | Create the board a new project's backlog goes on |
 | Agent | `story-splitter` | Splits one oversized item into vertical slices, in a fresh context |
 | Hook | `SessionStart` | Prints the active milestone and its open issues, once |
+| Hook | `SessionStart` | In a repository whose board (linked, or holding its recent issues) has the In approval and QA columns, prints one line pointing the session at `crew-workflow`. Cached per repository for 12 hours; silent offline, without `gh` or outside GitHub |
 | MCP | `scrum-master` | `backlog`, `readiness_check`, `scrum_checklist` |
 
 The readiness rules live in exactly one place —
