@@ -50,7 +50,8 @@ and what the Captain decides next.
    - In Definition or Backlog: `/scrum-master:refine #N` first. A ticket
      without testable acceptance criteria is not ready to build. Refine
      edits the ticket but moves no card: once it meets the Definition of
-     Ready, move it to Ready, then to In progress (rule 2 for each).
+     Ready, move it one column at a time (rule 2 for each), from In
+     Definition to Backlog, then Ready, then In progress.
    - Ready: move it to In progress (rule 2).
    - Already further along: continue from that column, not from the start.
 2. `/qa:plan #N`: a test case for every acceptance criterion. A criterion that
@@ -61,8 +62,9 @@ and what the Captain decides next.
 5. New or changed UI: `/designer:review` on the built UI, and fix every
    blocker.
 6. `/developer:verify` must pass.
-7. `/developer:ship #N`: reuses #N (no new ticket), branch, commit, a PR with
-   `Closes #N`, and #N's card to In review.
+7. `/developer:ship #N board <crew board>`: reuses #N (no new ticket) on the
+   board it is already on, branch, commit, a PR with `Closes #N`, and #N's
+   card to In review.
 8. `/code-reviewer:review <PR>`:
    - request changes: the card goes to In progress. Fix with the developer
      commands and push to the same PR. Move the card back to In review
@@ -131,6 +133,7 @@ After the Captain moves the card to QA and asks for it:
 
 | Move | By |
 | --- | --- |
+| In Definition → Backlog | scrum-master, once refine has turned the idea into a story |
 | Backlog → Ready | scrum-master, once refine meets the Definition of Ready |
 | Ready → In progress | developer, when starting the ticket |
 | In progress → In review, after a fix | developer, before the review runs again |

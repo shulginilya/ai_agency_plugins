@@ -14,14 +14,16 @@ Follow the `ship-change` skill:
    List the files that belong to the change. Make sure there are no secrets.
    If something is missing, say what and stop.
 2. **Ask which board** unless the notes, an earlier answer in this conversation
-   or a delivery contract name one. Offer
+   or a delivery contract name one. For an existing ticket (step 3), use the
+   board it is already on (`board.py where --issue N`); ask only when it is on
+   none, or on several and the notes don't say which. Offer
    `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py boards` and
    recommend the most used.
 3. **Reuse or file the ticket.** When the notes or the conversation name the
    ticket this work is for (`#N`, or a branch named `N-...`), reuse it: check it
-   is open (`gh issue view N`) and put it on the board with
-   `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py add --project B --issue N`
-   (a no-op when it is there). Never file a second ticket for it. Otherwise
+   is open (`gh issue view N`). If it is on no board, put it on the chosen one
+   with `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py add --project B --issue N`.
+   Never file a second ticket for it. Otherwise
    file one (Problem, Proposal, Acceptance criteria) and put it on the board in
    one step:
    `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/tickets.py create --title ... --body-file ... --project B`.

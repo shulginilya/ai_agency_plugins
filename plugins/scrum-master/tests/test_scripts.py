@@ -458,7 +458,8 @@ class CrewContextHookTest(unittest.TestCase):
         for rule in ("Stop at In approval", "Stop at Ready for Merge", "Never merge",
                      "Show every ticket or board write before making it", "Never skip a column"):
             self.assertIn(rule, text)
-        self.assertIn("/developer:ship #N", text)  # reuse the ticket; ship would file a duplicate
+        self.assertIn("/developer:ship #N board <crew board>", text)  # reuse the ticket, on its board
+        self.assertIn("Definition to Backlog, then Ready, then In progress", text)  # one column at a time
         for unattended in ("No one is watching", "this brief", "Firstmate"):
             self.assertNotIn(unattended, text)
 

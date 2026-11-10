@@ -237,6 +237,20 @@ class BoardTest(unittest.TestCase):
     OPTIONS = [{"id": "1", "name": "Backlog"}, {"id": "2", "name": "In progress"},
                {"id": "3", "name": "In review"}, {"id": "4", "name": "Done"}]
 
+    def test_where_lists_each_board_the_issue_is_on_with_its_column(self):
+        node = {"title": "fix: login", "projectItems": {"nodes": [
+            {"project": {"id": "P1", "number": 1, "title": "Crew"}, "fieldValueByName": {"name": "In progress"}},
+            {"project": {"id": "P2", "number": 4, "title": "Roadmap"}, "fieldValueByName": None},
+        ]}}
+        with mock.patch.object(board, "current_repo", return_value={"owner": "me", "name": "app"}), \
+             mock.patch.object(board, "issue_node", return_value=node) as fetched:
+            result = board.cmd_where(board.args_for("where", issue=42))
+        fetched.assert_called_once_with({"owner": "me", "name": "app"}, 42)
+        self.assertEqual(result, {"issue": 42, "title": "fix: login", "boards": [
+            {"number": 1, "title": "Crew", "status": "In progress"},
+            {"number": 4, "title": "Roadmap", "status": None},
+        ]})
+
     def test_branch_name_from_a_conventional_title(self):
         self.assertEqual(board.branch_name(21, "feat(firstmate): install every plugin, keep the crew"),
                          "21-feat-firstmate-install-every-plugin")

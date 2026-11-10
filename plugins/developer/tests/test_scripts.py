@@ -166,6 +166,8 @@ class ShipExistingTicketTest(unittest.TestCase):
             self.assertIn("board.py add", text)
             self.assertIn("Never file a second ticket", text)
         self.assertIn("#N to ship for an existing ticket", command)
+        for text in (command, skill):  # the ticket's own board, not the most used one
+            self.assertIn("board.py where --issue", text)
         self.assertIn("gh issue view", skill)
 
 

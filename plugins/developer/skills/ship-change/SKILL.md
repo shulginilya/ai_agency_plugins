@@ -4,7 +4,7 @@ description: Ships a finished, verified change for review — files a GitHub iss
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # Ship a change
@@ -20,7 +20,8 @@ this plugin too. Its scripts are in `../ticket-management/scripts/`:
 ```bash
 python ../ticket-management/scripts/board.py boards                       # open boards, most used first
 python ../ticket-management/scripts/tickets.py create --title T --body-file F --project N
-python ../ticket-management/scripts/board.py add    --project N --issue I # existing ticket: put it on the board (no-op if there)
+python ../ticket-management/scripts/board.py where  --issue I             # existing ticket: the boards it is on, and its column
+python ../ticket-management/scripts/board.py add    --project N --issue I # existing ticket on no board: put it on the chosen one
 python ../ticket-management/scripts/board.py branch --issue I             # <number>-<type>-<slug>
 python ../ticket-management/scripts/board.py move   --project N --issue I # to "In review", and confirm it held
 ```
@@ -43,7 +44,17 @@ Below, `board.py` and `tickets.py` mean those two scripts.
 
 ## 1. Pick the board — ask
 
-Run `board.py boards` and ask the user which board, recommending the one recent
+**For an existing ticket (§2), its board comes first.** Run
+`board.py where --issue I`:
+
+- on one board: use that board, and don't ask;
+- on several: use the one the request names, else ask among those boards only;
+- on none: ask, as below.
+
+Never move or add an existing ticket on a board it isn't on while it sits on
+another: its card there would be left behind in its old column.
+
+Otherwise run `board.py boards` and ask the user which board, recommending the one recent
 issues use most. Skip the question only when the user already named the board,
 in this request or earlier in the conversation, or a delivery contract names it.
 Say which board you are using and why. Never guess: a ticket on the wrong board
@@ -58,8 +69,8 @@ the PR would close the duplicate and leave the real ticket behind.
 
 - `gh issue view 42 --json number,title,state,url`: it must exist and be open.
   If it is closed or missing, say so and stop.
-- `board.py add --project N --issue 42`: puts it on the board, or reports
-  `"added": false` when it is already there.
+- On no board (§1): `board.py add --project N --issue 42` puts it on the
+  chosen one.
 - Skip the rest of this section. Steps 3 to 5 use #42 as `I`.
 
 **A new ticket**, when no existing one is named:

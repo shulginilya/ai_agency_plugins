@@ -4,7 +4,7 @@ description: Creates, edits, closes and deletes GitHub issues, creates a whole b
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # Ticket management
@@ -22,6 +22,7 @@ python scripts/tickets.py delete --issue I --confirm I
 
 python scripts/board.py boards                                  # open boards, most used first
 python scripts/board.py add  --project N --issue I              # card on a board
+python scripts/board.py where --issue I                         # boards the issue is on, and its column on each
 python scripts/board.py move --project N --issue I --status S   # change column, confirm it held
 python scripts/board.py move --project N --issue I --status "Ready for Merge" --create-column [--after "In review"]
                                                                # add the column first if the board lacks it
