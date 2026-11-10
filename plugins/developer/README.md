@@ -20,7 +20,7 @@ checks, and self-review before handing off. Plus the behaviour-preserving half
 | Command | `/implement` | Build a feature, ticket or fix end to end |
 | Command | `/refactor` | Restructure without changing behaviour |
 | Command | `/verify` | Run the checks the repo declares, and report what actually failed |
-| Command | `/ship` | Put a finished change up for review: ticket, branch, PR, In review |
+| Command | `/ship` | Put a finished change up for review: ticket (new, or the existing `#N`), branch, PR, In review |
 | Command | `/diagnose` | Diagnose a bug down to its root cause, without changing code |
 | Command | `/fix` | Fix a bug whose cause is proved, failing test first |
 | Command | `/tdd` | Build one behaviour, or a short list of them, test-first in red-green-refactor cycles |

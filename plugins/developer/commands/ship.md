@@ -1,6 +1,6 @@
 ---
 description: Ship a finished change for review — ticket on a board, branch, commit, push, PR, card moved to In review.
-argument_hint: "[optional: board name or number, ticket title, or what to leave out]"
+argument_hint: "[optional: #N to ship for an existing ticket, board name or number, ticket title, or what to leave out]"
 model: claude-opus-5-5
 effort: medium
 allowed_tools: Bash(git:*) Bash(gh:*) Bash(python:*) Read Grep Glob Write
@@ -14,12 +14,19 @@ Follow the `ship-change` skill:
    List the files that belong to the change. Make sure there are no secrets.
    If something is missing, say what and stop.
 2. **Ask which board** unless the notes, an earlier answer in this conversation
-   or a delivery contract name one. Offer
+   or a delivery contract name one. For an existing ticket (step 3), use the
+   board it is already on (`board.py where --issue N`); ask only when it is on
+   none, or on several and the notes don't say which. Offer
    `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py boards` and
    recommend the most used.
-3. **File the ticket** (Problem, Proposal, Acceptance criteria) and put it on
-   the board in one step:
-   `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/tickets.py create --title ... --body-file ... --project N`.
+3. **Reuse or file the ticket.** When the notes or the conversation name the
+   ticket this work is for (`#N`, or a branch named `N-...`), reuse it: check it
+   is open (`gh issue view N`). If it is on no board, put it on the chosen one
+   with `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py add --project B --issue N`.
+   Never file a second ticket for it. Otherwise
+   file one (Problem, Proposal, Acceptance criteria) and put it on the board in
+   one step:
+   `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/tickets.py create --title ... --body-file ... --project B`.
 4. **Branch** with the name from `board.py branch` and check it out. **Commit**
    only the change's files, ending the message with `Closes #<issue>`.
    **Push** with `-u`. Never force-push and never push to the default branch.

@@ -294,6 +294,17 @@ def cmd_move(args: argparse.Namespace) -> Dict[str, Any]:
     )
 
 
+def cmd_where(args: argparse.Namespace) -> Dict[str, Any]:
+    """The boards an issue is on, and its column on each."""
+    issue = issue_node(current_repo(), args.issue)
+    boards = [
+        {"number": node["project"]["number"], "title": node["project"]["title"],
+         "status": (node.get("fieldValueByName") or {}).get("name")}
+        for node in issue["projectItems"]["nodes"]
+    ]
+    return {"issue": args.issue, "title": issue["title"], "boards": boards}
+
+
 def cmd_branch(args: argparse.Namespace) -> Dict[str, Any]:
     title = args.title
     if title is None:
@@ -317,6 +328,8 @@ def parser_for() -> argparse.ArgumentParser:
     p.add_argument("--create-column", action="store_true",
                    help="add the --status column first if the board has none named exactly that")
     p.add_argument("--after", default="In review", help="with --create-column: the column to put it after")
+    p = sub.add_parser("where", help="the boards an issue is on, and its column on each")
+    p.add_argument("--issue", type=int, required=True)
     p = sub.add_parser("branch", help="branch name for an issue")
     p.add_argument("--issue", type=int, required=True)
     p.add_argument("--title", help="use this title instead of fetching the issue")
@@ -335,7 +348,7 @@ def args_for(cmd: str, **values: Any) -> argparse.Namespace:
 def main(argv: Optional[List[str]] = None) -> int:
     args = parser_for().parse_args(argv)
 
-    handlers = {"boards": cmd_boards, "add": cmd_add, "move": cmd_move, "branch": cmd_branch}
+    handlers = {"boards": cmd_boards, "add": cmd_add, "move": cmd_move, "where": cmd_where, "branch": cmd_branch}
     try:
         print(json.dumps(handlers[args.cmd](args), indent=2))
     except BoardError as exc:

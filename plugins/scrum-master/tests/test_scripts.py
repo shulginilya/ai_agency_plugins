@@ -19,15 +19,11 @@ BACKLOG = REFINEMENT_SCRIPTS / "backlog.py"
 CAPACITY = PLUGIN / "skills" / "sprint-planning" / "scripts" / "capacity.py"
 SPRINT_CONTEXT = PLUGIN / "scripts" / "sprint_context.py"
 MCP_SERVER = PLUGIN / "mcp" / "server.py"
-CREATE_BOARD = PLUGIN.parent / "_shared" / "skills" / "board-setup" / "scripts" / "create_board.py"
 
 sys.path.insert(0, str(REFINEMENT_SCRIPTS))
 sys.path.insert(0, str(CAPACITY.parent))
 import capacity  # noqa: E402
 import ready  # noqa: E402
-
-sys.path.insert(0, str(CREATE_BOARD.parent))
-import create_board  # noqa: E402
 
 READY_STORY = """As a merchant, I want to issue a partial refund so that support
 stops handling them by hand.
@@ -335,94 +331,6 @@ class McpServerTest(unittest.TestCase):
         )
         self.assertEqual(responses[0]["error"]["code"], -32602)
         self.assertEqual(responses[1]["error"]["code"], -32601)
-
-
-class CreateBoardTest(unittest.TestCase):
-    def test_default_columns_are_the_team_flow(self):
-        self.assertEqual(create_board.parse_columns(None),
-                         ["In Definition", "Backlog", "Ready", "In progress", "In review", "In approval", "QA",
-                          "Ready for Merge", "Done"])
-        self.assertEqual([o["color"] for o in create_board.column_options(create_board.parse_columns(None))],
-                         ["GRAY", "GRAY", "BLUE", "YELLOW", "PURPLE", "PINK", "PURPLE", "ORANGE", "GREEN"])
-
-    def test_github_starting_columns_keep_their_ids_on_the_new_board(self):
-        self.assertEqual(create_board.keep_starting(create_board.parse_columns(None)),
-                         {"Done": "Done", "Todo": "Backlog", "In Progress": "In progress"})
-        self.assertEqual(create_board.keep_starting(["Todo", "Doing", "Shipped"]),
-                         {"Done": "Shipped", "Todo": "Todo", "In Progress": "Doing"})
-        self.assertEqual(create_board.keep_starting(["Ideas", "Building"]), {"Done": "Building", "Todo": "Ideas"})
-        self.assertEqual(create_board.keep_starting(["Backlog", "Done"], ["Todo", "Done"]),
-                         {"Done": "Done", "Todo": "Backlog"})
-
-    def test_create_sends_the_starting_ids_and_reports_workflows_that_are_off(self):
-        calls = []
-
-        def fake_graphql(query, **variables):
-            calls.append(query)
-            if "createProjectV2" in query:
-                return {"createProjectV2": {"projectV2": {"id": "P", "number": 9, "url": "https://x/9", "field": {
-                    "id": "F", "options": [{"id": "t1", "name": "Todo"}, {"id": "p1", "name": "In Progress"},
-                                           {"id": "d1", "name": "Done"}]}}}}
-            if "updateProjectV2Field" in query:
-                return {}
-            return {"node": {"field": {"options": [{"name": n} for n in create_board.DEFAULT_COLUMNS]},
-                             "workflows": {"nodes": [{"name": "Item closed", "enabled": True},
-                                                     {"name": "Pull request merged", "enabled": False}]}}}
-
-        with mock.patch.object(create_board, "current_repo", return_value={"owner": "me", "name": "app"}), \
-             mock.patch.object(create_board, "owner_and_repo",
-                               return_value={"owner_id": "O", "repo_id": "R", "boards": []}), \
-             mock.patch.object(create_board, "graphql", fake_graphql), \
-             mock.patch.object(create_board, "ensure_labels", return_value=["skip_approval"]):
-            result = create_board.create("Demo", list(create_board.DEFAULT_COLUMNS), link=False)
-        self.assertEqual(result["labels_created"], ["skip_approval"])
-        update = next(q for q in calls if "updateProjectV2Field" in q)
-        self.assertIn('{id:"t1",name:"Backlog"', update)
-        self.assertIn('{id:"p1",name:"In progress"', update)
-        self.assertIn('{id:"d1",name:"Done"', update)
-        self.assertIn('{name:"Ready",', update)
-        self.assertEqual(result["workflows_off"], ["Pull request merged"])
-        self.assertIn("Workflows, and enable: Pull request merged", result["to_do"])
-
-    def test_the_skip_approval_label_is_created_only_when_missing(self):
-        calls = []
-
-        def fake_gh(*args):
-            calls.append(args)
-            if args[:2] == ("api", "repos/me/app/labels/skip_approval") and len(args) == 2:
-                raise create_board.BoardError("HTTP 404: Not Found")
-            return "{}"
-
-        with mock.patch.object(create_board, "gh", fake_gh):
-            self.assertEqual(create_board.ensure_labels({"owner": "me", "name": "app"}), ["skip_approval"])
-        self.assertIn("name=skip_approval", calls[-1])
-        self.assertEqual(calls[-1][:4], ("api", "-X", "POST", "repos/me/app/labels"))
-        with mock.patch.object(create_board, "gh", return_value="{}") as found:
-            self.assertEqual(create_board.ensure_labels({"owner": "me", "name": "app"}), [])
-        self.assertEqual(found.call_count, 1)
-
-    def test_custom_columns_keep_order_and_trim(self):
-        self.assertEqual(create_board.parse_columns(" Todo , Doing,Done "), ["Todo", "Doing", "Done"])
-
-    def test_bad_columns_are_input_errors(self):
-        for text in ("Backlog,,Done", "Done,done", "Only", "A," + "x" * 60):
-            with self.assertRaises(create_board.InputError, msg=text):
-                create_board.parse_columns(text)
-
-    def test_colors_follow_meaning_and_unknown_columns_are_gray(self):
-        options = {o["name"]: o["color"] for o in create_board.column_options(["Ready", "In review", "Done", "Parking"])}
-        self.assertEqual(options, {"Ready": "BLUE", "In review": "PURPLE", "Done": "GREEN", "Parking": "GRAY"})
-
-    def test_an_open_board_with_the_same_title_is_a_duplicate(self):
-        boards = [{"number": 1, "title": "Old", "closed": True}, {"number": 2, "title": "AI Projects", "closed": False}]
-        self.assertEqual(create_board.find_duplicate(boards, "ai projects ")["number"], 2)
-        self.assertIsNone(create_board.find_duplicate(boards, "old"))
-
-    def test_dry_run_needs_no_network(self):
-        result = subprocess.run([sys.executable, str(CREATE_BOARD), "--title", "Demo", "--dry-run"],
-                                capture_output=True, text=True, env={**os.environ, "PATH": ""}, check=False)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(json.loads(result.stdout)["columns"]), 9)
 
 
 if __name__ == "__main__":

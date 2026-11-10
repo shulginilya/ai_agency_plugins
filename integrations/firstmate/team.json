@@ -58,13 +58,19 @@
         "A first-time-user walk-through of each new flow"
       ]
     },
+    "crew": {
+      "role": "Crew workflow",
+      "owns": [
+        "The crew's process in interactive sessions: the crew-workflow skill and the session-start hook that points a session at it",
+        "Creating the project board and its columns (/crew:create-board)"
+      ]
+    },
     "scrum-master": {
       "role": "Scrum Master",
       "owns": [
         "Backlog readiness: value, acceptance criteria, size",
         "Splitting items sized 13+ into vertical slices",
         "Filing the backlog it refines (tickets.py batch, rerunnable)",
-        "Creating the project board and its columns (/scrum-master:create-board)",
         "Sprint goal, capacity and plan"
       ]
     },
@@ -104,7 +110,7 @@
     "rows": [
       {"activity": "Set project intent and priorities", "captain": "A/R", "firstmate": "I"},
       {"activity": "Write spec, brief and delivery contract", "captain": "A", "firstmate": "R"},
-      {"activity": "Create the project board", "captain": "A", "firstmate": "C", "scrum-master": "R"},
+      {"activity": "Create the project board", "captain": "A", "firstmate": "C", "crew": "R"},
       {"activity": "Refine raw items into ready stories", "captain": "A", "firstmate": "I", "scrum-master": "R"},
       {"activity": "Split items sized 13+", "scrum-master": "R"},
       {"activity": "File the backlog and put it on the board", "captain": "A", "firstmate": "I", "scrum-master": "R"},
@@ -142,11 +148,11 @@
       {"id": "s2", "lane": "firstmate", "text": "Spec, then a scout brief T1: draft the backlog and propose the board. No writes yet"},
       {"id": "s3", "lane": "scrum-master", "text": "/scrum-master:refine each raw idea → user-value story, testable criteria, size"},
       {"id": "s4", "lane": "scrum-master", "text": "story-splitter subagent splits 13+ items; readiness check on each story"},
-      {"id": "s5", "lane": "scrum-master", "text": "Plan file for tickets.py batch --dry-run; /scrum-master:create-board --dry-run. Both go in the report"},
+      {"id": "s5", "lane": "scrum-master", "text": "Plan file for tickets.py batch --dry-run; /crew:create-board --dry-run. Both go in the report"},
       {"id": "s6", "lane": "firstmate", "text": "Relay the backlog, the board plan and open questions"},
       {"id": "s7", "lane": "captain", "kind": "decision", "text": "Answer questions, approve the board and the backlog"},
       {"id": "s8", "lane": "firstmate", "text": "Brief T2: create the board, then file the approved plan on it"},
-      {"id": "s9", "lane": "scrum-master", "kind": "write", "text": "/scrum-master:create-board → board N, columns In Definition → Backlog → Ready → In progress → In review → In approval → QA → Ready for Merge → Done, plus the skip_approval label"},
+      {"id": "s9", "lane": "crew", "kind": "write", "text": "/crew:create-board → board N, columns In Definition → Backlog → Ready → In progress → In review → In approval → QA → Ready for Merge → Done, plus the skip_approval label"},
       {"id": "s10", "lane": "scrum-master", "kind": "write", "text": "tickets.py batch --plan plan.json --project N --status Ready (safe to rerun; slices linked to epics)"},
       {"id": "s11", "lane": "scrum-master", "text": "/scrum-master:plan-sprint → sprint goal, capacity, issues that fit (proposal)"},
       {"id": "s12", "lane": "captain", "kind": "decision", "text": "Approve sprint 1"},

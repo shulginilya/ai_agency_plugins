@@ -156,6 +156,21 @@ class SessionHookTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, "the hook must never break a session")
 
 
+class ShipExistingTicketTest(unittest.TestCase):
+    """Shipping work for an existing ticket must reuse it, never file a duplicate."""
+
+    def test_the_command_and_the_skill_reuse_a_named_ticket(self):
+        command = (PLUGIN / "commands" / "ship.md").read_text(encoding="utf-8")
+        skill = (PLUGIN / "skills" / "ship-change" / "SKILL.md").read_text(encoding="utf-8")
+        for text in (command, skill):
+            self.assertIn("board.py add", text)
+            self.assertIn("Never file a second ticket", text)
+        self.assertIn("#N to ship for an existing ticket", command)
+        for text in (command, skill):  # the ticket's own board, not the most used one
+            self.assertIn("board.py where --issue", text)
+        self.assertIn("gh issue view", skill)
+
+
 class McpServerTest(unittest.TestCase):
     def _rpc(self, messages, cwd=None):
         payload = "\n".join(json.dumps(m) for m in messages) + "\n"
