@@ -13,7 +13,7 @@ In a GitHub repository:
   crew-workflow skill;
 - without one, it tells the session to ask the Captain, in its first reply,
   whether to create a crew board and what to call it. On a yes the session
-  runs /scrum-master:create-board and follows crew-workflow; on a no it runs
+  runs /crew:create-board and follows crew-workflow; on a no it runs
   this script with --decline, and this repository is never asked about again
   (--forget undoes that). A crew board found later is announced either way.
 
@@ -23,7 +23,7 @@ firstmate crewmate (FM_TASK_ID is set) or any run with CREW_UNATTENDED=1, such
 as a scripted `claude -p`. It still gets the crew-board line.
 
 A found board is cached per repository for CACHE_TTL seconds; "no crew board"
-only for NEGATIVE_TTL, so a board created with /scrum-master:create-board is
+only for NEGATIVE_TTL, so a board created with /crew:create-board is
 picked up by the next sessions. Everything is best effort: no repository, no
 GitHub remote, no gh, no authentication, offline or slow all mean it prints
 nothing and caches nothing. Exit status is always 0.
@@ -254,7 +254,7 @@ def ask_message(repo: str) -> str:
     return (
         "%s has no crew board. In your first reply, before anything else, ask the Captain whether to create "
         'one for this repository and what to call it (suggest "%s"). If they approve, their yes covers the '
-        "plan create-board shows: run /scrum-master:create-board with that name, then follow the crew-workflow "
+        "plan create-board shows: run /crew:create-board with that name, then follow the crew-workflow "
         "skill for the rest of this session. If they decline, run %s so this repository is not asked about "
         "again, then carry on with their request." % (repo, clean_title(name), _self_command("--decline"))
     )

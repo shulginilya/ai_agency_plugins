@@ -80,16 +80,14 @@ and the docs use it as the worked example:
 
 - **skills** — `backlog-refinement` (the Definition of Ready and the refinement
   loop, with references loaded on demand) and `sprint-planning`, plus the
-  shared `ticket-management`, `board-setup` and `crew-workflow` skills from
-  `plugins/_shared/skills/`
-- **commands** — `/refine`, `/plan-sprint`, `/backlog-health` and
-  `/create-board`, rendered into each harness's command dialect
+  shared `ticket-management` skill from `plugins/_shared/skills/`
+- **commands** — `/refine`, `/plan-sprint` and `/backlog-health`, rendered into
+  each harness's command dialect
 - **agent** — a `story-splitter` subagent (Claude Code; degrades to a skill elsewhere)
-- **hooks** — `SessionStart` hooks that print the active sprint and, in a
-  repository on a crew board, point the session at `crew-workflow` (Claude Code only)
+- **hook** — a `SessionStart` hook that prints the active sprint (Claude Code only)
 - **mcp** — a dependency-free stdio server (`backlog`, `readiness_check`,
   `scrum_checklist`), projected into each harness's MCP config
-- **scripts** — `ready.py`, `backlog.py`, `capacity.py` and the shared `create_board.py`,
+- **scripts** — `ready.py`, `backlog.py` and `capacity.py`,
   real helpers the skills call
 
 Build it and diff the outputs to see exactly what each adapter does:
@@ -101,9 +99,12 @@ find dist -type f | sort
 
 ## Starting a new project with the crew
 
+The crew's process lives in the `crew` plugin, which belongs to no role:
+removing a role plugin removes only that role's commands, never the workflow.
+
 Open a session in the project's repository. A GitHub repository with no crew
 board gets a question in the session's first reply: create one, and what to call
-it? Say yes and the session runs `/scrum-master:create-board`, which creates the
+it? Say yes and the session runs `/crew:create-board`, which creates the
 board with the crew's columns and the `skip_approval` label, and follows the
 `crew-workflow` skill from then on. Say no and that repository is never asked
 about again (the session records it; `crew_context.py --forget` undoes it).

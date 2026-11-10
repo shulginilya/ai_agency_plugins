@@ -1,0 +1,29 @@
+{
+  "name": "crew",
+  "displayName": "Crew",
+  "version": "0.1.0",
+  "description": "The crew's workflow, owned by no role: in a GitHub repository with a crew board it points every session at the crew-workflow skill (each step through its crew command, every ticket or board write shown first, stops at In approval and Ready for Merge); in one without, the session offers to create the board. Also creates crew boards. Use when asked to do, work or ship a ticket, pick up the next issue, or create a project board.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "license": "MIT",
+  "shared_skills": [
+    "crew-workflow",
+    "board-setup",
+    "ticket-management"
+  ],
+  "homepage": "https://github.com/shulginilya/ai_agency_plugins",
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "keywords": [
+    "crew",
+    "workflow",
+    "kanban",
+    "github-projects",
+    "board"
+  ],
+  "targets": {
+    "exclude": [],
+    "overrides": {}
+  }
+}

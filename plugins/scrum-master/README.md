@@ -11,17 +11,17 @@ standups and retros alone.
 | --- | --- | --- |
 | Skill | `backlog-refinement` | Definition of Ready, the refinement loop, the issue template |
 | Skill | `sprint-planning` | Capacity first, goal second, selection third, then the pre-flight checks |
-| Skill (shared) | `board-setup` | Create a GitHub Projects board with the team's columns, linked to the repo. Only scrum-master lists it. Source: `plugins/_shared/skills/` |
-| Skill (shared) | `crew-workflow` | Runs ticket work through the crew on a crew board: each step through its crew command, every ticket or board write shown first, stops at In approval and Ready for Merge. Only scrum-master lists it. Source: `plugins/_shared/skills/` |
 | Skill (shared) | `ticket-management` | Create, batch, edit, close and delete GitHub issues; board cards. Source: `plugins/_shared/skills/` |
 | Command | `/refine` | Refine one item into a ready story |
 | Command | `/plan-sprint` | Build a sprint plan from the ready backlog |
 | Command | `/backlog-health` | How much of the backlog is plannable, and what is missing |
-| Command | `/create-board` | Create the board a new project's backlog goes on |
 | Agent | `story-splitter` | Splits one oversized item into vertical slices, in a fresh context |
 | Hook | `SessionStart` | Prints the active milestone and its open issues, once |
-| Hook | `SessionStart` | In a repository whose board has the In approval and QA columns, and is linked to it or owned by its owner and holding its recent issues, prints one line pointing the session at `crew-workflow`. In a GitHub repository with no crew board, it tells the session to ask in its first reply whether to create one and its name; a no is recorded with `--decline` and never asked again (`--forget` undoes it). Never asked when unattended (`FM_TASK_ID` or `CREW_UNATTENDED=1` set). A found board is cached per repository for 12 hours, "no board" for 10 minutes; silent offline, without `gh` or outside GitHub |
 | MCP | `scrum-master` | `backlog`, `readiness_check`, `scrum_checklist` |
+
+Creating a board and running ticket work through the crew are not here: they
+belong to the `crew` plugin (`/crew:create-board`, the `crew-workflow` skill and
+its session-start hook), so the crew's process doesn't depend on this role.
 
 The readiness rules live in exactly one place —
 `skills/backlog-refinement/scripts/ready.py` — and the MCP server imports them

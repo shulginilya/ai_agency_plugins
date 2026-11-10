@@ -101,16 +101,16 @@ class CrewBundlesTest(unittest.TestCase):
             plugin = load_plugin(ROOT / "plugins" / name)
             self.assertNotIn("ticket-management", [s.name for s in plugin.skills], name)
 
-    def test_only_scrum_master_ships_board_setup_and_it_runs_from_the_bundle(self):
+    def test_only_crew_ships_board_setup_and_it_runs_from_the_bundle(self):
         target = {t.id: t for t in load_targets(ROOT / "targets")}["claude-code"]
-        self.assertFalse((ROOT / "plugins" / "scrum-master" / "skills" / "board-setup").exists(),
+        self.assertFalse((ROOT / "plugins" / "crew" / "skills" / "board-setup").exists(),
                          "board-setup lives in plugins/_shared/skills only")
         for name in sorted(p.name for p in (ROOT / "plugins").iterdir() if (p / "plugin.json").is_file()):
             skills = [s.name for s in load_plugin(ROOT / "plugins" / name).skills]
-            self.assertEqual("board-setup" in skills, name == "scrum-master", name)
+            self.assertEqual("board-setup" in skills, name == "crew", name)
         with tempfile.TemporaryDirectory() as tmp:
-            build(load_plugin(ROOT / "plugins" / "scrum-master"), target, Path(tmp))
-            script = Path(tmp) / "claude-code" / "scrum-master" / "skills" / "board-setup" / "scripts" / "create_board.py"
+            build(load_plugin(ROOT / "plugins" / "crew"), target, Path(tmp))
+            script = Path(tmp) / "claude-code" / "crew" / "skills" / "board-setup" / "scripts" / "create_board.py"
             result = run(script, "--title", "Demo", "--dry-run", env={**os.environ, "GH_REPO": "me/app"})
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout)["title"], "Demo")

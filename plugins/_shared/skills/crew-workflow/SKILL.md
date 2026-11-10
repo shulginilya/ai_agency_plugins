@@ -18,7 +18,7 @@ session-start line `crew board "<name>" ...` says so.
 
 When the session-start line says the repository has **no crew board**, ask the
 Captain in your first reply, before anything else, whether to create one and
-what to call it. On a yes, run `/scrum-master:create-board <name>` (the yes
+what to call it. On a yes, run `/crew:create-board <name>` (the yes
 covers the plan it shows), then apply this skill for the rest of the session.
 On a no, run the `--decline` command that line gives, so the repository is not
 asked about again, and carry on without this skill.
@@ -133,7 +133,7 @@ After the Captain moves the card to QA and asks for it:
   then file the stories with the `ticket-management` skill
   (`tickets.py batch`).
 - Sprint planning: `/scrum-master:plan-sprint`.
-- New project board: `/scrum-master:create-board`, only when the Captain asks
+- New project board: `/crew:create-board`, only when the Captain asks
   for one.
 
 ## Who moves which card
