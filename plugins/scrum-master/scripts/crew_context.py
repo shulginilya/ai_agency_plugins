@@ -7,8 +7,17 @@ owned by the repository's owner and holding one of its recent issues. A board
 someone else owns is ignored even when it holds the repository's issues:
 anyone can put a public issue on their own board and choose its title.
 
-Only on a crew board does this print one line telling the session to follow
-the crew-workflow skill. Everywhere else it prints nothing.
+In a GitHub repository:
+
+- with a crew board, it prints one line telling the session to follow the
+  crew-workflow skill;
+- without one, it tells the session to ask the Captain, in its first reply,
+  whether to create a crew board and what to call it. On a yes the session
+  runs /scrum-master:create-board and follows crew-workflow; on a no it runs
+  this script with --decline, and this repository is never asked about again
+  (--forget undoes that). A crew board found later is announced either way.
+
+Anywhere else (no repository, no GitHub remote) it prints nothing.
 
 A found board is cached per repository for CACHE_TTL seconds; "no crew board"
 only for NEGATIVE_TTL, so a board created with /scrum-master:create-board is
@@ -32,6 +41,7 @@ TIMEOUT = 5
 CACHE_TTL = 12 * 3600
 NEGATIVE_TTL = 10 * 60
 CACHE_FILE = "crew_boards.json"
+DECLINED_KEY = "declined"
 CREW_COLUMNS = ("in approval", "qa")
 RECENT_ISSUES = 20
 TITLE_MAX = 80
@@ -199,6 +209,48 @@ def lookup(owner: str, name: str) -> Tuple[bool, Optional[str]]:
     return True, crew_board(data, owner)
 
 
+def declined(path: Path) -> List[str]:
+    try:
+        names = json.loads(path.read_text(encoding="utf-8")).get(DECLINED_KEY)
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [n for n in names if isinstance(n, str)] if isinstance(names, list) else []
+
+
+def set_declined(path: Path, repo: str, on: bool) -> None:
+    """Record or clear the Captain's no to a crew board for this repository. Never expires."""
+    try:
+        cache = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(cache, dict):
+            cache = {}
+    except (OSError, ValueError):
+        cache = {}
+    names = [n for n in declined(path) if n.lower() != repo.lower()]
+    if on:
+        names.append(repo)
+    cache[DECLINED_KEY] = sorted(names)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cache, indent=1) + "\n", encoding="utf-8")
+
+
+def _self_command(flag: str) -> str:
+    """This script with `flag`, naming the cache the hook reads: the session's shell has no CLAUDE_PLUGIN_DATA."""
+    return '"%s" "%s" %s --cache "%s"' % (
+        sys.executable or "python3", os.path.abspath(__file__), flag, cache_path()
+    )
+
+
+def ask_message(repo: str) -> str:
+    name = repo.split("/", 1)[1]
+    return (
+        "%s has no crew board. In your first reply, before anything else, ask the Captain whether to create "
+        'one for this repository and what to call it (suggest "%s"). If they approve, their yes covers the '
+        "plan create-board shows: run /scrum-master:create-board with that name, then follow the crew-workflow "
+        "skill for the rest of this session. If they decline, run %s so this repository is not asked about "
+        "again, then carry on with their request." % (repo, clean_title(name), _self_command("--decline"))
+    )
+
+
 def message(board: str, repo: str) -> str:
     return (
         'crew board "%s" is used by %s. For ticket work ("do ticket #N", "pick up the next issue"), '
@@ -207,7 +259,19 @@ def message(board: str, repo: str) -> str:
     )
 
 
-def main() -> int:
+def main(argv: Optional[List[str]] = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in ("--decline", "--forget"):
+        path = Path(argv[argv.index("--cache") + 1]) if "--cache" in argv[:-1] else cache_path()
+        parsed = current_repo()
+        if not parsed:
+            print("not in a GitHub repository; nothing recorded", file=sys.stderr)
+            return 1
+        repo = "%s/%s" % parsed
+        set_declined(path, repo, argv[0] == "--decline")
+        print("%s: %s" % (repo, "won't ask about a crew board again (undo: --forget)"
+                          if argv[0] == "--decline" else "will ask about a crew board again"))
+        return 0
     try:
         sys.stdin.read()
     except Exception:
@@ -229,6 +293,8 @@ def main() -> int:
         write_cache(path, repo, board, now)
     if board:
         print(message(board, repo))
+    elif repo.lower() not in (n.lower() for n in declined(path)):
+        print(ask_message(repo))
     return 0
 
 

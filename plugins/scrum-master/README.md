@@ -20,7 +20,7 @@ standups and retros alone.
 | Command | `/create-board` | Create the board a new project's backlog goes on |
 | Agent | `story-splitter` | Splits one oversized item into vertical slices, in a fresh context |
 | Hook | `SessionStart` | Prints the active milestone and its open issues, once |
-| Hook | `SessionStart` | In a repository whose board has the In approval and QA columns, and is linked to it or owned by its owner and holding its recent issues, prints one line pointing the session at `crew-workflow`. A found board is cached per repository for 12 hours, "no board" for 10 minutes; silent offline, without `gh` or outside GitHub |
+| Hook | `SessionStart` | In a repository whose board has the In approval and QA columns, and is linked to it or owned by its owner and holding its recent issues, prints one line pointing the session at `crew-workflow`. In a GitHub repository with no crew board, it tells the session to ask in its first reply whether to create one and its name; a no is recorded with `--decline` and never asked again (`--forget` undoes it). A found board is cached per repository for 12 hours, "no board" for 10 minutes; silent offline, without `gh` or outside GitHub |
 | MCP | `scrum-master` | `backlog`, `readiness_check`, `scrum_checklist` |
 
 The readiness rules live in exactly one place —

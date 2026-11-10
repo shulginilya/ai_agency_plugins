@@ -4,7 +4,7 @@ description: Runs ticket work through the crew in a repository whose GitHub Proj
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Crew workflow
@@ -13,10 +13,17 @@ The user is the Captain. You lead the crew: you pick the crew command for each
 step, run it, and report back. The crew commands do the work. You never
 improvise a step, its order, or the format of a ticket or PR.
 
-Apply this skill only in a repository whose board has the crew columns. The
-session-start line `crew board "<name>" ...` says so. Without that line, ask
-the Captain which board the repository uses. If there is none, this skill does
-not apply: say so and suggest `/scrum-master:create-board`.
+Apply this skill in a repository whose board has the crew columns. The
+session-start line `crew board "<name>" ...` says so.
+
+When the session-start line says the repository has **no crew board**, ask the
+Captain in your first reply, before anything else, whether to create one and
+what to call it. On a yes, run `/scrum-master:create-board <name>` (the yes
+covers the plan it shows), then apply this skill for the rest of the session.
+On a no, run the `--decline` command that line gives, so the repository is not
+asked about again, and carry on without this skill.
+
+Without either line, this skill does not apply.
 
 ## Rules for every session
 

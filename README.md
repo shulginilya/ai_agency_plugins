@@ -101,10 +101,14 @@ find dist -type f | sort
 
 ## Starting a new project with the crew
 
-Run `/scrum-master:create-board` in the project's repository. That is the only
-setup: it creates the board with the crew's columns and the `skip_approval`
-label. From then on, every new session in that repository is told to follow the
-`crew-workflow` skill, so "do ticket #N" runs `/qa:plan`, `/developer:implement`,
+Open a session in the project's repository. A GitHub repository with no crew
+board gets a question in the session's first reply: create one, and what to call
+it? Say yes and the session runs `/scrum-master:create-board`, which creates the
+board with the crew's columns and the `skip_approval` label, and follows the
+`crew-workflow` skill from then on. Say no and that repository is never asked
+about again (the session records it; `crew_context.py --forget` undoes it). From
+then on, every new session in a repository with a crew board is told to follow
+the `crew-workflow` skill, so "do ticket #N" runs `/qa:plan`, `/developer:implement`,
 `/developer:ship` and `/code-reviewer:review`, and stops at In approval for you.
 Nothing workflow-related is added to the project's repository.
 
