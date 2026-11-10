@@ -68,7 +68,7 @@ Then resolve it as one of three kinds:
 
 | Kind | Example | Resolution |
 | --- | --- | --- |
-| **Generated** | a file the repo's docs or CI mark as generated (here: `docs/firstmate/team.drawio`, `.claude-plugin/marketplace.json`) | `git checkout origin/<base> -- <file>`. Never hand-merge it; whatever regenerates it does so after the merge. |
+| **Generated** | a file the repo's docs or CI mark as generated (here: `docs/crew/*.drawio`, `.claude-plugin/marketplace.json`) | `git checkout origin/<base> -- <file>`. Never hand-merge it; whatever regenerates it does so after the merge. |
 | **Text clash** | both sides reworded the same paragraph, both bumped a version, both added a row | Keep both intents in one result. A version goes past both sides (0.2.0 and 0.3.0 become 0.4.0). An ordered list keeps the base's order and slots the PR's item where it belongs. |
 | **Decision** | the two sides disagree on behaviour: two rules for the same thing, one side removed what the other extends | `git rebase --abort`. Don't choose. Report both sides and the resolution you propose, and wait for the user. |
 

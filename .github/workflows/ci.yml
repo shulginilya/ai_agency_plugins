@@ -51,11 +51,11 @@ jobs:
   # generated-files below); this job regenerates them once, here, after the
   # merge. One job, one push, so two pushes to main never race.
   #   - the marketplace index, from every plugin.json
-  #   - the crew diagram, from deploy.sh, brief-include.md, plugins/, team.json
+  #   - the crew diagram, from plugins/, the crew-workflow skill, team.json
   #   - the ticket lifecycle diagram, from create_board.py, plugins/*/commands,
-  #     deploy.sh, team.json, lifecycle.json
+  #     team.json, lifecycle.json
   #   - the skills diagram, from plugins/ (skills, commands, agents, plugin.json),
-  #     deploy.sh, team.json, crew-dispatch.json
+  #     team.json
   marketplace:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: check
@@ -73,13 +73,13 @@ jobs:
         run: python -m tools.apkit marketplace
 
       - name: Regenerate the crew diagram
-        run: python integrations/firstmate/team_diagram.py
+        run: python integrations/crew/team_diagram.py
 
       - name: Regenerate the ticket lifecycle diagram
-        run: python integrations/firstmate/lifecycle_diagram.py
+        run: python integrations/crew/lifecycle_diagram.py
 
       - name: Regenerate the skills diagram
-        run: python integrations/firstmate/skills_diagram.py
+        run: python integrations/crew/skills_diagram.py
 
       - name: Commit what changed
         run: |
@@ -91,21 +91,22 @@ jobs:
             git commit -m "chore(marketplace): regenerate index [skip ci]"
             changed=1
           fi
-          if ! git diff --quiet -- docs/firstmate/team.drawio; then
-            git add docs/firstmate/team.drawio
-            git commit -m "chore(firstmate): regenerate crew diagram [skip ci]"
+          if ! git diff --quiet -- docs/crew/team.drawio || \
+             [ -n "$(git ls-files --others --exclude-standard -- docs/crew/team.drawio)" ]; then
+            git add docs/crew/team.drawio
+            git commit -m "chore(crew): regenerate crew diagram [skip ci]"
             changed=1
           fi
-          if ! git diff --quiet -- docs/firstmate/lifecycle.drawio || \
-             [ -n "$(git ls-files --others --exclude-standard -- docs/firstmate/lifecycle.drawio)" ]; then
-            git add docs/firstmate/lifecycle.drawio
-            git commit -m "chore(firstmate): regenerate ticket lifecycle diagram [skip ci]"
+          if ! git diff --quiet -- docs/crew/lifecycle.drawio || \
+             [ -n "$(git ls-files --others --exclude-standard -- docs/crew/lifecycle.drawio)" ]; then
+            git add docs/crew/lifecycle.drawio
+            git commit -m "chore(crew): regenerate ticket lifecycle diagram [skip ci]"
             changed=1
           fi
-          if ! git diff --quiet -- docs/firstmate/skills.drawio || \
-             [ -n "$(git ls-files --others --exclude-standard -- docs/firstmate/skills.drawio)" ]; then
-            git add docs/firstmate/skills.drawio
-            git commit -m "chore(firstmate): regenerate skills diagram [skip ci]"
+          if ! git diff --quiet -- docs/crew/skills.drawio || \
+             [ -n "$(git ls-files --others --exclude-standard -- docs/crew/skills.drawio)" ]; then
+            git add docs/crew/skills.drawio
+            git commit -m "chore(crew): regenerate skills diagram [skip ci]"
             changed=1
           fi
           if [ -z "$changed" ]; then
@@ -126,7 +127,7 @@ jobs:
       - name: Branch leaves CI-generated files alone
         run: |
           base="$(git merge-base "origin/${{ github.base_ref }}" HEAD)"
-          touched="$(git diff --name-only "$base" HEAD -- docs/firstmate/team.drawio docs/firstmate/lifecycle.drawio docs/firstmate/skills.drawio)"
+          touched="$(git diff --name-only "$base" HEAD -- docs/crew/team.drawio docs/crew/lifecycle.drawio docs/crew/skills.drawio)"
           if [ -n "$touched" ]; then
             for f in $touched; do
               echo "::error file=$f::CI regenerates this on main after the merge. Drop it from the branch: git checkout origin/${{ github.base_ref }} -- $f (or git rm --cached $f if main does not have it yet)"

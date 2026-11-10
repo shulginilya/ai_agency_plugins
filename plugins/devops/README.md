@@ -100,8 +100,13 @@ python -m tools.apkit test --plugin devops
 
 ## Install it
 
-It's a crew plugin: `integrations/firstmate/deploy.sh --with-plugins`
-installs it with the others.
+It's a crew plugin. Install it with the others listed under `crew` in
+`integrations/crew/team.json`, or on its own:
+
+```bash
+python -m tools.apkit build --plugin devops
+python -m tools.apkit install devops --target claude-code
+```
 
 ## What degrades where
 

@@ -7,20 +7,20 @@ topic, anywhere under the notes folder. Subfolders are fine.
 ---
 repo: shulginilya/ai_agency_plugins    # optional: where this topic's tickets go
 board: 1                               # optional: the GitHub Projects board number
-topic: Firstmate crew                  # optional: defaults to the title, then the file name
+topic: Crew diagrams                  # optional: defaults to the title, then the file name
 ---
-# Firstmate crew
+# Crew diagrams
 
 ## In progress
-- [/] wire designer into crew_plugins → #39
+- [/] wire designer into the team.json crew → #39
 
 ## TODO
 - [ ] add designer to the diagram
   - needs a team.json lane
   - and the RACI column
 
-### Deploy
-- [ ] check deploy refuses under a live crew
+### Install
+- [ ] check apkit install keeps a hand-edited config
 
 ## Done
 - [x] crew-only deploy → #26

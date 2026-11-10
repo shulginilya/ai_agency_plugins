@@ -16,7 +16,7 @@ it do the moving.
 ```bash
 python scripts/notes.py where                                 # which folder, and why
 python scripts/notes.py set-root "C:\Users\me\notes"          # remember a folder (Windows paths are fine)
-python scripts/notes.py add --topic "Firstmate crew" --todo "add designer to the diagram"
+python scripts/notes.py add --topic "Crew diagrams" --todo "add designer to the diagram"
 python scripts/notes.py add --topic "Observatory" --note "Neon branch per PR looks cheap"
 python scripts/notes.py status                                # open items per topic
 python scripts/notes.py status --file "C:\Users\me\meeting.md"  # one notes file, anywhere

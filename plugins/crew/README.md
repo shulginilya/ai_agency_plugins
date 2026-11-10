@@ -26,7 +26,7 @@ repository (a found board for 12 hours, "no board" for 10 minutes).
 | A GitHub repository whose board has the In approval and QA columns, and is linked to it or owned by its owner and holding its recent issues | One line: follow the `crew-workflow` skill for ticket work |
 | A GitHub repository with no crew board | Ask the Captain in the first reply whether to create one and what to call it. Yes: `/crew:create-board <name>`, then `crew-workflow`. No: run the `--decline` command the line gives, and that repository is never asked again (`--forget` undoes it) |
 | A repository the Captain declined | Nothing, until a crew board appears there |
-| An unattended session (`FM_TASK_ID` or `CREW_UNATTENDED=1` set) | Never the question; still the crew-board line |
+| An unattended session (`CREW_UNATTENDED=1` set) | Never the question; still the crew-board line |
 | Not a GitHub repository, offline, or without `gh` | Nothing |
 
 A board found through the repository's issues counts only when the

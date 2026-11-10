@@ -4,7 +4,7 @@ The crew's UI/UX designer. It specifies a screen before it is built and
 reviews it after: every state the user can hit, the copy they read, whether
 they can use it with a keyboard, and whether it matches the rest of the
 product. It works from the repository and the running app, with no outside
-accounts, so it also works for unattended crewmates.
+accounts, so it also works in unattended sessions.
 
 ## What it does
 
@@ -19,7 +19,7 @@ accounts, so it also works for unattended crewmates.
 It doesn't manage tickets. Specs and findings that need a ticket are handed to
 developer or scrum-master, the only crew members that manage them.
 
-There are no hooks. A crew plugin's hooks would run in every crewmate session,
+There are no hooks. A crew plugin's hooks would run in every crew session,
 and nothing here needs one.
 
 Two scripts carry the checks, both standard-library Python:
@@ -46,12 +46,12 @@ python -m tools.apkit test --plugin designer
 
 ## Install it
 
-It is a crew plugin: `integrations/firstmate/deploy.sh --with-plugins` installs
-it with the others. On its own:
+It's a crew plugin. Install it with the others listed under `crew` in
+`integrations/crew/team.json`, or on its own:
 
 ```bash
 python -m tools.apkit build --plugin designer
-python -m tools.apkit install designer --target claude-code --scope user
+python -m tools.apkit install designer --target claude-code
 ```
 
 ## What degrades where

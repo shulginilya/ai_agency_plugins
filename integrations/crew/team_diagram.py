@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
-"""Draw the firstmate crew — who does what, who owns what, and a worked example.
+"""Draw the crew — who does what, who owns what, and a worked example.
 
-    python integrations/firstmate/team_diagram.py            # write docs/firstmate/
-    python integrations/firstmate/team_diagram.py --out DIR  # somewhere else
+    python integrations/crew/team_diagram.py            # write docs/crew/
+    python integrations/crew/team_diagram.py --out DIR  # somewhere else
 
 Two sources, so the picture follows the team as it changes:
 
-* the repo itself — the crew is `crew_plugins` in deploy.sh; each crew plugin's
-  version, commands, subagents (and their models), MCP tools and hooks come from
-  plugins/<name>/; what each one is routed for comes from brief-include.md;
-  Captain-only plugins are every other plugin under plugins/.
-* team.json next to this script — what the repo cannot say: role names,
-  ownership, the Captain/Firstmate duties, known gaps, the RACI matrix and the
-  example workflow.
+* the repo itself — each crew plugin's version, commands, subagents (and their
+  models), MCP tools and hooks come from plugins/<name>/; what each one is
+  routed for, and the rules every session keeps, come from the crew-workflow
+  skill (plugins/_shared/skills/crew-workflow/SKILL.md); Captain-only plugins
+  are every other plugin under plugins/.
+* team.json next to this script — what the repo cannot say: who is crew (the
+  keys of "crew"), role names, ownership, the Captain's duties, known gaps, the
+  RACI matrix and the example workflow.
 
-Add a plugin to `crew_plugins` and rerun: it gets a card, a matrix column and a
-lane automatically, and the script warns about whatever team.json or
-brief-include.md still has to say about it.
+Add a plugin under "crew" in team.json and rerun: it gets a card, a matrix
+column and a lane automatically, and the script warns about whatever the
+crew-workflow skill still has to say about it.
 
 Writes one file, team.drawio, with three pages.
-CI regenerates docs/firstmate/team.drawio on main after each merge, so a branch
+CI regenerates docs/crew/team.drawio on main after each merge, so a branch
 never commits it: run this to preview, then leave the file out of the commit.
 Standard library only; Python 3.9+.
 Exit status: 0 written, 1 written with warnings and --strict, 2 bad input.
@@ -37,13 +38,13 @@ from typing import Dict, List, Optional, Tuple
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
+CREW_SKILL = REPO / "plugins" / "_shared" / "skills" / "crew-workflow" / "SKILL.md"
 FONT = "Inter, Segoe UI, Helvetica, Arial, sans-serif"
 MONO = "JetBrains Mono, Consolas, Menlo, monospace"
 
 # fill, stroke, text
 PALETTE = {
     "captain": ("#fff4e0", "#d08a00", "#5c3d00"),
-    "firstmate": ("#e8f0fe", "#3c6fd1", "#1b3a78"),
     "crew": ("#e8f6ee", "#2e8b57", "#174d30"),
     "write": ("#f3e8fd", "#8e44ad", "#4a1f63"),
     "gap": ("#fdecea", "#c0392b", "#6e1a12"),
@@ -76,22 +77,33 @@ def frontmatter(path: Path) -> Dict[str, str]:
     return out
 
 
-def crew_plugin_names(deploy: Path) -> List[str]:
-    m = re.search(r"^crew_plugins=\(([^)]*)\)", deploy.read_text(encoding="utf-8"), re.M)
-    if not m:
-        raise SystemExit(f"error: no crew_plugins=(...) line in {deploy}")
-    return m.group(1).split()
+def crew_plugin_names(team_path: Path) -> List[str]:
+    """The crew, in order: the keys of "crew" in team.json."""
+    try:
+        team = json.loads(team_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"error: cannot read {team_path}: {exc}")
+    return list(team.get("crew", {}))
 
 
-def routing(brief: Path) -> Dict[str, List[str]]:
-    """plugin -> the kinds of work brief-include.md sends to it."""
-    text = brief.read_text(encoding="utf-8").split("Crewmate rules")[0]
+def skill_section(skill: Path, heading: str) -> str:
+    """The body of one '## <heading>' section of a SKILL.md."""
+    m = re.search(rf"^## {re.escape(heading)}\s*\n(.*?)(?=^## |\Z)", skill.read_text(encoding="utf-8"), re.M | re.S)
+    return m.group(1) if m else ""
+
+
+def session_rules(skill: Path) -> List[str]:
+    """The bold lead of each numbered rule in the skill's 'Rules for every session'."""
+    return re.findall(r"^\d+\. \*\*(.+?)\*\*", skill_section(skill, "Rules for every session"), re.M)
+
+
+def routing(skill: Path) -> Dict[str, List[str]]:
+    """plugin -> the kinds of work the crew-workflow skill's Routing section sends to it."""
+    text = skill_section(skill, "Routing")
     routes: Dict[str, List[str]] = {}
     bullets = re.split(r"\n- ", "\n" + text)
     for b in bullets[1:]:
         b = " ".join(b.split())
-        if b.startswith("Only the "):
-            continue
         # "Label: `/p:cmd` ... . Other label: `/p:cmd`" — each label owns the commands after it
         marks = list(re.finditer(r"(?:^|\.\s+)([A-Z][^:`.]*?):\s", b))
         for i, mk in enumerate(marks):
@@ -151,38 +163,32 @@ def load(team_path: Path) -> Dict:
     except (OSError, ValueError) as exc:
         print(f"error: cannot read {team_path}: {exc}", file=sys.stderr)
         sys.exit(2)
-    fm = HERE
-    crew_names = crew_plugin_names(fm / "deploy.sh")
-    routes = routing(fm / "brief-include.md")
+    crew_names = crew_plugin_names(team_path)
+    routes = routing(CREW_SKILL)
+    route_text = skill_section(CREW_SKILL, "Routing")
     crew = []
     for n in crew_names:
         if not (REPO / "plugins" / n / "plugin.json").is_file():
-            warn(f"crew plugin {n} in deploy.sh has no plugins/{n}/plugin.json")
+            warn(f"crew plugin {n} in team.json has no plugins/{n}/plugin.json")
             continue
         p = read_plugin(n)
-        extra = team.get("crew", {}).get(n)
-        if not extra:
-            warn(f"{n}: no entry under 'crew' in team.json — role name and ownership unknown")
-            extra = {}
+        extra = team["crew"][n] or {}
+        if not extra.get("role"):
+            warn(f"{n}: no role under 'crew' in team.json — role name and ownership unknown")
         p["role"] = extra.get("role", p["display"])
         p["owns"] = extra.get("owns", ["(not declared in team.json)"])
         p["routed"] = routes.get(n, [])
         if not p["routed"]:
-            warn(f"{n}: brief-include.md routes no work to it (README: every crew plugin needs routing lines)")
-        for c in re.findall(rf"`(/{n}:[a-z-]+)", (fm / "brief-include.md").read_text(encoding="utf-8")):
+            warn(f"{n}: the crew-workflow skill's Routing section routes no work to it")
+        for c in re.findall(rf"`(/{n}:[a-z-]+)", route_text):
             if c not in p["commands"]:
-                warn(f"brief-include.md routes to {c}, which plugins/{n}/commands/ does not have")
+                warn(f"the crew-workflow skill routes to {c}, which plugins/{n}/commands/ does not have")
         crew.append(p)
-    for n in team.get("crew", {}):
-        if n not in crew_names:
-            warn(f"team.json describes '{n}', which is not in crew_plugins — it is left off the diagram")
     captain_only = sorted(
         d.name for d in (REPO / "plugins").iterdir()
         if d.is_dir() and not d.name.startswith("_") and (d / "plugin.json").is_file() and d.name not in crew_names
     )
     gaps = list(team.get("gaps", []))
-    if not (fm / "crew-dispatch.json").is_file():
-        gaps.append("crew-dispatch.json does not exist yet, so deploy.sh deploys brief-include.md alone")
     roles = {l["id"]: l["role"] for l in team.get("leads", [])}
     roles.update({p["name"]: p["role"] for p in crew})
     for row in team.get("raci", {}).get("rows", []):
@@ -192,7 +198,8 @@ def load(team_path: Path) -> Dict:
     for s in team.get("scenario", {}).get("steps", []):
         if s["lane"] not in roles:
             warn(f"scenario step {s['id']} is in unknown lane '{s['lane']}'")
-    return {"team": team, "crew": crew, "captain_only": captain_only, "gaps": gaps, "roles": roles}
+    return {"team": team, "crew": crew, "captain_only": captain_only, "gaps": gaps, "roles": roles,
+            "rules": session_rules(CREW_SKILL)}
 
 
 # ------------------------------------------------------------------- primitives
@@ -279,17 +286,17 @@ def page_team(m: Dict) -> Tuple[str, List, float, float]:
     shapes: List = []
     team = m["team"]
     W = 40
-    shapes.append(Box("t_title", W, 20, 1400, 34, [Line(team.get("title", "firstmate crew"), 22, True)],
+    shapes.append(Box("t_title", W, 20, 1400, 34, [Line(team.get("title", "The crew"), 22, True)],
                       "none", "none", "#1a1a1a", pad=0))
     shapes.append(Box("t_sub", W, 56, 1500, 24, [Line(
-        "Generated by integrations/firstmate/team_diagram.py from deploy.sh, brief-include.md, plugins/ and team.json — edit those, not this file.",
+        "Generated by integrations/crew/team_diagram.py from plugins/, the crew-workflow skill and team.json — edit those, not this file.",
         11, color="#666666")], "none", "none", "#666666", pad=0))
 
     leads = {l["id"]: l for l in team.get("leads", [])}
     y0 = 100
     lead_boxes = {}
     x = W
-    for lid, style in (("captain", "captain"), ("firstmate", "firstmate")):
+    for lid, style in (("captain", "captain"),):
         l = leads.get(lid)
         if not l:
             continue
@@ -300,29 +307,18 @@ def page_team(m: Dict) -> Tuple[str, List, float, float]:
         lead_boxes[lid] = b
         x += 420 + 120
 
-    integ_lines = [Line("Integration layer", 14, True), Line("integrations/firstmate/ → <firstmate home>/config/", 10, mono=True, color="#555555")]
-    integ_lines += section("Files", [
-        "brief-include.md — appended to every ship and scout brief: routes work to plugins, sets unattended rules",
-        "deploy.sh — copies config; --with-plugins installs exactly the crew_plugins into ~/.claude; refuses while a crewmate is live",
-        "crew-dispatch.json — " + ("present, deployed" if (HERE / "crew-dispatch.json").is_file() else "planned, not present"),
-        "team.json + team_diagram.py — this diagram",
+    integ_lines = [Line("Crew workflow", 14, True),
+                   Line("crew plugin: SessionStart hook + crew-workflow skill", 10, mono=True, color="#555555")]
+    integ_lines += section("How a session gets it", [
+        "A repository with a crew board: every session is pointed at the crew-workflow skill",
+        "No crew board: the first reply offers /crew:create-board (a no is remembered)",
+        "Install the crew: python -m tools.apkit install <plugin> --target claude-code",
     ])
-    integ_lines += section("Crew rules (from brief-include.md)", [
-        "Nobody watches the pane: decide from the brief, record why, continue",
-        "Can't decide from the brief: write the question in the report and stop",
-        "Never guess on anything irreversible",
-        "Write to remotes only as far as the delivery contract allows",
-    ])
-    integ = fit_box("integ", x, y0, 480, integ_lines, "panel", pad=12)
+    integ_lines += section("Rules every session keeps (from the skill)", m["rules"] or ["(none found — see warnings)"])
+    integ = fit_box("integ", x, y0, 520, integ_lines, "panel", pad=12)
     shapes.append(integ)
 
     top_h = max([b.h for b in lead_boxes.values()] + [integ.h])
-    if "captain" in lead_boxes and "firstmate" in lead_boxes:
-        c, f = lead_boxes["captain"], lead_boxes["firstmate"]
-        yy = c.y + 40
-        shapes.append(Edge("e_cf", [(c.x + c.w, yy), (f.x, yy)], "intent", src=c.id, dst=f.id, color=PALETTE["captain"][1]))
-        yy2 = c.y + 90
-        shapes.append(Edge("e_fc", [(f.x, yy2), (c.x + c.w, yy2)], "questions, results", src=f.id, dst=c.id, color=PALETTE["firstmate"][1]))
 
     # crew container + cards
     cy = y0 + top_h + 70
@@ -356,26 +352,26 @@ def page_team(m: Dict) -> Tuple[str, List, float, float]:
     crew_h = (row_y + row_h + 20) - cy
     note = team.get("crew_note", "")
     container = Box("crew_box", W, cy, max(crew_w, 600), crew_h,
-                    [Line(f"Crew — {len(m['crew'])} crew plugins (deploy.sh crew_plugins), each crewmate a Claude Code session", 14, True),
+                    [Line(f"Crew — {len(m['crew'])} crew plugins (team.json crew), one Claude Code session leads them", 14, True),
                      Line(note, 10.5, color="#3a5a46")],
                     "#f5fbf7", PALETTE["crew"][1], PALETTE["crew"][2], dashed=True, pad=14, container=True)
     shapes.append(container)
     shapes.extend(cards)
-    if "firstmate" in lead_boxes:
-        f = lead_boxes["firstmate"]
-        x1 = f.x + 140
-        shapes.append(Edge("e_fcrew", [(x1, f.y + f.h), (x1, cy)], "brief + delivery contract (ship / scout)",
-                           src=f.id, dst=container.id, color=PALETTE["firstmate"][1]))
-        x2 = f.x + f.w - 120
-        shapes.append(Edge("e_crewf", [(x2, cy), (x2, f.y + f.h)], "report",
-                           src=container.id, dst=f.id, color=PALETTE["crew"][1]))
+    if "captain" in lead_boxes:
+        c = lead_boxes["captain"]
+        x1 = c.x + 140
+        shapes.append(Edge("e_ccrew", [(x1, c.y + c.h), (x1, cy)], "intent, approvals",
+                           src=c.id, dst=container.id, color=PALETTE["captain"][1]))
+        x2 = c.x + c.w - 120
+        shapes.append(Edge("e_crewc", [(x2, cy), (x2, c.y + c.h)], "questions, results, stops",
+                           src=container.id, dst=c.id, color=PALETTE["crew"][1]))
     shapes.append(Edge("e_integ", [(integ.x + integ.w / 2, integ.y + integ.h), (integ.x + integ.w / 2, cy)],
-                       "routes + installs", dashed=True, src=integ.id, dst=container.id, color="#888888"))
+                       "routes every step", dashed=True, src=integ.id, dst=container.id, color="#888888"))
 
     # bottom row: captain-only plugins + gaps
     by = cy + crew_h + 40
     cap_lines = [Line("Captain-only plugins", 13, True),
-                 Line("Installed for your own sessions; brief-include.md forbids crewmates to use them.", 10, color="#555555")]
+                 Line("Installed for your own sessions; the crew-workflow skill routes no ticket work to them.", 10, color="#555555")]
     cap_lines += section("Plugins", m["captain_only"], mono=True)
     cap = fit_box("captain_only", W, by, 420, cap_lines, "captain", pad=12, dashed=True)
     gap_lines = [Line("Known gaps", 13, True)] + section("", m["gaps"])
@@ -407,7 +403,7 @@ def page_matrix(m: Dict) -> Tuple[str, List, float, float]:
     act_w, col_w, row_h, top = 330, 128, 30, 104
     shapes.append(Box("mh_act", 40, top, act_w, 44, [Line("Activity", 12, True)], "#f0f0f0", "#bbbbbb", "#222222", rounded=False, valign="middle"))
     for j, c in enumerate(cols):
-        style = "captain" if c == "captain" else "firstmate" if c == "firstmate" else "crew"
+        style = "captain" if c == "captain" else "crew"
         fill, stroke, color = PALETTE[style]
         shapes.append(Box(f"mh_{c}", 40 + act_w + j * col_w, top, col_w, 44, [Line(m["roles"][c], 12, True)],
                           fill, stroke, color, rounded=False, align="center", valign="middle", pad=4))
@@ -449,7 +445,7 @@ def page_flow(m: Dict) -> Tuple[str, List, float, float]:
     for s in steps:
         if s["lane"] not in lanes:
             continue
-        lane_style = "captain" if s["lane"] == "captain" else "firstmate" if s["lane"] == "firstmate" else "crew"
+        lane_style = "captain" if s["lane"] == "captain" else "crew"
         style = style_of.get(s.get("kind", ""), lane_style)
         b = fit_box(f"st_{s['id']}", 0, 0, box_w, [Line(s["text"], 11.5)], style, min_h=56, pad=8,
                     dashed=s.get("kind") in ("gap", "optional"))
@@ -462,7 +458,7 @@ def page_flow(m: Dict) -> Tuple[str, List, float, float]:
         Box("f_title", 40, 20, 1600, 34, [Line("3 · " + sc.get("title", "Workflow example"), 22, True)], "none", "none", "#1a1a1a", pad=0),
     ]
     lx = 40
-    for k, label in (("captain", "Captain decision"), ("firstmate", "Firstmate"), ("crew", "Crewmate work"),
+    for k, label in (("captain", "Captain decision"), ("crew", "Crew work"),
                      ("write", "Writes to GitHub"), ("gap", "Gap — no skill covers it"), ("optional", "Only if needed")):
         fill, stroke, color = PALETTE[k]
         shapes.append(Box(f"fl_{k}", lx, 66, 18, 18, [], fill, stroke, color, dashed=k in ("gap", "optional")))
@@ -479,7 +475,7 @@ def page_flow(m: Dict) -> Tuple[str, List, float, float]:
     for ln in lanes:
         h = lane_h.get(ln, 60)
         lane_y[ln] = y
-        style = "captain" if ln == "captain" else "firstmate" if ln == "firstmate" else "crew"
+        style = "captain" if ln == "captain" else "crew"
         fill, stroke, color = PALETTE[style]
         lane_shapes.append(Box(f"lane_{ln}", 40, y, width - 40, h, [], "none", "#d6d6d6", "#333", rounded=False))
         lane_shapes.append(Box(f"lanel_{ln}", 40, y, lane_label_w, h, [Line(m["roles"][ln], 13, True)], fill, stroke, color,
@@ -581,7 +577,7 @@ def drawio_page(name: str, shapes: List, w: float, h: float, idx: int) -> str:
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--team", default=str(HERE / "team.json"))
-    ap.add_argument("--out", default=str(REPO / "docs" / "firstmate"))
+    ap.add_argument("--out", default=str(REPO / "docs" / "crew"))
     ap.add_argument("--strict", action="store_true", help="exit 1 if anything needed a warning")
     args = ap.parse_args(argv)
     model = load(Path(args.team))

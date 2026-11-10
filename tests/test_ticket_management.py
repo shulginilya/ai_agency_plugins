@@ -252,8 +252,8 @@ class BoardTest(unittest.TestCase):
         ]})
 
     def test_branch_name_from_a_conventional_title(self):
-        self.assertEqual(board.branch_name(21, "feat(firstmate): install every plugin, keep the crew"),
-                         "21-feat-firstmate-install-every-plugin")
+        self.assertEqual(board.branch_name(21, "feat(crew): install every plugin, keep the crew"),
+                         "21-feat-crew-install-every-plugin")
 
     def test_branch_name_without_a_type_prefix(self):
         self.assertEqual(board.branch_name(7, "Login button is Broken!"), "7-login-button-is-broken")

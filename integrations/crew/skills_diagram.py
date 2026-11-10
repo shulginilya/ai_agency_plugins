@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Draw every skill — which plugin owns it, how the skills relate, and which model and effort run them.
 
-    python integrations/firstmate/skills_diagram.py            # write docs/firstmate/
-    python integrations/firstmate/skills_diagram.py --out DIR  # somewhere else
-    python integrations/firstmate/skills_diagram.py --strict   # exit 1 on any drift
+    python integrations/crew/skills_diagram.py            # write docs/crew/
+    python integrations/crew/skills_diagram.py --out DIR  # somewhere else
+    python integrations/crew/skills_diagram.py --strict   # exit 1 on any drift
 
 Everything comes from the repo, so the picture follows the plugins as they change:
 
@@ -15,8 +15,7 @@ Everything comes from the repo, so the picture follows the plugins as they chang
   in backticks, as "<name> skill", or through a script that lives in a skill);
 * plugins/<name>/agents/*.md — the subagents and their own model and effort;
 * each SKILL.md's text — the other skills and subagents it hands work to;
-* deploy.sh (`crew_plugins`) and team.json — who is crew, and the role names;
-* crew-dispatch.json — the profiles Firstmate dispatches crew work with.
+* team.json — who is crew (the keys of "crew"), and the role names.
 
 A skill has no model of its own: it runs on the model of the command or session
 that loads it. So the diagram shows each command's pin next to the skills it
@@ -29,7 +28,7 @@ or skill uses without listing it in `shared_skills` (it would be missing from
 the built plugin). A test runs this with --strict, so that drift fails CI.
 
 Writes one file, skills.drawio, with two pages: the skills map, and the models.
-CI regenerates docs/firstmate/skills.drawio on main after each merge, so a
+CI regenerates docs/crew/skills.drawio on main after each merge, so a
 branch never commits it: run this to preview, then leave the file out of the commit.
 Standard library only; Python 3.9+.
 Exit status: 0 written, 1 written with warnings and --strict, 2 bad input.
@@ -216,25 +215,7 @@ def link(plugins: Dict[str, Dict]) -> None:
                 s["bundled_in"] = [q["name"] for q in plugins.values() if s["name"] in q["shared"]]
 
 
-def dispatch_rules(path: Path, commands: List[str]) -> List[Dict]:
-    if not path.is_file():
-        return []
-    data = json.loads(path.read_text(encoding="utf-8"))
-    rules = []
-    for r in data.get("rules", []) + ([{"when": "Anything no rule above matches.", "use": data["default"]}]
-                                      if data.get("default") else []):
-        text = f"{r.get('when', '')} {r.get('why', '')}"
-        named = [c for c in dict.fromkeys(re.findall(r"(/[a-z-]+:[a-z-]+)", text))]
-        for c in named:
-            if c not in commands:
-                warn(f"crew-dispatch.json names {c}, which no plugin has")
-        use = r.get("use", {})
-        rules.append({"when": r.get("when", ""), "model": use.get("model", ""), "effort": use.get("effort", ""),
-                      "approval": r.get("approval"), "commands": named})
-    return rules
-
-
-def load(team_path: Path, plugins_dir: Path, deploy: Path, dispatch: Path) -> Dict:
+def load(team_path: Path, plugins_dir: Path) -> Dict:
     try:
         team = json.loads(team_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -242,12 +223,10 @@ def load(team_path: Path, plugins_dir: Path, deploy: Path, dispatch: Path) -> Di
         sys.exit(2)
     plugins = load_plugins(plugins_dir)
     link(plugins)
-    crew = [n for n in crew_plugin_names(deploy) if n in plugins]
+    crew = [n for n in crew_plugin_names(team_path) if n in plugins]
     roles = {n: (team.get("crew", {}).get(n) or {}).get("role") for n in plugins}
     order = crew + sorted(n for n in plugins if n not in crew and n != SHARED) + ([SHARED] if SHARED in plugins else [])
-    commands = [c["name"] for p in plugins.values() for c in p["commands"]]
-    return {"plugins": plugins, "crew": crew, "roles": roles, "order": order,
-            "dispatch": dispatch_rules(dispatch, commands)}
+    return {"plugins": plugins, "crew": crew, "roles": roles, "order": order}
 
 
 # ------------------------------------------------------------------------ pages
@@ -263,7 +242,7 @@ def owner_line(m: Dict, name: str) -> str:
         return "Shared skills · bundled into the plugins that list them in shared_skills"
     p = m["plugins"][name]
     who = m["roles"].get(name) or p["display"]
-    kind = "Crew · Firstmate routes work to it" if name in m["crew"] else "Captain-only · not deployed to the crew"
+    kind = "Crew · the crew-workflow skill routes work to it" if name in m["crew"] else "Captain-only · not part of the crew"
     return f"{who} · {name} v{p['version']} · {kind}"
 
 
@@ -419,7 +398,7 @@ def legend_lines() -> List[Line]:
                   "command spawns it, in a fresh context.", 10),
              Line("'hands off to / uses' = other skills a skill sends work to or reads; '(shared)' = from "
                   "plugins/_shared, bundled into the plugin.", 10),
-             Line("Green frame: crew plugin, deployed by Firstmate. Grey frame: Captain-only.", 10)]
+             Line("Green frame: crew plugin (team.json crew). Grey frame: Captain-only.", 10)]
     for fam, label in (("opus", "Opus"), ("sonnet", "Sonnet"), ("haiku", "Haiku"), ("fable", "Fable"),
                        ("inherit", "No pin: session model")):
         lines.append(Line(f"■ {label}", 10.5, True, color=FAMILY[fam][1]))
@@ -433,8 +412,8 @@ def page_map(m: Dict) -> Tuple[str, List, float, float]:
                                                         "and what runs them", 22, True)],
                       "none", "none", "#1a1a1a", pad=0))
     shapes.append(Box("sub", X0, 56, 1900, 24, [Line(
-        "Generated by integrations/firstmate/skills_diagram.py from plugins/*/skills, commands, agents and "
-        "plugin.json, deploy.sh, team.json and crew-dispatch.json — edit those, not this file.", 11,
+        "Generated by integrations/crew/skills_diagram.py from plugins/*/skills, commands, agents and "
+        "plugin.json, and team.json — edit those, not this file.", 11,
         color="#666666")], "none", "none", "#666666", pad=0))
     lg = fit_box("legend", X0, 100, 2 * PW + GAP, legend_lines(), "panel", pad=10)
     shapes.append(lg)
@@ -462,14 +441,14 @@ def page_map(m: Dict) -> Tuple[str, List, float, float]:
 
 
 def page_models(m: Dict) -> Tuple[str, List, float, float]:
-    """Model × effort: which commands and subagents run on each profile, and Firstmate's dispatch profiles."""
+    """Model × effort: which commands and subagents run on each profile."""
     shapes: List = []
     X0 = 40
     shapes.append(Box("m_title", X0, 20, 1400, 34, [Line("Models and effort — what runs each command and subagent",
                                                           22, True)], "none", "none", "#1a1a1a", pad=0))
     shapes.append(Box("m_sub", X0, 56, 1600, 24, [Line(
-        "Pins from each command's and subagent's frontmatter. A skill runs on the pin of the command that loads it. "
-        "Crew work Firstmate dispatches runs on the profile of the matching crew-dispatch.json rule (right).", 11,
+        "Pins from each command's and subagent's frontmatter. A skill runs on the pin of the command that loads it; "
+        "a skill loaded by the session itself runs on the session's model.", 11,
         color="#666666")], "none", "none", "#666666", pad=0))
     cells: Dict[Tuple[str, str], List[str]] = {}
     models: List[str] = []
@@ -512,34 +491,14 @@ def page_models(m: Dict) -> Tuple[str, List, float, float]:
         shapes += [head] + boxes
         y += h
     table_w = RW + CW * len(cols)
-    dx = RX + table_w + 40
-    dy = 110
-    if m["dispatch"]:
-        shapes.append(Box("d_title", dx, dy, 460, 26, [Line("Firstmate's crew dispatch profiles", 14, True)],
-                          "none", "none", "#1a1a1a", pad=0))
-        dy += 32
-        for k, r in enumerate(m["dispatch"]):
-            label, fam = model_label(r["model"])
-            lines = [Line(f"{label} · {r['effort'] or 'default effort'}"
-                          + ("  ·  Captain approves" if r.get("approval") else ""), 11, True, color=FAMILY[fam][2]),
-                     Line(first_sentence(r["when"], 200), 9.5)]
-            if r["commands"]:
-                lines.append(Line("names: " + ", ".join(r["commands"]), 9.5, mono=True, color="#555555"))
-            b = fit_box(f"d_{k}", dx, dy, 460, lines, "panel", pad=8)
-            b.fill, b.stroke, b.color = FAMILY[fam]
-            shapes.append(b)
-            dy = b.y + b.h + 10
-    width = dx + 500
-    return "Models and effort", shapes, width, max(y, dy) + 40
+    return "Models and effort", shapes, RX + table_w + 40, y + 40
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--team", default=str(HERE / "team.json"))
     ap.add_argument("--plugins", default=str(REPO / "plugins"), help="the plugins folder to read")
-    ap.add_argument("--deploy", default=str(HERE / "deploy.sh"))
-    ap.add_argument("--dispatch", default=str(HERE / "crew-dispatch.json"))
-    ap.add_argument("--out", default=str(REPO / "docs" / "firstmate"))
+    ap.add_argument("--out", default=str(REPO / "docs" / "crew"))
     ap.add_argument("--strict", action="store_true", help="exit 1 if anything needed a warning")
     args = ap.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):
@@ -549,7 +508,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not plugins.is_dir():
         print(f"error: not a directory: {plugins}", file=sys.stderr)
         return 2
-    model = load(Path(args.team), plugins, Path(args.deploy), Path(args.dispatch))
+    model = load(Path(args.team), plugins)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     pages = [page_map(model), page_models(model)]
