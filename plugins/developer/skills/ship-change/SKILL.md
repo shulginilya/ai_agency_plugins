@@ -1,10 +1,10 @@
 ---
 name: ship-change
-description: Ships a finished, verified change for review — files a GitHub issue on the board the user picks, creates and checks out a branch named after it, commits, pushes, opens a pull request that closes the issue, and moves the card to the review column, confirming it stays there. Use when asked to ship, open a PR, raise a ticket and a PR, push this for review, put the work up for review, or move a ticket to In review.
+description: Ships a finished, verified change for review — files a GitHub issue on the board the user picks (or reuses the existing ticket the work is for), creates and checks out a branch named after it, commits, pushes, opens a pull request that closes the issue, and moves the card to the review column, confirming it stays there. Use when asked to ship, open a PR, raise a ticket and a PR, push this for review, put the work up for review, or move a ticket to In review.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.3.1"
+  version: "0.4.0"
 ---
 
 # Ship a change
@@ -20,6 +20,7 @@ this plugin too. Its scripts are in `../ticket-management/scripts/`:
 ```bash
 python ../ticket-management/scripts/board.py boards                       # open boards, most used first
 python ../ticket-management/scripts/tickets.py create --title T --body-file F --project N
+python ../ticket-management/scripts/board.py add    --project N --issue I # existing ticket: put it on the board (no-op if there)
 python ../ticket-management/scripts/board.py branch --issue I             # <number>-<type>-<slug>
 python ../ticket-management/scripts/board.py move   --project N --issue I # to "In review", and confirm it held
 ```
@@ -48,7 +49,21 @@ in this request or earlier in the conversation, or a delivery contract names it.
 Say which board you are using and why. Never guess: a ticket on the wrong board
 is invisible to the people who should see it.
 
-## 2. File the ticket
+## 2. File the ticket — or reuse the one the work is for
+
+**An existing ticket.** When the request or the notes name the issue the work
+is for (`#42`, "ship ticket 42", or a branch already named `42-...` by
+`board.py branch`), reuse it. Never file a second ticket for the same work:
+the PR would close the duplicate and leave the real ticket behind.
+
+- `gh issue view 42 --json number,title,state,url`: it must exist and be open.
+  If it is closed or missing, say so and stop.
+- `board.py add --project N --issue 42`: puts it on the board, or reports
+  `"added": false` when it is already there.
+- Skip the rest of this section. Steps 3 to 5 use #42 as `I`.
+
+**A new ticket**, when no existing one is named:
+
 
 The issue is written for someone who has not seen this conversation:
 
@@ -116,7 +131,7 @@ hold. Report that failure; do not claim the card is in review.
 ## Reporting
 
 ```
-Ticket:  <issue URL> — on <board>, column <column as last read>
+Ticket:  <issue URL> (filed now, or existing) — on <board>, column <column as last read>
 Branch:  <name>, checked out locally, pushed
 PR:      <PR URL>
 Assignee: <login>

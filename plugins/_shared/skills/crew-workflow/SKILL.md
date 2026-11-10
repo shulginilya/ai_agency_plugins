@@ -34,8 +34,10 @@ not apply: say so and suggest `/scrum-master:create-board`.
 4. **Stop at In approval.** The Captain reviews the code and moves the card to
    QA. Never move a card out of In approval.
 5. **Stop at Ready for Merge.** Never merge a PR. The Captain merges.
-6. **No PR without a ticket.** `/developer:ship` files the ticket first when
-   there is none. Tickets are written with the `ticket-management` skill.
+6. **No PR without a ticket, and never a second ticket for the same work.**
+   For a ticket that exists, run `/developer:ship #N` so it reuses #N. Only
+   work with no ticket gets a new one from `/developer:ship`. Tickets are
+   written with the `ticket-management` skill.
 7. **When a step cannot be settled, ask the Captain.** Do not guess on
    anything irreversible.
 
@@ -59,8 +61,8 @@ and what the Captain decides next.
 5. New or changed UI: `/designer:review` on the built UI, and fix every
    blocker.
 6. `/developer:verify` must pass.
-7. `/developer:ship`: branch, commit, PR that closes the ticket, card to In
-   review.
+7. `/developer:ship #N`: reuses #N (no new ticket), branch, commit, a PR with
+   `Closes #N`, and #N's card to In review.
 8. `/code-reviewer:review <PR>`:
    - request changes: the card goes to In progress. Fix with the developer
      commands and push to the same PR. Move the card back to In review
