@@ -46,7 +46,9 @@ and what the Captain decides next.
 
 1. Read the ticket and its column.
    - In Definition or Backlog: `/scrum-master:refine #N` first. A ticket
-     without testable acceptance criteria is not ready to build.
+     without testable acceptance criteria is not ready to build. Refine
+     edits the ticket but moves no card: once it meets the Definition of
+     Ready, move it to Ready, then to In progress (rule 2 for each).
    - Ready: move it to In progress (rule 2).
    - Already further along: continue from that column, not from the start.
 2. `/qa:plan #N`: a test case for every acceptance criterion. A criterion that
@@ -61,7 +63,10 @@ and what the Captain decides next.
    review.
 8. `/code-reviewer:review <PR>`:
    - request changes: the card goes to In progress. Fix with the developer
-     commands, push to the same PR, and run the review again on the new head.
+     commands and push to the same PR. Move the card back to In review
+     (rule 2), then run the review again on the new head. Never re-run the
+     review while the card is in In progress: its approve would skip In
+     review.
    - approve: the card goes to In approval, or to QA when the ticket is
      labelled `skip_approval`.
 9. **Stop at In approval** and report.
@@ -69,8 +74,11 @@ and what the Captain decides next.
 After the Captain moves the card to QA and asks for it:
 
 10. `/qa:verify #N` on the ticket's review link when it has one:
-    - reject: QA comments what fails and moves the card to In progress. Fix,
-      push to the same PR, and verify again.
+    - reject: QA comments what fails and moves the card to In progress. Fix
+      and push to the same PR, then go round again from step 8: move the card
+      to In review, `/code-reviewer:review` the new head, and stop at In
+      approval. QA verifies again only after the Captain moves the card to
+      QA; `/qa:verify` refuses a card in any other column.
     - accept: QA moves the card to Ready for Merge.
 11. **Stop at Ready for Merge** and report.
 
@@ -121,7 +129,9 @@ After the Captain moves the card to QA and asks for it:
 
 | Move | By |
 | --- | --- |
+| Backlog → Ready | scrum-master, once refine meets the Definition of Ready |
 | Ready → In progress | developer, when starting the ticket |
+| In progress → In review, after a fix | developer, before the review runs again |
 | In progress → In review | `/developer:ship`, after the PR exists |
 | In review → In approval, or QA with `skip_approval` | `/code-reviewer:review` approve |
 | In review → In progress | `/code-reviewer:review` request changes |
