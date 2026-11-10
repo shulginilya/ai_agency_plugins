@@ -58,7 +58,7 @@ The ai_agency_plugins plugins are installed in this session. Use them for the wo
   report for the developer or scrum-master step to file or attach. Delete a ticket only when this brief
   names it for deletion; otherwise close it as not planned.
 - New project board: `/crew:create-board`, only when this brief asks for a board.
-- Only the developer, scrum-master, designer, qa, devops and code-reviewer plugins are for crew work.
+- Only the crew, developer, scrum-master, designer, qa, devops and code-reviewer plugins are for crew work.
   Every other ai_agency_plugins plugin (such as interview-prep, job-hunter, notes, pair-programmer,
   prompt-engineer, recruiter-inbox or skill-trainer) belongs to the Captain: never invoke its commands,
   skills or subagents, even if one looks relevant.

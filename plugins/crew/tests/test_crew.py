@@ -451,6 +451,15 @@ class WorkflowOwnedByNoRoleTest(unittest.TestCase):
         self.assertEqual(listed[0], "crew")
         self.assertTrue(set(ROLE_PLUGINS) <= set(listed))
 
+    def test_the_firstmate_brief_counts_every_installed_crew_plugin_as_crew(self):
+        """A crew plugin missing from the brief's "Only the ... are for crew work" line is Captain-only to a crewmate."""
+        fm = REPO / "integrations" / "firstmate"
+        listed = re.search(r"^crew_plugins=\(([^)]*)\)", (fm / "deploy.sh").read_text(encoding="utf-8"), re.M).group(1).split()
+        brief = " ".join((fm / "brief-include.md").read_text(encoding="utf-8").split())
+        line = re.search(r"Only the (.+?) plugins are for crew work", brief).group(1)
+        named = set(re.findall(r"[a-z][a-z-]+", line)) - {"and", "the"}
+        self.assertEqual(set(listed) - named, set(), line)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
