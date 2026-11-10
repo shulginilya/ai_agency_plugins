@@ -234,9 +234,10 @@ class CrewContextHookTest(unittest.TestCase):
         self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
         self.assertIn("has no crew board", self._hook())
 
-    def test_only_crew_unattended_marks_a_session_unattended(self):
+    def test_a_leftover_orchestrator_task_id_is_an_attended_session(self):
+        old_task_var = "FM_" + "TASK_ID"  # the retired orchestrator's variable; no longer read
         for unattended in ("", "0"):
-            self.env = {"TASK_ID": "crew-42", "CREW_UNATTENDED": unattended}
+            self.env = {old_task_var: "crew-42", "CREW_UNATTENDED": unattended}
             with self.subTest(CREW_UNATTENDED=unattended):
                 self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
                 self.now += crew_context.NEGATIVE_TTL + 1

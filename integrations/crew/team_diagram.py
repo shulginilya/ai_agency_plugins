@@ -198,8 +198,11 @@ def load(team_path: Path) -> Dict:
     for s in team.get("scenario", {}).get("steps", []):
         if s["lane"] not in roles:
             warn(f"scenario step {s['id']} is in unknown lane '{s['lane']}'")
+    rules = session_rules(CREW_SKILL)
+    if not rules:
+        warn("the crew-workflow skill has no '## Rules for every session' with numbered **bold** rules")
     return {"team": team, "crew": crew, "captain_only": captain_only, "gaps": gaps, "roles": roles,
-            "rules": session_rules(CREW_SKILL)}
+            "rules": rules}
 
 
 # ------------------------------------------------------------------- primitives

@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import html
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import _helpers  # noqa: F401
@@ -50,6 +52,28 @@ class InSyncTest(unittest.TestCase):
         self.assertLessEqual({s["lane"] for s in team["scenario"]["steps"]}, roles)
         for row in team["raci"]["rows"]:
             self.assertLessEqual(set(row) - {"activity"}, roles, row["activity"])
+
+
+class SessionRulesTest(unittest.TestCase):
+    def setUp(self):
+        td.warnings.clear()
+
+    def test_a_skill_without_session_rules_is_drift(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            skill = Path(tmp) / "SKILL.md"
+            skill.write_text(RoutingTest.SKILL.replace("## Routing", "## Session rules\n\n1. Plain rule.\n\n## Routing"),
+                             encoding="utf-8")
+            with mock.patch.object(td, "CREW_SKILL", skill):
+                model = td.load(CREW / "team.json")
+        self.assertEqual(model["rules"], [])
+        self.assertTrue(any("Rules for every session" in w for w in td.warnings), td.warnings)
+
+    def test_every_session_rule_of_the_real_skill_is_drawn(self):
+        rules = td.session_rules(td.CREW_SKILL)
+        self.assertTrue(rules)
+        _, drawio = generate("--strict")
+        for rule in rules:
+            self.assertIn(html.escape(html.escape(rule, quote=True), quote=True), drawio)
 
 
 class RoutingTest(unittest.TestCase):
