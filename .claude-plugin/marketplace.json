@@ -17,7 +17,7 @@
         "ref": "dist"
       },
       "description": "Code review for the crew: reads every pull request the developer ships, in a fresh context, for correctness, security, performance, accessibility and test gaps, and posts a PR review whose findings each carry a concrete failure scenario. Approve moves the ticket to In approval (QA if labelled skip_approval); request changes moves it back to In progress. Never pushes code. Use when asked to review a PR or its code, check a diff before QA, or re-review a PR after a fix.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -28,6 +28,28 @@
         "review",
         "security",
         "quality"
+      ]
+    },
+    {
+      "name": "crew",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
+        "path": "claude-code/crew",
+        "ref": "dist"
+      },
+      "description": "The crew's workflow, owned by no role: in a GitHub repository with a crew board it points every session at the crew-workflow skill (each step through its crew command, every ticket or board write shown first, stops at In approval and Ready for Merge); in one without, the session offers to create the board. Also creates crew boards. Use when asked to do, work or ship a ticket, pick up the next issue, or create a project board.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ilya Shulgin",
+        "email": "ishulgin8@gmail.com"
+      },
+      "keywords": [
+        "crew",
+        "workflow",
+        "kanban",
+        "github-projects",
+        "board"
       ]
     },
     {
@@ -62,7 +84,7 @@
         "ref": "dist"
       },
       "description": "The development loop end to end, test-first: implement a feature in red-green-refactor slices, refactor without changing behaviour, diagnose a bug to its proved root cause, fix it with the failing test first, bisect a regression to its commit, run the repo's checks, ship it as a ticket, branch and PR, and, when asked, rebase a PR to clear its conflicts. Use when asked to implement, refactor, debug, fix a failing or flaky test, find what broke, open a PR, or resolve its merge conflicts.",
-      "version": "0.6.4",
+      "version": "0.7.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -160,7 +182,7 @@
         "ref": "dist"
       },
       "description": "Keeps running notes on many topics organized in plain Markdown: captures as you go, regroups each topic into In progress, TODO, Done and Notes without losing a line, shows what is open, and turns TODO, in-progress and inline \"text\"(todo|wip|done) markers into GitHub tickets, with \"text\"(outcome) as acceptance criteria, assigned to you on your default board or one named per item. Use when asked to note something, organize notes, list open TODOs, or file notes as tickets.",
-      "version": "0.4.2",
+      "version": "0.4.3",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -253,7 +275,7 @@
         "ref": "dist"
       },
       "description": "Quality assurance for the crew: turns a ticket's acceptance criteria into a test plan before work starts, verifies a change in the QA column against every criterion with evidence, on the ticket's review link if any, gives an accept or reject verdict and moves the ticket to Ready for Merge or back to In progress, and files reproducible bug tickets labelled \"QA testing\". Use when asked to test, QA or verify a change, check acceptance criteria, write test cases or a test plan, or report a bug.",
-      "version": "0.6.1",
+      "version": "0.6.2",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -299,8 +321,8 @@
         "path": "claude-code/scrum-master",
         "ref": "dist"
       },
-      "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, builds a sprint plan with one goal and a realistic capacity, and creates the GitHub Projects board the backlog goes on. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, plan the next sprint, or create a project board.",
-      "version": "0.4.1",
+      "description": "Backlog refinement and sprint planning against GitHub Issues. Turns raw requests into ready stories with acceptance criteria and a size, splits the ones that are too big, and builds a sprint plan with one goal and a realistic capacity. Use when asked to refine or groom a backlog, write a user story, add acceptance criteria, estimate work, or plan the next sprint.",
+      "version": "0.6.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
