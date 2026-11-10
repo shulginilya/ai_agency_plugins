@@ -303,6 +303,7 @@ class CrewContextHookTest(unittest.TestCase):
         self.repo_view = None
         self.calls = []
         self.now = 1_000_000.0
+        self.env = {}
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -325,7 +326,9 @@ class CrewContextHookTest(unittest.TestCase):
 
     def _hook(self):
         out = io.StringIO()
+        env = dict({k: "" for k in crew_context.UNATTENDED_VARS}, **self.env)  # attended unless a test says not
         with mock.patch.object(crew_context, "_run", self._run), \
+                mock.patch.dict(os.environ, env), \
                 mock.patch.object(crew_context.time, "time", return_value=self.now), \
                 mock.patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": str(self.data)}), \
                 mock.patch.object(sys, "stdin", io.StringIO('{"hook_event_name":"SessionStart"}')), \
@@ -439,6 +442,32 @@ class CrewContextHookTest(unittest.TestCase):
         self._cli("--decline")
         self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
         self.assertIn('crew board "Shop board"', self._hook())
+
+    def test_an_unattended_session_is_never_asked_but_still_told_about_a_crew_board(self):
+        for name, value in (("FM_TASK_ID", "crew-42"), ("CREW_UNATTENDED", "1")):
+            self.env = {name: value}
+            with self.subTest(name=name):
+                self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
+                self.now += crew_context.NEGATIVE_TTL + 1
+                self.assertEqual(self._hook(), "")
+                self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
+                self.now += crew_context.NEGATIVE_TTL + 1
+                self.assertIn('crew board "Shop board"', self._hook())
+                (self.data / "crew_boards.json").unlink()
+        self.env = {"CREW_UNATTENDED": "0"}  # 0 means attended
+        self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
+        self.assertIn("has no crew board", self._hook())
+
+    def test_a_decline_that_cannot_be_saved_fails_loudly(self):
+        blocker = self.data / "not-a-directory"
+        blocker.write_text("x")
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(crew_context, "_run", self._run), \
+                redirect_stdout(out), mock.patch.object(sys, "stderr", err):
+            code = crew_context.main(["--decline", "--cache", str(blocker / "crew_boards.json")])
+        self.assertEqual(code, 1)
+        self.assertEqual(out.getvalue(), "")  # never claims the decline was recorded
+        self.assertIn("could not record it", err.getvalue())
 
     def test_decline_outside_a_github_repository_records_nothing(self):
         self.remote = None

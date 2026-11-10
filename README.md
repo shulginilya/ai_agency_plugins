@@ -106,7 +106,9 @@ board gets a question in the session's first reply: create one, and what to call
 it? Say yes and the session runs `/scrum-master:create-board`, which creates the
 board with the crew's columns and the `skip_approval` label, and follows the
 `crew-workflow` skill from then on. Say no and that repository is never asked
-about again (the session records it; `crew_context.py --forget` undoes it). From
+about again (the session records it; `crew_context.py --forget` undoes it).
+Sessions nobody is watching are never asked: firstmate crewmates, and any run
+with `CREW_UNATTENDED=1` set, such as a scripted `claude -p`. From
 then on, every new session in a repository with a crew board is told to follow
 the `crew-workflow` skill, so "do ticket #N" runs `/qa:plan`, `/developer:implement`,
 `/developer:ship` and `/code-reviewer:review`, and stops at In approval for you.

@@ -17,7 +17,10 @@ In a GitHub repository:
   this script with --decline, and this repository is never asked about again
   (--forget undoes that). A crew board found later is announced either way.
 
-Anywhere else (no repository, no GitHub remote) it prints nothing.
+Anywhere else (no repository, no GitHub remote) it prints nothing. A session
+nobody is watching never gets the question, since no one would answer it: a
+firstmate crewmate (FM_TASK_ID is set) or any run with CREW_UNATTENDED=1, such
+as a scripted `claude -p`. It still gets the crew-board line.
 
 A found board is cached per repository for CACHE_TTL seconds; "no crew board"
 only for NEGATIVE_TTL, so a board created with /scrum-master:create-board is
@@ -42,6 +45,12 @@ CACHE_TTL = 12 * 3600
 NEGATIVE_TTL = 10 * 60
 CACHE_FILE = "crew_boards.json"
 DECLINED_KEY = "declined"
+UNATTENDED_VARS = ("FM_TASK_ID", "CREW_UNATTENDED")
+
+
+def unattended() -> bool:
+    """A session no one is watching: a firstmate crewmate, or a run that says so."""
+    return any(os.environ.get(name, "").strip() not in ("", "0") for name in UNATTENDED_VARS)
 CREW_COLUMNS = ("in approval", "qa")
 RECENT_ISSUES = 20
 TITLE_MAX = 80
@@ -268,7 +277,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("not in a GitHub repository; nothing recorded", file=sys.stderr)
             return 1
         repo = "%s/%s" % parsed
-        set_declined(path, repo, argv[0] == "--decline")
+        try:
+            set_declined(path, repo, argv[0] == "--decline")
+        except OSError as exc:
+            print("could not record it in %s: %s" % (path, exc), file=sys.stderr)
+            return 1
         print("%s: %s" % (repo, "won't ask about a crew board again (undo: --forget)"
                           if argv[0] == "--decline" else "will ask about a crew board again"))
         return 0
@@ -293,7 +306,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         write_cache(path, repo, board, now)
     if board:
         print(message(board, repo))
-    elif repo.lower() not in (n.lower() for n in declined(path)):
+    elif not unattended() and repo.lower() not in (n.lower() for n in declined(path)):
         print(ask_message(repo))
     return 0
 
