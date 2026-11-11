@@ -18,9 +18,9 @@ In a GitHub repository:
   (--forget undoes that). A crew board found later is announced either way.
 
 Anywhere else (no repository, no GitHub remote) it prints nothing. A session
-nobody is watching never gets the question, since no one would answer it: a
-firstmate crewmate (FM_TASK_ID is set) or any run with CREW_UNATTENDED=1, such
-as a scripted `claude -p`. It still gets the crew-board line.
+nobody is watching never gets the question, since no one would answer it: any
+run with CREW_UNATTENDED=1, such as a scripted `claude -p`. It still gets the
+crew-board line.
 
 A found board is cached per repository for CACHE_TTL seconds; "no crew board"
 only for NEGATIVE_TTL, so a board created with /crew:create-board is
@@ -45,11 +45,11 @@ CACHE_TTL = 12 * 3600
 NEGATIVE_TTL = 10 * 60
 CACHE_FILE = "crew_boards.json"
 DECLINED_KEY = "declined"
-UNATTENDED_VARS = ("FM_TASK_ID", "CREW_UNATTENDED")
+UNATTENDED_VARS = ("CREW_UNATTENDED",)
 
 
 def unattended() -> bool:
-    """A session no one is watching: a firstmate crewmate, or a run that says so."""
+    """A session no one is watching: a run that says so with CREW_UNATTENDED."""
     return any(os.environ.get(name, "").strip() not in ("", "0") for name in UNATTENDED_VARS)
 CREW_COLUMNS = ("in approval", "qa")
 RECENT_ISSUES = 20

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -13,8 +14,8 @@ from pathlib import Path
 import _helpers  # noqa: F401
 
 ROOT = Path(__file__).resolve().parent.parent
-FM = ROOT / "integrations" / "firstmate"
-SCRIPT = FM / "skills_diagram.py"
+CREW = ROOT / "integrations" / "crew"
+SCRIPT = CREW / "skills_diagram.py"
 
 
 def generate(*args):
@@ -49,6 +50,19 @@ class InSyncTest(unittest.TestCase):
             if path.parent.parent.parent.name != "_template":
                 self.assertIn(path.parent.name, drawio)
         self.assertIn("Models and effort", drawio)
+        self.assertNotIn("dispatch profiles", drawio)
+
+    def test_it_reads_no_deploy_script_or_dispatch_file(self):
+        result = subprocess.run([sys.executable, str(SCRIPT), "--help"], capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0)
+        for flag in ("--deploy", "--dispatch"):
+            self.assertNotIn(flag, result.stdout)
+
+    def test_every_crew_plugin_in_team_json_is_drawn_as_crew(self):
+        team = json.loads((CREW / "team.json").read_text(encoding="utf-8"))
+        _, drawio = generate()
+        for name in team["crew"]:
+            self.assertRegex(drawio, rf"{re.escape(name)} v[0-9.]+ · Crew")
 
 
 class FakeRepoTest(unittest.TestCase):
@@ -56,9 +70,9 @@ class FakeRepoTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write(root, files)
-            write(root, {"deploy.sh": "crew_plugins=(dev)\n"})
-            return generate("--plugins", str(root / "plugins"), "--deploy", str(root / "deploy.sh"),
-                            "--dispatch", str(root / "none.json"), *args)
+            if "team.json" not in files:
+                write(root, {"team.json": {"crew": {"dev": {"role": "Developer"}}}})
+            return generate("--plugins", str(root / "plugins"), "--team", str(root / "team.json"), *args)
 
     BASE = {
         "plugins/dev/plugin.json": {"name": "dev", "version": "1.0.0", "shared_skills": ["tickets"]},
@@ -67,6 +81,15 @@ class FakeRepoTest(unittest.TestCase):
         "plugins/dev/agents/helper.md": "---\nname: helper\nmodel: claude-opus-5-5\neffort: high\n---\nHelp.\n",
         "plugins/_shared/skills/tickets/SKILL.md": skill("tickets"),
     }
+
+    def test_the_crew_comes_from_team_json(self):
+        files = dict(self.BASE)
+        files["plugins/ops/plugin.json"] = {"name": "ops", "version": "1.0.0"}
+        files["team.json"] = {"crew": {"ops": {"role": "Ops"}}}
+        result, drawio = self.run_on(files)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertRegex(drawio, r"Ops · ops v1\.0\.0 · Crew")
+        self.assertRegex(drawio, r"dev v1\.0\.0 · Captain-only")
 
     def test_a_clean_repo_draws_skills_commands_subagents_and_their_models(self):
         result, drawio = self.run_on(self.BASE, "--strict")

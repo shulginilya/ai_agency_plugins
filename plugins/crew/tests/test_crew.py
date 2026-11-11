@@ -220,7 +220,7 @@ class CrewContextHookTest(unittest.TestCase):
         self.assertIn('crew board "Shop board"', self._hook())
 
     def test_an_unattended_session_is_never_asked_but_still_told_about_a_crew_board(self):
-        for name, value in (("FM_TASK_ID", "crew-42"), ("CREW_UNATTENDED", "1")):
+        for name, value in (("CREW_UNATTENDED", "1"),):
             self.env = {name: value}
             with self.subTest(name=name):
                 self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
@@ -233,6 +233,15 @@ class CrewContextHookTest(unittest.TestCase):
         self.env = {"CREW_UNATTENDED": "0"}  # 0 means attended
         self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
         self.assertIn("has no crew board", self._hook())
+
+    def test_a_leftover_orchestrator_task_id_is_an_attended_session(self):
+        old_task_var = "FM_" + "TASK_ID"  # the retired orchestrator's variable; no longer read
+        for unattended in ("", "0"):
+            self.env = {old_task_var: "crew-42", "CREW_UNATTENDED": unattended}
+            with self.subTest(CREW_UNATTENDED=unattended):
+                self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
+                self.now += crew_context.NEGATIVE_TTL + 1
+                self.assertIn("has no crew board", self._hook())
 
     def test_a_decline_that_cannot_be_saved_fails_loudly(self):
         blocker = self.data / "not-a-directory"
@@ -317,7 +326,7 @@ class CrewContextHookTest(unittest.TestCase):
             self.assertIn(rule, text)
         self.assertIn("/developer:ship #N board <crew board>", text)  # reuse the ticket, on its board
         self.assertIn("Definition to Backlog, then Ready, then In progress", text)  # one column at a time
-        for unattended in ("No one is watching", "this brief", "Firstmate"):
+        for unattended in ("No one is watching", "this brief"):
             self.assertNotIn(unattended, text)
 
 
@@ -445,20 +454,16 @@ class WorkflowOwnedByNoRoleTest(unittest.TestCase):
         self.assertLessEqual(imports, {"__future__", "json", "os", "re", "subprocess", "sys", "time",
                                        "pathlib", "typing"}, imports)
 
-    def test_deploy_installs_crew_with_the_roles(self):
-        deploy = (REPO / "integrations" / "firstmate" / "deploy.sh").read_text(encoding="utf-8")
-        listed = re.search(r"^crew_plugins=\(([^)]*)\)", deploy, re.M).group(1).split()
-        self.assertEqual(listed[0], "crew")
+    def test_the_crew_roster_is_the_workflow_and_the_roles(self):
+        team = json.loads((REPO / "integrations" / "crew" / "team.json").read_text(encoding="utf-8"))
+        listed = list(team["crew"])
+        self.assertIn("crew", listed)
         self.assertTrue(set(ROLE_PLUGINS) <= set(listed))
+        for name in listed:
+            self.assertTrue((REPO / "plugins" / name / "plugin.json").is_file(), name)
 
-    def test_the_firstmate_brief_counts_every_installed_crew_plugin_as_crew(self):
-        """A crew plugin missing from the brief's "Only the ... are for crew work" line is Captain-only to a crewmate."""
-        fm = REPO / "integrations" / "firstmate"
-        listed = re.search(r"^crew_plugins=\(([^)]*)\)", (fm / "deploy.sh").read_text(encoding="utf-8"), re.M).group(1).split()
-        brief = " ".join((fm / "brief-include.md").read_text(encoding="utf-8").split())
-        line = re.search(r"Only the (.+?) plugins are for crew work", brief).group(1)
-        named = set(re.findall(r"[a-z][a-z-]+", line)) - {"and", "the"}
-        self.assertEqual(set(listed) - named, set(), line)
+    def test_crew_unattended_is_the_only_unattended_switch(self):
+        self.assertEqual(crew_context.UNATTENDED_VARS, ("CREW_UNATTENDED",))
 
 
 if __name__ == "__main__":

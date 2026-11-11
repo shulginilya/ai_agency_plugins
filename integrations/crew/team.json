@@ -1,6 +1,6 @@
 {
-  "_comment": "Hand-kept half of the firstmate team diagram. Everything a plugin can say about itself (version, commands, subagents, MCP tools, hooks, routing) is read from the repo by team_diagram.py; only what the repo cannot say lives here. CI regenerates docs/firstmate/team.drawio on main after each merge; preview with python integrations/firstmate/team_diagram.py, but never commit the result on a branch.",
-  "title": "firstmate crew — who does what",
+  "_comment": "Hand-kept half of the crew team diagram. The crew is the keys of \"crew\" below, in order. Everything a plugin can say about itself (version, commands, subagents, MCP tools, hooks) is read from the repo, and routing from the crew-workflow skill, by team_diagram.py; only what the repo cannot say lives here. CI regenerates docs/crew/team.drawio on main after each merge; preview with python integrations/crew/team_diagram.py, but never commit the result on a branch.",
+  "title": "The crew — who does what",
   "leads": [
     {
       "id": "captain",
@@ -8,33 +8,16 @@
       "who": "You — the human",
       "does": [
         "Sets the intent for every task",
-        "Answers the questions a crewmate stops on",
-        "Adds every repository secret (gh secret set) and creates hosting accounts; no crewmate handles a secret value",
-        "Approves anything irreversible: deleting a ticket, creating a board, GitHub writes beyond a delivery contract",
-        "Reviews and merges PRs"
+        "Answers the questions the crew stops on",
+        "Adds every repository secret (gh secret set) and creates hosting accounts; no crew role handles a secret value",
+        "Approves every ticket or board write before it is made, and anything irreversible: deleting a ticket, creating a board",
+        "Reviews the code in In approval and moves the card to QA; merges PRs"
       ],
       "owns": [
         "Product intent and priorities",
         "Merge decisions",
-        "Crew deployment (deploy.sh)",
+        "Installing the crew plugins (apkit install)",
         "Captain-only plugins (listed below)"
-      ]
-    },
-    {
-      "id": "firstmate",
-      "role": "Firstmate",
-      "who": "firstmate orchestrator (~/firstmate)",
-      "does": [
-        "Turns the Captain's intent into a spec and one brief per task",
-        "Picks ship (changes code) or scout (read-only)",
-        "Sets the delivery contract: how far a crewmate may write to remotes",
-        "Dispatches crewmates, reads their reports, relays open questions",
-        "Tears a crewmate down when its task ends"
-      ],
-      "owns": [
-        "Briefs and delivery contracts",
-        "Live crew state (state/<id>.meta)",
-        "Parallelism: how many crewmates run at once"
       ]
     }
   ],
@@ -102,61 +85,56 @@
       ]
     }
   },
-  "crew_note": "Every crewmate is one Claude Code session with all crew plugins loaded. A role is the plugin brief-include.md routes that kind of work to, so on UI work one ship crewmate plays Designer, then Developer, then Designer again. Developer and Scrum Master carry the full ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the brief names it. QA Engineer creates and edits tickets, labelling each one it creates \"QA testing\". Code Reviewer only moves the card of a PR it reviewed: back to In progress, or on to In approval (QA when labelled skip_approval). The Captain moves a card from In approval to QA after reviewing the code. Designer, DevOps Engineer and Code Reviewer propose tickets in the report. Firstmate can run several crewmates side by side.",
+  "crew_note": "The crew runs inside one Claude Code session with all crew plugins loaded; the crew-workflow skill picks the crew command for each step. A role is the plugin the skill routes that kind of work to, so on UI work the session plays Designer, then Developer, then Designer again. Developer and Scrum Master carry the full ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the Captain names it. QA Engineer creates and edits tickets, labelling each one it creates \"QA testing\". Code Reviewer only moves the card of a PR it reviewed: back to In progress, or on to In approval (QA when labelled skip_approval). The Captain moves a card from In approval to QA after reviewing the code. Designer, DevOps Engineer and Code Reviewer propose tickets, which a developer or scrum-master step files once the Captain agrees.",
   "gaps": [],
   "raci": {
     "legend": {"R": "does the work", "A": "signs off", "C": "consulted", "I": "informed"},
-    "columns": ["captain", "firstmate", "scrum-master", "designer", "qa", "developer", "devops", "code-reviewer"],
+    "columns": ["captain", "scrum-master", "designer", "qa", "developer", "devops", "code-reviewer"],
     "rows": [
-      {"activity": "Set project intent and priorities", "captain": "A/R", "firstmate": "I"},
-      {"activity": "Write spec, brief and delivery contract", "captain": "A", "firstmate": "R"},
-      {"activity": "Create the project board", "captain": "A", "firstmate": "C", "crew": "R"},
-      {"activity": "Refine raw items into ready stories", "captain": "A", "firstmate": "I", "scrum-master": "R"},
+      {"activity": "Set project intent and priorities", "captain": "A/R"},
+      {"activity": "Create the project board", "captain": "A", "crew": "R"},
+      {"activity": "Refine raw items into ready stories", "captain": "A", "scrum-master": "R"},
       {"activity": "Split items sized 13+", "scrum-master": "R"},
-      {"activity": "File the backlog and put it on the board", "captain": "A", "firstmate": "I", "scrum-master": "R"},
-      {"activity": "Create, edit or close a ticket during a task", "firstmate": "I", "scrum-master": "R", "developer": "R", "qa": "R"},
-      {"activity": "Delete a ticket (named in the brief)", "captain": "A", "firstmate": "C", "scrum-master": "R", "developer": "R"},
-      {"activity": "Plan the sprint", "captain": "A", "firstmate": "C", "scrum-master": "R"},
-      {"activity": "Design spec for a UI ticket", "captain": "C", "firstmate": "A", "designer": "R", "developer": "C"},
-      {"activity": "Test plan from acceptance criteria", "firstmate": "A", "qa": "R", "scrum-master": "C", "developer": "I"},
-      {"activity": "Implement a feature or ticket", "firstmate": "A", "developer": "R", "designer": "C"},
+      {"activity": "File the backlog and put it on the board", "captain": "A", "scrum-master": "R"},
+      {"activity": "Create, edit or close a ticket during a task", "scrum-master": "R", "developer": "R", "qa": "R"},
+      {"activity": "Delete a ticket (named by the Captain)", "captain": "A", "scrum-master": "R", "developer": "R"},
+      {"activity": "Plan the sprint", "captain": "A", "scrum-master": "R"},
+      {"activity": "Design spec for a UI ticket", "captain": "C", "designer": "R", "developer": "C"},
+      {"activity": "Test plan from acceptance criteria", "captain": "A", "qa": "R", "scrum-master": "C", "developer": "I"},
+      {"activity": "Implement a feature or ticket", "captain": "A", "developer": "R", "designer": "C"},
       {"activity": "UX review of built UI before push", "designer": "R", "developer": "C"},
-      {"activity": "Diagnose and fix a bug", "firstmate": "A", "developer": "R"},
+      {"activity": "Diagnose and fix a bug", "captain": "A", "developer": "R"},
       {"activity": "Review own diff before push", "developer": "R"},
-      {"activity": "Review the PR's code (approve / request changes)", "firstmate": "A", "code-reviewer": "R", "developer": "C", "qa": "I"},
+      {"activity": "Review the PR's code (approve / request changes)", "captain": "A", "code-reviewer": "R", "developer": "C", "qa": "I"},
       {"activity": "Move a reviewed PR's ticket: In progress on request changes, In approval (or QA if skip_approval) on approve", "code-reviewer": "R", "developer": "I"},
       {"activity": "Review the code of a ticket in In approval and move it to QA", "captain": "A/R", "code-reviewer": "I", "qa": "I"},
       {"activity": "Run repo checks before push", "developer": "R"},
-      {"activity": "Verify the change against its criteria (accept / reject)", "firstmate": "A", "qa": "R", "developer": "C", "devops": "C", "code-reviewer": "I"},
+      {"activity": "Verify the change against its criteria (accept / reject)", "captain": "A", "qa": "R", "developer": "C", "devops": "C", "code-reviewer": "I"},
       {"activity": "File a reproducible bug ticket (labelled QA testing)", "qa": "R", "developer": "I"},
-      {"activity": "Set up or fix CI for a repo", "captain": "I", "firstmate": "A", "devops": "R", "developer": "C"},
-      {"activity": "PR preview environments (a review link per PR)", "captain": "A", "firstmate": "C", "devops": "R", "qa": "I"},
+      {"activity": "Set up or fix CI for a repo", "captain": "I", "devops": "R", "developer": "C"},
+      {"activity": "PR preview environments (a review link per PR)", "captain": "A", "devops": "R", "qa": "I"},
       {"activity": "Add repository secrets and hosting accounts", "captain": "A/R", "devops": "C"},
-      {"activity": "Triage a red pipeline", "firstmate": "A", "devops": "R", "developer": "C"},
-      {"activity": "Open PR, move card to In review", "firstmate": "A", "developer": "R"},
+      {"activity": "Triage a red pipeline", "captain": "A", "devops": "R", "developer": "C"},
+      {"activity": "Open PR, move card to In review", "captain": "A", "developer": "R"},
       {"activity": "Move a verified ticket to Ready for Merge or back to In progress", "qa": "R", "developer": "I", "captain": "I"},
-      {"activity": "Resolve a PR's merge conflicts (rebase; only when the Captain asks)", "captain": "A", "firstmate": "I", "developer": "R", "qa": "I"},
-      {"activity": "Merge", "captain": "A/R", "firstmate": "I"},
-      {"activity": "Deploy crew plugins (deploy.sh)", "captain": "A/R"}
+      {"activity": "Resolve a PR's merge conflicts (rebase; only when the Captain asks)", "captain": "A", "developer": "R", "qa": "I"},
+      {"activity": "Merge", "captain": "A/R"},
+      {"activity": "Install the crew plugins (apkit install)", "captain": "A/R"}
     ]
   },
   "scenario": {
     "title": "Example — a new project needs a board and a first backlog",
-    "lanes": ["captain", "firstmate", "scrum-master", "designer", "developer", "devops", "code-reviewer", "qa"],
+    "lanes": ["captain", "scrum-master", "designer", "developer", "devops", "code-reviewer", "qa"],
     "steps": [
       {"id": "s1", "lane": "captain", "kind": "decision", "text": "Intent: new project X. Create its board and a first backlog from these notes"},
-      {"id": "s2", "lane": "firstmate", "text": "Spec, then a scout brief T1: draft the backlog and propose the board. No writes yet"},
       {"id": "s3", "lane": "scrum-master", "text": "/scrum-master:refine each raw idea → user-value story, testable criteria, size"},
       {"id": "s4", "lane": "scrum-master", "text": "story-splitter subagent splits 13+ items; readiness check on each story"},
-      {"id": "s5", "lane": "scrum-master", "text": "Plan file for tickets.py batch --dry-run; /crew:create-board --dry-run. Both go in the report"},
-      {"id": "s6", "lane": "firstmate", "text": "Relay the backlog, the board plan and open questions"},
+      {"id": "s5", "lane": "scrum-master", "text": "Plan file for tickets.py batch --dry-run; /crew:create-board --dry-run. Both shown to the Captain"},
       {"id": "s7", "lane": "captain", "kind": "decision", "text": "Answer questions, approve the board and the backlog"},
-      {"id": "s8", "lane": "firstmate", "text": "Brief T2: create the board, then file the approved plan on it"},
       {"id": "s9", "lane": "crew", "kind": "write", "text": "/crew:create-board → board N, columns In Definition → Backlog → Ready → In progress → In review → In approval → QA → Ready for Merge → Done, plus the skip_approval label"},
       {"id": "s10", "lane": "scrum-master", "kind": "write", "text": "tickets.py batch --plan plan.json --project N --status Ready (safe to rerun; slices linked to epics)"},
       {"id": "s11", "lane": "scrum-master", "text": "/scrum-master:plan-sprint → sprint goal, capacity, issues that fit (proposal)"},
       {"id": "s12", "lane": "captain", "kind": "decision", "text": "Approve sprint 1"},
-      {"id": "s13", "lane": "firstmate", "text": "One ship brief per sprint ticket", "group": "Then: the delivery loop, per ticket"},
       {"id": "s14", "lane": "qa", "text": "/qa:plan → test cases for every acceptance criterion", "group": "Then: the delivery loop, per ticket"},
       {"id": "s15", "lane": "designer", "kind": "optional", "text": "UI ticket: /designer:spec → flow, every state, copy, accessibility, criteria", "group": "Then: the delivery loop, per ticket"},
       {"id": "s16", "lane": "developer", "text": "/developer:implement", "group": "Then: the delivery loop, per ticket"},

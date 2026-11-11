@@ -52,7 +52,7 @@ class InputError(BoardError):
 
 
 def branch_name(number: int, title: str) -> str:
-    """`feat(firstmate): install every plugin` + 21 -> `21-feat-firstmate-install-every-plugin`."""
+    """`feat(crew): install every plugin` + 21 -> `21-feat-crew-install-every-plugin`."""
     kind = ""
     match = re.match(r"\s*([a-z]+)(?:\(([^)]*)\))?!?:\s*(.*)", title)
     if match and match.group(1) in TYPES:

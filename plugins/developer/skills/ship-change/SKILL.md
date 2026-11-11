@@ -39,7 +39,7 @@ Below, `board.py` and `tickets.py` mean those two scripts.
 - **No secrets.** No `.env`, keys, tokens or credentials in the diff. If one
   is there, stop and say so.
 - **A delivery contract wins.** If a brief or project mode decides how work
-  reaches the remote (for example a firstmate crew brief), follow it. Do only
+  reaches the remote (for example a crew brief), follow it. Do only
   the steps it allows and report the rest as not done.
 
 ## 1. Pick the board — ask

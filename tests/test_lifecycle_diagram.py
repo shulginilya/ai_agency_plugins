@@ -13,7 +13,7 @@ from pathlib import Path
 import _helpers  # noqa: F401
 
 ROOT = Path(__file__).resolve().parent.parent
-FM = ROOT / "integrations" / "firstmate"
+FM = ROOT / "integrations" / "crew"
 SCRIPT = FM / "lifecycle_diagram.py"
 sys.path.insert(0, str(FM))
 import lifecycle_diagram as lc  # noqa: E402
@@ -45,7 +45,7 @@ def generate(*args):
 class InSyncTest(unittest.TestCase):
     def test_the_repo_lifecycle_has_no_drift(self):
         result, drawio = generate("--strict")
-        self.assertEqual(result.returncode, 0, "update integrations/firstmate/lifecycle.json:\n" + result.stderr)
+        self.assertEqual(result.returncode, 0, "update integrations/crew/lifecycle.json:\n" + result.stderr)
         for column in lc.board_columns():
             self.assertIn(column, drawio)
 
@@ -124,10 +124,13 @@ class MovesTest(unittest.TestCase):
 class CiTest(unittest.TestCase):
     def test_ci_regenerates_the_diagram_on_main_and_keeps_it_off_branches(self):
         ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        self.assertIn("python integrations/firstmate/lifecycle_diagram.py", ci)
-        self.assertIn("git add docs/firstmate/lifecycle.drawio", ci)
         guard = ci.split("generated-files:")[1].split("publish:")[0]
-        self.assertIn("docs/firstmate/lifecycle.drawio", guard)
+        for name in ("team", "lifecycle", "skills"):
+            self.assertIn(f"python integrations/crew/{name}_diagram.py", ci)
+            self.assertIn(f"git add docs/crew/{name}.drawio", ci)
+            # a diagram main does not have yet is untracked after regeneration: it must still be committed
+            self.assertIn(f"git ls-files --others --exclude-standard -- docs/crew/{name}.drawio", ci)
+            self.assertIn(f"docs/crew/{name}.drawio", guard)
 
 
 if __name__ == "__main__":

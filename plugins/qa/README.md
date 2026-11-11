@@ -57,7 +57,7 @@ says which commit the link serves. QA picks the latest version like this:
 The whole flow, devops to QA, is drawn in
 [`../devops/docs/review-links.drawio`](../devops/docs/review-links.drawio).
 
-There are no hooks, because a crew plugin's hooks run in every crewmate
+There are no hooks, because a crew plugin's hooks run in every crew
 session.
 
 Three scripts, all standard-library Python:
@@ -93,8 +93,13 @@ python -m tools.apkit test --plugin qa
 
 ## Install it
 
-It's a crew plugin: `integrations/firstmate/deploy.sh --with-plugins`
-installs it with the others.
+It's a crew plugin. Install it with the others listed under `crew` in
+`integrations/crew/team.json`, or on its own:
+
+```bash
+python -m tools.apkit build --plugin qa
+python -m tools.apkit install qa --target claude-code
+```
 
 ## What degrades where
 

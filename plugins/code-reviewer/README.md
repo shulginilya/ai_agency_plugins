@@ -40,7 +40,7 @@ the body. A hidden `<!-- code-review:verdict ... -->` marker names the
 verdict and the reviewed commit.
 
 It never pushes a commit. There are no hooks, because a crew plugin's hooks
-run in every crewmate session.
+run in every crew session.
 
 Two scripts, both standard-library Python:
 
@@ -67,8 +67,13 @@ python -m tools.apkit test --plugin code-reviewer
 
 ## Install it
 
-It's a crew plugin: `integrations/firstmate/deploy.sh --with-plugins`
-installs it with the others.
+It's a crew plugin. Install it with the others listed under `crew` in
+`integrations/crew/team.json`, or on its own:
+
+```bash
+python -m tools.apkit build --plugin code-reviewer
+python -m tools.apkit install code-reviewer --target claude-code
+```
 
 ## What degrades where
 

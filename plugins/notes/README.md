@@ -13,8 +13,9 @@ acceptance criteria. Once filed, an item is replaced in the
 note by a link to its ticket, because it lives there now. A `.bak` keeps the
 previous version, and nothing is filed twice.
 
-It's a Captain plugin, for your own sessions. It isn't in the firstmate crew
-(`crew_plugins`), and the crew brief doesn't route work to it.
+It's a Captain plugin, for your own sessions. It isn't in the crew (the
+`crew` list in `integrations/crew/team.json`), and the crew-workflow skill doesn't
+route work to it.
 
 ## What it does
 
