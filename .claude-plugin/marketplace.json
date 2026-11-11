@@ -39,7 +39,7 @@
         "ref": "dist"
       },
       "description": "The crew's workflow, owned by no role: in a GitHub repository with a crew board it points every session at the crew-workflow skill (each step through its crew command, every ticket or board write shown first, stops at In approval and Ready for Merge); in one without, the session offers to create the board. Also creates crew boards. Use when asked to do, work or ship a ticket, pick up the next issue, or create a project board.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -84,7 +84,7 @@
         "ref": "dist"
       },
       "description": "The development loop end to end, test-first: implement a feature in red-green-refactor slices, refactor without changing behaviour, diagnose a bug to its proved root cause, fix it with the failing test first, bisect a regression to its commit, run the repo's checks, ship it as a ticket, branch and PR, and, when asked, rebase a PR to clear its conflicts. Use when asked to implement, refactor, debug, fix a failing or flaky test, find what broke, open a PR, or resolve its merge conflicts.",
-      "version": "0.7.0",
+      "version": "0.7.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -182,7 +182,7 @@
         "ref": "dist"
       },
       "description": "Keeps running notes on many topics organized in plain Markdown: captures as you go, regroups each topic into In progress, TODO, Done and Notes without losing a line, shows what is open, and turns TODO, in-progress and inline \"text\"(todo|wip|done) markers into GitHub tickets, with \"text\"(outcome) as acceptance criteria, assigned to you on your default board or one named per item. Use when asked to note something, organize notes, list open TODOs, or file notes as tickets.",
-      "version": "0.4.3",
+      "version": "0.4.4",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
