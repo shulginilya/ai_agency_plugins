@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""SessionStart hook: point the session at the crew-workflow skill on a crew board.
+"""Crew hook: point the session at the crew-workflow skill, and start QA on cards moved to QA.
+
+SessionStart and UserPromptSubmit both run it; the event name comes on stdin.
 
 A repository uses a crew board when a GitHub Projects board has the crew's
 Status columns (In approval and QA) and is either linked to the repository or
@@ -21,6 +23,14 @@ Anywhere else (no repository, no GitHub remote) it prints nothing. A session
 nobody is watching never gets the question, since no one would answer it: any
 run with CREW_UNATTENDED=1, such as a scripted `claude -p`. It still gets the
 crew-board line.
+
+On a crew board it also reports the repository's open tickets whose card is in
+QA, so the session runs /qa:verify on them without asking: the Captain moving a
+card from In approval to QA is what starts QA, and GitHub sends no event for it.
+At session start it reports every card in QA. On each prompt it checks the board
+at most every QA_INTERVAL seconds and reports only cards that are newly in QA: a
+card stays reported while it sits there, and is reported again if it leaves QA
+and comes back. Only the issue numbers are printed.
 
 A found board is cached per repository for CACHE_TTL seconds; "no crew board"
 only for NEGATIVE_TTL, so a board created with /crew:create-board is
@@ -44,6 +54,11 @@ TIMEOUT = 5
 CACHE_TTL = 12 * 3600
 NEGATIVE_TTL = 10 * 60
 CACHE_FILE = "crew_boards.json"
+QA_KEY = "qa"
+QA_INTERVAL = 60
+QA_COLUMN = "qa"
+OPEN_ISSUES = 100
+PROMPT_EVENT = "UserPromptSubmit"
 DECLINED_KEY = "declined"
 UNATTENDED_VARS = ("CREW_UNATTENDED",)
 
@@ -64,6 +79,14 @@ QUERY = """query($owner:String!,$name:String!){repository(owner:$owner,name:$nam
   issues(last:%(recent)d){nodes{projectItems(first:5){nodes{project{%(board)s}}}}}}}""" % {
     "board": BOARD_FIELDS,
     "recent": RECENT_ISSUES,
+}
+
+QA_QUERY = """query($owner:String!,$name:String!){repository(owner:$owner,name:$name){
+  issues(states:OPEN,first:%(open)d,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number
+    projectItems(first:10){nodes{project{%(board)s}
+      fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}}""" % {
+    "board": BOARD_FIELDS,
+    "open": OPEN_ISSUES,
 }
 
 REMOTE = re.compile(r"github\.com[:/]+([^/\s]+)/([^/\s]+?)(?:\.git)?/?$")
@@ -152,6 +175,93 @@ def crew_board(data: Any, owner: str) -> Optional[str]:
         if is_crew_board(board):
             return clean_title(board.get("title"))
     return None
+
+
+def cards_in_qa(data: Any, owner: str, board: str) -> List[int]:
+    """Open issue numbers whose card on the owner's crew board `board` is in QA, ascending."""
+    repo = ((data or {}).get("data") or {}).get("repository") or {}
+    found = set()
+    for issue in (repo.get("issues") or {}).get("nodes") or []:
+        if not isinstance(issue, dict) or not isinstance(issue.get("number"), int):
+            continue
+        for item in (issue.get("projectItems") or {}).get("nodes") or []:
+            project = (item or {}).get("project")
+            status = ((item or {}).get("fieldValueByName") or {}).get("name")
+            if (isinstance(project, dict) and is_crew_board(project) and _owner(project) == owner.lower()
+                    and clean_title(project.get("title")) == board
+                    and str(status or "").strip().lower() == QA_COLUMN):
+                found.add(issue["number"])
+    return sorted(found)
+
+
+def lookup_qa(owner: str, name: str, board: str) -> Optional[List[int]]:
+    """Cards in QA, or None when GitHub gave no usable answer."""
+    raw = _run(
+        ["gh", "api", "graphql", "-f", "query=" + QA_QUERY, "-f", "owner=" + owner, "-f", "name=" + name],
+        keep_output_on_error=True,
+    )
+    try:
+        data = json.loads(raw or "")
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or not (data.get("data") or {}).get("repository"):
+        return None
+    return cards_in_qa(data, owner, board)
+
+
+def _load(path: Path) -> Dict[str, Any]:
+    try:
+        cache = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return cache if isinstance(cache, dict) else {}
+
+
+def qa_state(path: Path, repo: str) -> Tuple[float, List[int]]:
+    """(when QA was last checked, cards already reported in QA) for this repository."""
+    states = _load(path).get(QA_KEY)
+    entry = states.get(repo) if isinstance(states, dict) else None
+    if not isinstance(entry, dict):
+        return 0.0, []
+    try:
+        at = float(entry.get("at", 0))
+    except (TypeError, ValueError):
+        at = 0.0
+    cards = [n for n in entry.get("cards") or [] if isinstance(n, int)]
+    return at, cards
+
+
+def save_qa_state(path: Path, repo: str, now: float, cards: List[int]) -> None:
+    try:
+        cache = _load(path)
+        states = cache.get(QA_KEY) if isinstance(cache.get(QA_KEY), dict) else {}
+        states[repo] = {"at": now, "cards": sorted(cards)}
+        cache[QA_KEY] = states
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(cache, indent=1) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def qa_message(cards: List[int], board: str) -> str:
+    numbers = ", ".join("#%d" % n for n in cards)
+    return (
+        'crew: the Captain moved %s to QA on "%s". Start QA now, without asking: run /qa:verify #N for '
+        "each, one at a time, and report each verdict." % (numbers, clean_title(board))
+    )
+
+
+def qa_cards_to_report(owner: str, name: str, board: str, path: Path, now: float, prompt: bool) -> List[int]:
+    """Cards to report as moved to QA: all of them at session start; on a prompt only new ones."""
+    repo = "%s/%s" % (owner, name)
+    checked, reported = qa_state(path, repo)
+    if prompt and 0 <= now - checked < QA_INTERVAL:
+        return []
+    cards = lookup_qa(owner, name, board)
+    if cards is None:
+        return []
+    save_qa_state(path, repo, now, cards)
+    return [n for n in cards if not prompt or n not in reported]
 
 
 def cache_path() -> Path:
@@ -263,8 +373,9 @@ def ask_message(repo: str) -> str:
 def message(board: str, repo: str) -> str:
     return (
         'crew board "%s" is used by %s. For ticket work ("do ticket #N", "pick up the next issue"), '
-        "follow the crew-workflow skill: every step through its crew command, every ticket or board "
-        "write shown first, stop at In approval and Ready for Merge." % (clean_title(board), repo)
+        "follow the crew-workflow skill: every step through its crew command, no asking from In "
+        "Definition to In approval, stop at In approval, a card the Captain moves to QA starts /qa:verify, "
+        "stop at Ready for Merge." % (clean_title(board), repo)
     )
 
 
@@ -286,9 +397,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                           if argv[0] == "--decline" else "will ask about a crew board again"))
         return 0
     try:
-        sys.stdin.read()
+        event = json.loads(sys.stdin.read() or "{}").get("hook_event_name")
     except Exception:
-        pass
+        event = None
+    prompt = event == PROMPT_EVENT
 
     parsed = current_repo()
     if not parsed:
@@ -305,7 +417,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
         write_cache(path, repo, board, now)
     if board:
-        print(message(board, repo))
+        if not prompt:
+            print(message(board, repo))
+        cards = qa_cards_to_report(owner, name, board, path, now, prompt)
+        if cards:
+            print(qa_message(cards, board))
+    elif prompt:
+        return 0
     elif not unattended() and repo.lower() not in (n.lower() for n in declined(path)):
         print(ask_message(repo))
     return 0

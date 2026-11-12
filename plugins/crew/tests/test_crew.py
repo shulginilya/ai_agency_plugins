@@ -76,6 +76,8 @@ class CrewContextHookTest(unittest.TestCase):
         self.data = Path(self.tmp.name)
         self.remote = "git@github.com:acme/shop.git"
         self.gh_reply = None  # None: gh can't run (offline, missing, timeout)
+        self.qa_reply = None  # the QA check's reply; None: no answer
+        self.event = "SessionStart"
         self.repo_view = None
         self.calls = []
         self.now = 1_000_000.0
@@ -91,6 +93,8 @@ class CrewContextHookTest(unittest.TestCase):
         if args[:3] == ["gh", "repo", "view"]:
             return self.repo_view
         if args[:3] == ["gh", "api", "graphql"]:
+            if "query=" + crew_context.QA_QUERY in args:
+                return None if self.qa_reply is None else json.dumps(self.qa_reply)
             if self.gh_reply is None:
                 return None
             # gh exits non-zero when the reply carries errors; its stdout is
@@ -107,13 +111,18 @@ class CrewContextHookTest(unittest.TestCase):
                 mock.patch.dict(os.environ, env), \
                 mock.patch.object(crew_context.time, "time", return_value=self.now), \
                 mock.patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": str(self.data)}), \
-                mock.patch.object(sys, "stdin", io.StringIO('{"hook_event_name":"SessionStart"}')), \
+                mock.patch.object(sys, "stdin", io.StringIO(json.dumps({"hook_event_name": self.event}))), \
                 redirect_stdout(out):
             self.assertEqual(crew_context.main(), 0)
         return out.getvalue().strip()
 
     def _graphql_calls(self):
-        return [c for c in self.calls if c[:3] == ["gh", "api", "graphql"]]
+        """The board lookups (the QA check is counted by _qa_calls)."""
+        return [c for c in self.calls if c[:3] == ["gh", "api", "graphql"]
+                and "query=" + crew_context.QA_QUERY not in c]
+
+    def _qa_calls(self):
+        return [c for c in self.calls if "query=" + crew_context.QA_QUERY in c]
 
     def _cached(self):
         path = self.data / "crew_boards.json"
@@ -299,6 +308,83 @@ class CrewContextHookTest(unittest.TestCase):
         self.assertEqual(self._hook(), "")
         self.assertEqual(self._graphql_calls(), [])
 
+    # --- a card the Captain moves to QA starts QA ---
+
+    def _qa_board(self, in_qa=(), elsewhere=(), title="Shop board", owner="acme"):
+        board = _board(title, CREW_COLUMNS, owner=owner)
+        nodes = [{"number": n, "projectItems": {"nodes": [
+            {"project": board, "fieldValueByName": {"name": "QA"}}]}} for n in in_qa]
+        nodes += [{"number": n, "projectItems": {"nodes": [
+            {"project": board, "fieldValueByName": {"name": "In approval"}}]}} for n in elsewhere]
+        return {"data": {"repository": {"issues": {"nodes": nodes}}}}
+
+    def test_session_start_reports_every_card_in_qa_to_start_qa_without_asking(self):
+        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
+        self.qa_reply = self._qa_board(in_qa=[12, 7], elsewhere=[9])
+        lines = self._hook().splitlines()
+        self.assertEqual(len(lines), 2, lines)
+        self.assertIn("no asking from In Definition to In approval", lines[0])
+        self.assertIn("#7, #12 to QA", lines[1])
+        self.assertIn("/qa:verify #N", lines[1])
+        self.assertIn("without asking", lines[1])
+        self.assertNotIn("#9", lines[1])
+
+    def test_a_prompt_reports_only_cards_newly_in_qa_and_no_board_line(self):
+        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
+        self.qa_reply = self._qa_board(in_qa=[7])
+        self._hook()
+        self.event, self.now = "UserPromptSubmit", self.now + crew_context.QA_INTERVAL
+        self.qa_reply = self._qa_board(in_qa=[7, 12])
+        out = self._hook()
+        self.assertEqual(len(out.splitlines()), 1, out)
+        self.assertIn("moved #12 to QA", out)
+        self.assertNotIn("#7", out)
+        self.now += crew_context.QA_INTERVAL
+        self.assertEqual(self._hook(), "")  # still there: not reported again
+
+    def test_a_card_that_leaves_qa_and_comes_back_is_reported_again(self):
+        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
+        self.event = "UserPromptSubmit"
+        self.qa_reply = self._qa_board(in_qa=[7])
+        self.assertIn("#7", self._hook())
+        self.now += crew_context.QA_INTERVAL
+        self.qa_reply = self._qa_board(elsewhere=[7])
+        self.assertEqual(self._hook(), "")
+        self.now += crew_context.QA_INTERVAL
+        self.qa_reply = self._qa_board(in_qa=[7])
+        self.assertIn("#7", self._hook())
+
+    def test_prompts_check_the_board_at_most_once_a_minute(self):
+        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
+        self.event = "UserPromptSubmit"
+        self.qa_reply = self._qa_board()
+        self._hook()
+        self.now += crew_context.QA_INTERVAL - 1
+        self.qa_reply = self._qa_board(in_qa=[7])
+        self.assertEqual(self._hook(), "")
+        self.assertEqual(len(self._qa_calls()), 1)
+        self.now += 1
+        self.assertIn("#7", self._hook())
+        self.assertEqual(len(self._qa_calls()), 2)
+
+    def test_a_prompt_without_a_crew_board_or_offline_prints_nothing(self):
+        self.event = "UserPromptSubmit"
+        self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
+        self.assertEqual(self._hook(), "")  # no board: no QA check, and never the create-board question
+        self.assertEqual(self._qa_calls(), [])
+        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
+        self.now += crew_context.NEGATIVE_TTL + 1
+        self.qa_reply = None
+        self.assertEqual(self._hook(), "")  # QA check unanswered
+
+    def test_only_the_owners_crew_board_counts_for_qa(self):
+        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
+        reply = self._qa_board(in_qa=[3], owner="mallory")
+        reply["data"]["repository"]["issues"]["nodes"] += self._qa_board(
+            in_qa=[4], title="Other board")["data"]["repository"]["issues"]["nodes"]
+        self.qa_reply = reply
+        self.assertEqual(len(self._hook().splitlines()), 1)
+
     def test_remote_and_board_rules(self):
         self.assertTrue(crew_context.is_crew_board(_board("x", ["in approval", " QA "])))
         self.assertFalse(crew_context.is_crew_board(_board("x", CREW_COLUMNS, closed=True)))
@@ -322,10 +408,12 @@ class CrewContextHookTest(unittest.TestCase):
         description = re.search(r"^description: (.+)$", text, re.M).group(1)
         self.assertLess(len(description.split()), 75, "keep the always-loaded description under ~100 tokens")
         for rule in ("Stop at In approval", "Stop at Ready for Merge", "Never merge",
-                     "Show every ticket or board write before making it", "Never skip a column"):
+                     "Never ask from In Definition to In approval", "Never skip a column",
+                     "A card the Captain moves to QA starts QA", "crew: the Captain moved #N to QA"):
             self.assertIn(rule, text)
         self.assertIn("/developer:ship #N board <crew board>", text)  # reuse the ticket, on its board
         self.assertIn("Definition to Backlog, then Ready, then In progress", text)  # one column at a time
+        self.assertIn("crew: the Captain moved", crew_context.qa_message([1], "b"))  # what the skill waits for
         for unattended in ("No one is watching", "this brief"):
             self.assertNotIn(unattended, text)
 
@@ -429,8 +517,9 @@ class WorkflowOwnedByNoRoleTest(unittest.TestCase):
                         <= set(self._manifest("crew")["shared_skills"]))
         self.assertTrue((PLUGIN / "commands" / "create-board.md").is_file())
         hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-        commands = [h["command"] for g in hooks["hooks"]["SessionStart"] for h in g["hooks"]]
-        self.assertTrue(any("${CLAUDE_PLUGIN_ROOT}/scripts/crew_context.py" in c for c in commands), commands)
+        for event in ("SessionStart", "UserPromptSubmit"):
+            commands = [h["command"] for g in hooks["hooks"][event] for h in g["hooks"]]
+            self.assertTrue(any("${CLAUDE_PLUGIN_ROOT}/scripts/crew_context.py" in c for c in commands), event)
 
     def test_no_role_plugin_carries_or_runs_the_workflow(self):
         for name in ROLE_PLUGINS:

@@ -10,11 +10,11 @@ never the workflow.
 
 | Component | Name | Purpose |
 | --- | --- | --- |
-| Skill (shared) | `crew-workflow` | Runs ticket work through the crew: each step through its crew command, every ticket or board write shown first, never a skipped column, stops at In approval and Ready for Merge. Only crew lists it. Source: `plugins/_shared/skills/` |
+| Skill (shared) | `crew-workflow` | Runs ticket work through the crew: each step through its crew command, no asking from In Definition to In approval, never a skipped column, stops at In approval, starts QA when the Captain moves a card to QA, stops at Ready for Merge. Only crew lists it. Source: `plugins/_shared/skills/` |
 | Skill (shared) | `board-setup` | Create a GitHub Projects board with the crew's columns and the `skip_approval` label, linked to the repo. Only crew lists it. Source: `plugins/_shared/skills/` |
 | Skill (shared) | `ticket-management` | The board scripts `board-setup` relies on (`board.py boards`). Source: `plugins/_shared/skills/` |
 | Command | `/create-board` | Create the board a new project's tickets go on |
-| Hook | `SessionStart` | See below |
+| Hook | `SessionStart`, `UserPromptSubmit` | See below |
 
 ## The session-start hook
 
@@ -32,6 +32,22 @@ repository (a found board for 12 hours, "no board" for 10 minutes).
 A board found through the repository's issues counts only when the
 repository's owner owns it, and every board title is cleaned before it is
 printed, so nobody else's board can put text into a session.
+
+## Starting QA when the Captain moves a card to QA
+
+GitHub sends no event when a card moves on a user-owned board, so the same
+script also runs on every prompt (`UserPromptSubmit`). On a crew board it lists
+the repository's open tickets whose card is in QA:
+
+| When | What the session is told |
+| --- | --- |
+| Session start | Every card in QA: run `/qa:verify` on each, without asking |
+| A prompt, at most once a minute | Only cards newly in QA since the last check. A card stays reported while it sits there; if it leaves QA and comes back, it is reported again |
+| No crew board, offline, without `gh`, or checked under a minute ago | Nothing; the prompt is never held up |
+
+Only the issue numbers are printed, and only cards on the repository owner's
+crew board count. QA starts on your next message after the move, not while
+the session is idle.
 
 ## Harnesses
 
