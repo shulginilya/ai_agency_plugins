@@ -21,6 +21,6 @@ Follow the `interview-track` skill. Screening and behavioral rounds are out of s
    `references/system-design-framework.md`. Hold the time box, grade strictly,
    then log:
    `python "{{PLUGIN_ROOT}}/skills/training-plan/scripts/trainer.py" log --topic <id> --score <1-5> --minutes <m> --notes "<what to fix>"`.
-4. For a full graded mock, hand off to `/interview-prep:mock live-coding` or
-   `/interview-prep:mock system-design` when that plugin is installed. Then log
-   its grade with `--kind mock` (strong 4, mixed 3, weak 2).
+4. For a full graded mock, run the coding or design format at full length
+   (45–60 min), with no hints, and grade it strictly. Then log it with
+   `--kind mock`.

@@ -92,9 +92,9 @@ the Claude desktop app, a colleague, a machine with no git -- pack the built
 bundle into a single archive instead:
 
 ```bash
-tools/pack.sh job-hunter                  # dist/pack/claude-code/job-hunter-0.2.0.plugin
+tools/pack.sh developer                   # dist/pack/claude-code/developer-0.7.1.plugin
 tools/pack.sh --all -T                    # every plugin, every harness
-tools/pack.sh job-hunter -o ~/Desktop
+tools/pack.sh developer -o ~/Desktop
 ```
 
 `claude-code` archives come out as `.plugin` files, which the Claude desktop app

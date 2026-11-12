@@ -73,11 +73,10 @@ python ../training-plan/scripts/trainer.py log --topic graphs-bfs-dfs --score 3 
   the interview languages, at least three UI builds at 3 or more.
 - **Design.** At least six designs practised, including two L3, and at least
   two full mocks.
-- **Mocks.** One full mock per phase in the last week before the interview.
-  Use `/interview-prep:mock` when that plugin is installed, so the grader
-  hasn't seen this plan. Log the mock with `--kind mock`.
+- **Mocks.** One full mock per phase in the last week before the interview:
+  full length (45–60 min), no hints, graded strictly. Log the mock with
+  `--kind mock`.
 
 Say plainly which of these does not hold yet, and how many sessions it needs
-at the current cadence. When the user has a real job description and dated
-rounds, point them to `/interview-prep:prep` for the loop itself. This track
-keeps training the skills underneath it.
+at the current cadence. This track trains the skills underneath the
+interview loop, not the loop's logistics.

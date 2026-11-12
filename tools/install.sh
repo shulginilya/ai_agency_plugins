@@ -6,14 +6,14 @@
 # apkit installs one plugin into one harness per invocation, and the thing you
 # actually want to type is "all of them, into Claude Code".
 #
-#   tools/install.sh interview-prep                 # one plugin, claude-code, user scope
+#   tools/install.sh qa                             # one plugin, claude-code, user scope
 #   tools/install.sh --all                          # every plugin
 #   tools/install.sh -a -T                          # every plugin, every harness
-#   tools/install.sh job-hunter,interview-prep -t claude-code -t cursor
+#   tools/install.sh developer,qa -t claude-code -t cursor
 #   tools/install.sh -a -s project --into ~/work/repo
 #   tools/install.sh -a -n                          # print the commands, run nothing
 #   tools/install.sh -l                             # what is available
-#   tools/install.sh -u interview-prep              # uninstall instead
+#   tools/install.sh -u qa                          # uninstall instead
 #
 # Exit status is the number of failed (plugin, target) pairs, capped at 125;
 # 0 when everything installed.

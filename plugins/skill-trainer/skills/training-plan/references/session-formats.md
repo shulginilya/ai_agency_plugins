@@ -118,12 +118,6 @@ topic.
 
 ## mock
 
-A full, graded round. When the interview-prep plugin is installed, hand off to
-`/interview-prep:mock live-coding` or `/interview-prep:mock system-design`. Its
-interviewer and grader have not seen this plan. Map its grade back:
-- strong → 4;
-- mixed → 3;
-- weak → 2.
-
-Then log with `--kind mock`. Without interview-prep, run the coding or design
-format at full length (45–60 min), with no hints, and grade it strictly.
+A full, graded round. Run the coding or design format at full length
+(45–60 min), with no hints, and grade it strictly. Then log with
+`--kind mock`.

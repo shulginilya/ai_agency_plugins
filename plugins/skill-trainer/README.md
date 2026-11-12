@@ -70,10 +70,9 @@ Coding drills don't name the pattern, because recognizing it is half the test.
   for Node, pytest or plain asserts for Python, Vitest with Testing Library
   for React). `coding-patterns.md` also lists the language's gotchas.
 
-System design runs a fixed seven-step framework with times and probes. For
-full graded mocks, the track hands off to `/interview-prep:mock` when that
-plugin is installed: its grader hasn't seen this plan. The grade is then
-logged back here with `--kind mock`.
+System design runs a fixed seven-step framework with times and probes. Full
+graded mocks run at full length with no hints, and are logged with
+`--kind mock`.
 
 ## Exit codes
 
