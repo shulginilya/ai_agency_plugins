@@ -510,6 +510,96 @@ class CrewContextHookTest(unittest.TestCase):
         self.assertIn(str(self.data / crew_context.QA_FILE), replaced)
         self.assertEqual([p.name for p in self.data.iterdir() if p.suffix == ".tmp"], [])
 
+    def test_a_board_cached_long_ago_is_still_checked_on_a_prompt(self):
+        # The 12 h cache age is for finding the board; its ID doesn't go stale, and only a
+        # session start refreshes the cache, so a long session must keep checking.
+        self._crew_board()
+        self.now += crew_context.CACHE_TTL + 5
+        self.qa_reply = self._qa((42, "t1"))
+        self.assertIn("#42", self._prompt(step=0))
+        self.assertEqual(self._graphql_calls(), [])  # still no board lookup on a prompt
+
+    def test_a_long_cached_no_board_or_a_board_without_id_is_not_checked_on_a_prompt(self):
+        boards = self.data / "crew_boards.json"
+        self.qa_reply = self._qa((7, "t1"))
+        for entry in ({"at": self.now, "board": None}, {"at": self.now, "board": "Shop board"}):
+            boards.write_text(json.dumps({"acme/shop": entry}))
+            self.assertEqual(self._prompt(step=crew_context.CACHE_TTL + 5), "")
+        self.assertEqual(self._qa_calls(), [])
+
+    def test_a_board_cached_without_its_id_still_prints_the_board_line_when_offline(self):
+        (self.data / "crew_boards.json").write_text(json.dumps(
+            {"acme/shop": {"at": self.now, "board": "Shop board"}}))
+        self.gh_reply = None  # the lookup for the ID fails
+        out = self._session_start()
+        self.assertIn('crew board "Shop board" is used by acme/shop', out)
+        self.assertNotIn("moved", out)
+
+    def test_an_alias_that_cannot_be_saved_still_gives_the_board_line(self):
+        self.remote = "git@github-work:acme/shop.git"
+        self.repo_view = "acme/shop\n"
+        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
+        self.qa_reply = self._qa((7, "t1"))
+        with mock.patch.object(crew_context, "_save", side_effect=PermissionError("in use")):
+            out = self._session_start()
+        self.assertIn('crew board "Shop board"', out)
+        self.assertIn("#7", out)
+
+    def test_a_prompt_never_resolves_an_alias_through_gh(self):
+        self.remote = "git@github-work:acme/shop.git"
+        self.repo_view = "acme/shop\n"
+        self.assertEqual(self._prompt(), "")
+        self.assertEqual([c for c in self.calls if c[:3] == ["gh", "repo", "view"]], [])
+
+    def test_a_card_reported_by_another_session_during_the_check_is_not_reported_twice(self):
+        self._crew_board()
+        path, repo = self.data / crew_context.QA_FILE, "acme/shop"
+
+        def other_session_checks_meanwhile(board_id, name):
+            # This check claimed the minute before calling gh ...
+            self.assertEqual(crew_context.qa_state(path, repo)[0], self.now)
+            # ... and another session's check finished first and reported #7.
+            crew_context.save_qa_state(path, repo, self.now, {7: "t1"})
+            return {7: "t1"}
+
+        with mock.patch.object(crew_context, "lookup_qa", side_effect=other_session_checks_meanwhile):
+            self.assertEqual(self._session_start(step=1).splitlines()[1:], [])
+
+    def test_an_unreadable_board_does_not_wipe_what_was_seen(self):
+        self._crew_board()
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertIn("#7", self._prompt())
+        self.qa_reply = {"data": {"node": None}, "errors": [{"message": "Could not resolve to a node"}]}
+        self.assertEqual(self._prompt(), "")
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertEqual(self._prompt(), "")  # access back, #7 not moved: no second /qa:verify
+
+    def test_the_qa_query_is_filtered_to_open_qa_cards_on_githubs_side(self):
+        self.assertIn('query:"status:QA is:open"', crew_context.QA_QUERY)
+        self.assertIn("node(id:$board)", crew_context.QA_QUERY)
+
+    def test_the_repository_matches_whatever_its_case(self):
+        self.remote = "git@github.com:Acme/Shop.git"
+        (self.data / "crew_boards.json").write_text(json.dumps(
+            {"Acme/Shop": {"at": self.now, "board": "Shop board", "id": self.BOARD_ID}}))
+        self.qa_reply = self._qa((7, "t1"))  # GitHub says acme/shop
+        self.assertIn("#7", self._prompt())
+
+    def test_a_check_time_in_the_future_does_not_hold_checks_back(self):
+        self._crew_board()
+        (self.data / crew_context.QA_FILE).write_text(json.dumps(
+            {"acme/shop": {"at": self.now + 3600, "cards": {}}}))  # the clock was set back
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertIn("#7", self._prompt(step=0))
+
+    def test_a_failed_replace_leaves_no_temp_file_and_the_hook_still_succeeds(self):
+        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
+        self.qa_reply = self._qa((7, "t1"))
+        with mock.patch.object(crew_context.os, "replace", side_effect=PermissionError("in use")):
+            out = self._session_start()
+        self.assertIn('crew board "Shop board"', out)
+        self.assertEqual([p.name for p in self.data.iterdir() if p.suffix == ".tmp"], [])
+
     def test_remote_and_board_rules(self):
         self.assertTrue(crew_context.is_crew_board(_board("x", ["in approval", " QA "])))
         self.assertFalse(crew_context.is_crew_board(_board("x", CREW_COLUMNS, closed=True)))

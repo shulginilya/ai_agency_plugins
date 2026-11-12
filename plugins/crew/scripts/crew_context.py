@@ -151,7 +151,10 @@ def current_repo(path: Optional[Path] = None, resolve: bool = True) -> Optional[
             aliases = cache.get(ALIASES_KEY) if isinstance(cache.get(ALIASES_KEY), dict) else {}
             aliases[remote] = match.group(0)
             cache[ALIASES_KEY] = aliases
-            _save(path, cache)
+            try:
+                _save(path, cache)
+            except OSError:
+                pass
     return match.group(1), match.group(2)
 
 
@@ -321,10 +324,15 @@ def qa_cards_to_report(repo: str, board_id: str, path: Path, now: float, prompt:
     checked, seen = qa_state(path, repo)
     if prompt and 0 <= now - checked < QA_INTERVAL:
         return []
+    # Claim the check before the slow gh call, so another session's prompt inside
+    # the minute skips it; a failed check keeps this claim and what was seen.
+    save_qa_state(path, repo, now, seen)
     cards = lookup_qa(board_id, repo)
     if cards is None:
-        save_qa_state(path, repo, now, seen)
         return []
+    # Compare against the state as it is now, not as it was before the call: a
+    # session that checked meanwhile has already reported its cards.
+    _, seen = qa_state(path, repo)
     save_qa_state(path, repo, now, cards)
     return sorted(n for n, moved in cards.items() if seen.get(n) != moved)
 
@@ -337,8 +345,13 @@ def cache_path() -> Path:
     return Path(root) / CACHE_FILE
 
 
-def read_cache(path: Path, repo: str, now: float) -> Tuple[bool, Optional[str], Optional[str]]:
-    """(hit, board title or None, board node ID or None) for a fresh entry; (False, None, None) otherwise."""
+def read_cache(path: Path, repo: str, now: float,
+               any_age: bool = False) -> Tuple[bool, Optional[str], Optional[str]]:
+    """(hit, board title or None, board node ID or None) for a fresh entry; (False, None, None) otherwise.
+
+    any_age keeps a found board with its node ID whatever its age: the ID doesn't
+    go stale on a timer, and a deleted or closed board comes back as a failed check.
+    """
     entry = (_load(path) or {}).get(repo)
     if not isinstance(entry, dict):
         return False, None, None
@@ -348,9 +361,9 @@ def read_cache(path: Path, repo: str, now: float) -> Tuple[bool, Optional[str], 
         age = now - float(entry.get("at", 0))
     except (TypeError, ValueError):
         return False, None, None
-    if age < 0 or age > ttl:
-        return False, None, None
     board_id = entry.get("id") if board and isinstance(entry.get("id"), str) else None
+    if (age < 0 or age > ttl) and not (any_age and board_id):
+        return False, None, None
     return True, clean_title(board) if board else None, board_id
 
 
@@ -468,7 +481,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     repo = "%s/%s" % (owner, name)
 
     now = time.time()
-    hit, board, board_id = read_cache(path, repo, now)
+    hit, board, board_id = read_cache(path, repo, now, any_age=prompt)
     if prompt:
         # A prompt never looks the board up: that is session start's job, and
         # a prompt must not wait on it. No cached crew board, nothing to check.
@@ -478,9 +491,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(qa_message(cards, board))
         return 0
     if not hit or (board and not board_id):
-        answered, board, board_id = lookup(owner, name)
+        answered, found, found_id = lookup(owner, name)
         if not answered:
+            if hit and board:  # cached before IDs were kept: the board line still holds
+                print(message(board, repo))
             return 0
+        board, board_id = found, found_id
         write_cache(path, repo, board, now, board_id)
     if board:
         print(message(board, repo))

@@ -45,14 +45,16 @@ is never read), filtered to QA and to this repository's open issues.
 | Session start (also after compaction, `/clear` or resume) | Cards moved to QA that no earlier check reported: run `/qa:verify` on each, without asking |
 | A prompt, at most once a minute | The same, for cards moved to QA since the last check |
 | A card moved out of QA and back, even within one turn | Reported again: each card is keyed on when its Status was last set |
-| No cached crew board, offline, without `gh`, or checked under a minute ago | Nothing. A prompt never looks the board up, and a failed check also counts for the minute, so a prompt waits on at most one 5 s `gh` call a minute |
+| No cached crew board, offline, without `gh`, or checked under a minute ago | Nothing. A prompt never looks the board up (a cached board ID is used whatever its age, so a long session keeps checking), and a check, failed or not, claims the minute before calling `gh`, so a prompt waits on at most one 5 s `gh` call a minute across sessions |
 
 Only issue numbers are printed. QA starts on your next message after the move,
 not while the session is idle. A card is reported once per move: if a session
 ends before its QA finishes, ask for `/qa:verify #N` yourself. The QA state is
 kept in `crew_qa.json`, apart from the board cache, and every cache file is
 replaced atomically; a file another session is halfway through writing is left
-alone rather than overwritten.
+alone rather than overwritten. After a check, cards are compared with the state
+as it is then, so a card another session reported meanwhile is not reported
+twice.
 
 ## Harnesses
 
