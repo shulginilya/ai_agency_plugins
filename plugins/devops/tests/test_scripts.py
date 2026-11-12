@@ -41,6 +41,9 @@ VITE = {"package.json": {"name": "shop", "scripts": {"build": "vite build", "tes
                          "devDependencies": {"vite": "^7"}},
         "package-lock.json": "{}", ".nvmrc": "v22\n"}
 FASTAPI = {"requirements.txt": "fastapi\nuvicorn\npytest\n", "app/main.py": "from fastapi import FastAPI\napp = FastAPI()\n"}
+NEXT_EXPORT = {"package.json": {"scripts": {"build": "next build", "start": "next start"}, "dependencies": {"next": "16"}},
+               "pnpm-lock.yaml": "", "next.config.ts": "export default { output: \"export\" };\n"}
+NEXT_SERVER_CONFIG = "export default {};\n"  # output: "export" dropped, e.g. for a database
 
 
 class StackScanTest(unittest.TestCase):
@@ -86,6 +89,50 @@ class StackScanTest(unittest.TestCase):
             self.assertEqual(flask["kind"], "server")
             self.assertTrue(any("start command is unknown" in u for u in flask["unknowns"]))
             self.assertIsNone(flask.get("start"))
+
+
+class ExpectTest(unittest.TestCase):
+    """stack_scan.py --expect: the per-PR check that the stack still fits its preview host."""
+
+    def expect(self, root, kind, host):
+        return run(SCRIPTS / "stack_scan.py", root, "--expect", kind, "--host", host)
+
+    def test_unchanged_kind_passes_quietly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, files, kind, host in (("vite", VITE, "static", "cloudflare-pages"),
+                                            ("next", NEXT_EXPORT, "static", "cloudflare-pages"),
+                                            ("api", FASTAPI, "server", "render")):
+                with self.subTest(name):
+                    result = self.expect(project(tmp, name, files), kind, host)
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertNotIn("::error", result.stdout)
+                    self.assertNotIn(stack_scan.DRIFT, result.stdout)
+
+    def test_static_to_server_fails_naming_the_new_kind_and_the_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "next", NEXT_EXPORT)
+            (root / "next.config.ts").write_text(NEXT_SERVER_CONFIG)
+            result = self.expect(root, "static", "cloudflare-pages")
+            self.assertEqual(result.returncode, 4)
+            line = result.stdout.strip()
+            self.assertTrue(line.startswith("::error title=Preview host no longer fits the stack::"), line)
+            for part in ("devops:stack-changed recorded=static now=server host=cloudflare-pages",
+                         "output: 'export'", "needs Render", "/devops:preview"):
+                self.assertIn(part, line)
+
+    def test_server_to_static_fails_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "api", dict(FASTAPI, **VITE))  # a package.json frontend took over the root
+            result = self.expect(root, "server", "render")
+            self.assertEqual(result.returncode, 4)
+            self.assertIn("recorded=server now=static host=render", result.stdout)
+            self.assertIn("needs Cloudflare Pages", result.stdout)
+
+    def test_a_scan_that_cannot_tell_only_warns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.expect(project(tmp, "empty", {"notes.txt": "x"}), "static", "cloudflare-pages")
+            self.assertEqual(result.returncode, 0)
+            self.assertTrue(result.stdout.startswith("::warning"), result.stdout)
 
 
 class ScaffoldTest(unittest.TestCase):
@@ -146,6 +193,60 @@ class ScaffoldTest(unittest.TestCase):
             ticket = (root / ".github" / "workflows" / "review-link.yml").read_text()
             self.assertNotIn("secrets.", ticket)
             self.assertIn("deployment_status:", ticket)
+            # the ticket job still only marks links down on close; pushes run the stack check
+            self.assertIn("github.event_name == 'pull_request' && github.event.action == 'closed'", ticket)
+            self.assertIn("if: github.event_name == 'pull_request' && github.event.action != 'closed'", ticket)
+
+    def test_preview_files_record_their_kind_and_check_it_on_every_pr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vite = project(tmp, "vite", VITE)
+            self.assertEqual(self.scaffold(vite, "preview", "--project", "shop").returncode, 0)
+            text = (vite / ".github" / "workflows" / "preview.yml").read_text()
+            self.assertTrue(text.startswith("# devops:preview kind=static provider=cloudflare-pages\n"))
+            check = "run: python3 .github/devops/stack_scan.py . --expect static --host cloudflare-pages"
+            self.assertIn(check, text)
+            self.assertLess(text.index("actions/checkout"), text.index(check))
+            self.assertLess(text.index(check), text.index("run: npm ci"), "fail before spending a build")
+            copied = vite / ".github" / "devops" / "stack_scan.py"
+            self.assertEqual(copied.read_text(), (SCRIPTS / "stack_scan.py").read_text())
+            self.assertEqual(run(copied, vite, "--expect", "static", "--host", "cloudflare-pages").returncode, 0,
+                             "the copy runs on its own, without the plugin")
+
+            api = project(tmp, "api", FASTAPI)
+            self.assertEqual(self.scaffold(api, "preview").returncode, 0)
+            self.assertTrue((api / "render.yaml").read_text().startswith("# devops:preview kind=server provider=render\n"))
+            review = (api / ".github" / "workflows" / "review-link.yml").read_text()
+            self.assertTrue(review.startswith("# devops:preview kind=server provider=render\n"))
+            self.assertIn("run: python3 .github/devops/stack_scan.py . --expect server --host render", review)
+            self.assertTrue((api / ".github" / "devops" / "stack_scan.py").is_file())
+
+    def test_switching_host_replaces_the_old_preview(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "next", NEXT_EXPORT)
+            self.assertEqual(self.scaffold(root, "preview", "--project", "obs").returncode, 0)
+            (root / "next.config.ts").write_text(NEXT_SERVER_CONFIG)
+            dry = self.scaffold(root, "preview", "--dry-run")
+            self.assertIn("would remove .github/workflows/preview.yml", dry.stdout)
+            self.assertTrue((root / ".github" / "workflows" / "preview.yml").exists(), "a dry run removes nothing")
+            result = self.scaffold(root, "preview")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("removed .github/workflows/preview.yml", result.stdout)
+            self.assertIn("onrender.com", result.stdout)
+            self.assertEqual(sorted(p.name for p in (root / ".github" / "workflows").iterdir()), ["review-link.yml"])
+            self.assertTrue((root / "render.yaml").read_text().startswith("# devops:preview kind=server"))
+
+            # and back: the Render files go, the Pages workflow comes
+            (root / "next.config.ts").write_text(NEXT_EXPORT["next.config.ts"])
+            result = self.scaffold(root, "preview", "--project", "obs")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((root / "render.yaml").exists())
+            self.assertEqual(sorted(p.name for p in (root / ".github" / "workflows").iterdir()), ["preview.yml"])
+
+    def test_never_removes_files_it_did_not_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "vite", dict(VITE, **{"render.yaml": "services: []  # the team's own\n"}))
+            self.assertEqual(self.scaffold(root, "preview", "--project", "shop").returncode, 0)
+            self.assertEqual((root / "render.yaml").read_text(), "services: []  # the team's own\n")
 
     def test_refuses_to_guess_or_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -366,6 +467,8 @@ class TriageTest(unittest.TestCase):
         ("##[error]The runner has received a shutdown signal.", "infra"),
         ("Error: connect ETIMEDOUT 140.82.112.3:443", "infra"),
         ("something odd happened\n##[error]Process completed with exit code 2.", "unknown"),
+        ("##[error]devops:stack-changed recorded=static now=server host=cloudflare-pages. This repo's previews"
+         "\n##[error]Process completed with exit code 4.", "stack"),
     ]
 
     def test_each_failure_gets_its_category_and_owner(self):
@@ -382,6 +485,20 @@ class TriageTest(unittest.TestCase):
         self.assertEqual(result["category"], "test")
         self.assertEqual(result["evidence"][0], "FAIL: test_total (t.CartTest.test_total)")
         self.assertFalse(any(line.endswith("... ok") for line in result["evidence"]))
+
+    def test_a_stack_change_is_devops_job_not_a_code_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = project(tmp, "next", NEXT_EXPORT)
+            (root / "next.config.ts").write_text(NEXT_SERVER_CONFIG)
+            check = run(SCRIPTS / "stack_scan.py", root, "--expect", "static", "--host", "cloudflare-pages")
+            # how Actions logs it: the workflow command becomes ##[error], then the step's exit code
+            log = "\n".join(["##[group]Run python3 .github/devops/stack_scan.py . --expect static",
+                             check.stdout.strip().replace("::error title=Preview host no longer fits the stack::",
+                                                          "##[error]"),
+                             "##[error]Process completed with exit code 4."])
+            result = triage.triage_log(log)
+            self.assertEqual((result["category"], result["owner"]), ("stack", "devops"))
+            self.assertIn("now=server", result["evidence"][0])
 
     def test_offline_log_cli(self):
         with tempfile.TemporaryDirectory() as tmp:

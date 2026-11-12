@@ -1,7 +1,7 @@
 {
   "name": "devops",
   "displayName": "DevOps Engineer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "CI/CD for the crew: sets up GitHub Actions that run a repo's own checks, gives every pull request a review link (a preview on Cloudflare Pages or Render, optionally on a review domain, published as a GitHub Deployment and on its tickets with the commit it serves), and triages failing runs to a cause and an owner. Never handles secret values. Use when asked to set up CI or CI/CD, add PR previews or review links, fix a workflow, or find why CI is red.",
   "author": {
     "name": "Ilya Shulgin",

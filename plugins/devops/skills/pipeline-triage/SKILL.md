@@ -1,10 +1,10 @@
 ---
 name: pipeline-triage
-description: Triages a failing GitHub Actions run — finds the failed job and step, cuts the step's log down to the lines that carry the failure, names the cause (a failing test, a build, lint or dependency error, the workflow itself, or the runner and network) and who owns it, then fixes what belongs to the pipeline and hands code failures to the developer with the evidence. Use when CI is red, a check is failing on a PR, a workflow or deploy failed, a run is flaky or timed out, or asked why a pipeline broke.
+description: Triages a failing GitHub Actions run — finds the failed job and step, cuts the step's log down to the lines that carry the failure, names the cause (a failing test, a build, lint or dependency error, the workflow itself, the runner and network, or a stack that outgrew its preview host) and who owns it, then fixes what belongs to the pipeline and hands code failures to the developer with the evidence. Use when CI is red, a check is failing on a PR, a workflow or deploy failed, a run is flaky or timed out, or asked why a pipeline broke.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Pipeline triage
@@ -31,6 +31,7 @@ python scripts/triage.py --log job.log    # a saved log, offline
 
 | Category | Owner | What to do |
 | --- | --- | --- |
+| `stack` | devops | The preview's "Check the stack still fits this host" step failed with `devops:stack-changed`: the repo became the other kind (static ↔ server), so its preview host no longer fits. Not the developer's bug. Run the `preview-environments` skill again: it scaffolds the right host and removes the old preview. Render needs the owner's one-time account steps first, so list them. |
 | `test` | developer | Hand over the failing test names and assertion lines. A test that only fails in CI (other OS, Python or Node version) is still the developer's: say which matrix leg fails and which passes. |
 | `build`, `lint` | developer | Hand over the first error, with file and line. |
 | `dependency` | devops | A lockfile out of date, a version that doesn't resolve, a registry error. Fix the install step or the lockfile, or hand the version conflict to the developer. |

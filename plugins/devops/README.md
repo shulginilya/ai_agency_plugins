@@ -40,6 +40,14 @@ plus a proxied CNAME per PR, and removes both when the PR closes. The token
 needs DNS edit on the zone, and the zone id goes in `CLOUDFLARE_ZONE_ID`.
 Render previews keep their `onrender.com` link.
 
+**When the stack outgrows its host.** Every preview file records the kind it
+was set up for (`# devops:preview kind=static provider=cloudflare-pages`), and
+every PR reruns the scan from `.github/devops/stack_scan.py` with
+`--expect <kind>`. If a static app becomes a server app (or the reverse), that
+step fails with `devops:stack-changed` and names the new kind. `/triage` files
+it as devops' job, and `/preview` run again scaffolds the right host and
+removes the old one's files.
+
 **How QA picks the latest version.** The newest link on the ticket wins. The
 devops comment counts as of its last edit. If its commit is older than the
 PR's head, the new build hasn't landed, so QA waits instead of testing old
@@ -74,7 +82,8 @@ All standard-library Python.
 - `skills/ci-setup/scripts/scaffold.py` writes `.github/workflows/ci.yml`,
   `.github/workflows/preview.yml` (Cloudflare Pages, with the optional review
   domain), or `render.yaml` plus `.github/workflows/review-link.yml` (Render)
-  from the scan. It stops (exit 3) when something a file needs is
+  from the scan, plus `.github/devops/stack_scan.py` for the per-PR host check, and
+  removes the other provider's preview files. It stops (exit 3) when something a file needs is
   unknown, and it never overwrites a file without `--force`. Action major
   versions live in its `ACTIONS` table.
 - `skills/pipeline-triage/scripts/triage.py` triages failed runs by PR, by

@@ -19,6 +19,12 @@ Every workflow runs the repo's own commands, has least-privilege
 GitHub Deployment `preview-pr-<N>` plus one sticky PR comment, marks it
 inactive when the PR closes, and skips PRs from forks (they get no secrets).
 
+Host drift: every preview file starts with `# devops:preview kind=<k>
+provider=<p>`, the stack it was set up for. The scan is copied into the repo as
+.github/devops/stack_scan.py, and every PR runs `stack_scan.py --expect <k>`,
+which fails with a `devops:stack-changed` error when the repo has become the
+other kind. Scaffolding the other provider later removes the first one's files.
+
 Review links: with the repository variable REVIEW_DOMAIN set, the Cloudflare
 workflow also serves each preview at `<branch>.<slug>.<REVIEW_DOMAIN>` (slug:
 REVIEW_SLUG, else the repository name) and publishes that as the link. Either
@@ -58,6 +64,8 @@ REVIEW_SECRETS = {"cloudflare-pages": ["CLOUDFLARE_ZONE_ID"], "render": []}  # o
 STEPS = ("lint", "typecheck", "test", "build")
 MARKER = "<!-- devops:preview -->"
 TICKET_MARKER = "<!-- devops:review-link"
+SCANNER = Path(".github") / "devops" / "stack_scan.py"  # stack_scan.py, copied for the drift check
+RECORD = "# devops:preview kind=%s provider=%s"
 
 
 class Unknown(Exception):
@@ -124,6 +132,12 @@ def setup_steps(facts: Dict[str, Any]) -> List[str]:
 
 def run_step(name: str, command: str) -> List[str]:
     return ["      - name: %s" % name.capitalize(), "        run: %s" % scalar(command)]
+
+
+def drift_step(kind: str, provider: str) -> List[str]:
+    """Fail the preview, naming the new kind, when the repo is no longer the kind it was set up for."""
+    return ["      - name: Check the stack still fits this host",
+            "        run: python3 %s . --expect %s --host %s" % (SCANNER.as_posix(), kind, provider)]
 
 
 # --- ci.yml ------------------------------------------------------------------
@@ -303,6 +317,7 @@ def cloudflare_workflow(facts: Dict[str, Any], project: str) -> str:
     need(facts, "install", "build", "output_dir")
     same_repo = "github.event.pull_request.head.repo.full_name == github.repository"
     lines = [
+        RECORD % ("static", "cloudflare-pages"),
         "name: Preview",
         "",
         "# One preview per PR on Cloudflare Pages: https://pr-<N>.%s.pages.dev" % project,
@@ -339,7 +354,8 @@ def cloudflare_workflow(facts: Dict[str, Any], project: str) -> str:
         "    timeout-minutes: 20",
         "    steps:",
     ]
-    lines += setup_steps(facts)
+    setup = setup_steps(facts)
+    lines += setup[:1] + drift_step("static", "cloudflare-pages") + setup[1:]
     lines += run_step("build", facts["build"])
     lines += [
         "      - name: Deploy to Cloudflare Pages",
@@ -428,25 +444,29 @@ def render_blueprint(facts: Dict[str, Any], name: str) -> str:
     else:
         raise Unknown(["kind (static or server)"])
     lines += ["    previews:", "      generation: automatic"]
-    header = ["# Render Blueprint. Connect it once in the Render dashboard (New > Blueprint).",
+    header = [RECORD % (facts["kind"], "render"),
+              "# Render Blueprint. Connect it once in the Render dashboard (New > Blueprint).",
               "# Every PR gets its own preview instance, and Render publishes it as a GitHub Deployment,",
               "# which is where preview_link.py reads the review link from.",
               "# Previews copy the base service's environment variables: point them at test data."]
     return "\n".join(header + lines) + "\n"
 
 
-def render_tickets_workflow() -> str:
+def render_tickets_workflow(kind: str) -> str:
+    same_repo = "github.event.pull_request.head.repo.full_name == github.repository"
     lines = [
+        RECORD % (kind, "render"),
         "name: Review link",
         "",
         "# Render deploys every PR's preview and reports it as a GitHub Deployment. This carries the",
         "# link to each ticket the PR closes: one comment per ticket (marker: devops:review-link),",
         "# edited on every deploy and marked down when the PR closes. QA reads it.",
+        "# On every push it also checks the stack still fits Render (job: stack).",
         "",
         "on:",
         "  deployment_status:",
         "  pull_request:",
-        "    types: [closed]",
+        "    types: [opened, synchronize, reopened, closed]",
         "",
         "permissions:",
         "  contents: read",
@@ -454,12 +474,20 @@ def render_tickets_workflow() -> str:
         "  pull-requests: read",
         "",
         "jobs:",
+        "  stack:",
+        "    if: github.event_name == 'pull_request' && github.event.action != 'closed'",
+        "    runs-on: ubuntu-latest",
+        "    timeout-minutes: 5",
+        "    steps:",
+        "      - uses: %s" % ACTIONS["checkout"],
+    ] + drift_step(kind, "render") + [
+        "",
         "  tickets:",
         "    if: >-",
         "      (github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success'",
         "      && github.event.deployment_status.environment_url != '')",
-        "      || (github.event_name == 'pull_request'",
-        "      && github.event.pull_request.head.repo.full_name == github.repository)",
+        "      || (github.event_name == 'pull_request' && github.event.action == 'closed'",
+        "      && %s)" % same_repo,
         "    runs-on: ubuntu-latest",
         "    timeout-minutes: 5",
         "    steps:",
@@ -474,15 +502,42 @@ def render_tickets_workflow() -> str:
 # --- CLI ---------------------------------------------------------------------
 
 
+PREVIEW_FILES = {
+    "cloudflare-pages": [Path(".github") / "workflows" / "preview.yml"],
+    "render": [Path("render.yaml"), Path(".github") / "workflows" / "review-link.yml"],
+}
+LINKS = {"cloudflare-pages": "https://<branch>.<slug>.<REVIEW_DOMAIN> (or https://pr-<N>.<project>.pages.dev)",
+         "render": "https://<service>-pr-<N>.onrender.com (Render takes no review domain)"}
+
+
+def ours(path: Path) -> bool:
+    """A preview file this script wrote: the record line, or an older file's own markers."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return (text.startswith("# devops:preview ") or MARKER in text or TICKET_MARKER in text
+            or text.startswith("# Render Blueprint."))
+
+
+def replaced(provider: str, root: Path) -> List[Path]:
+    """The other provider's preview files in the repo, which this preview replaces."""
+    return [root / rel for other, files in PREVIEW_FILES.items() if other != provider
+            for rel in files if (root / rel).is_file() and ours(root / rel)]
+
+
 def plan(args: argparse.Namespace, facts: Dict[str, Any], root: Path) -> List[Tuple[Path, str]]:
     if args.what == "ci":
         return [(root / ".github" / "workflows" / "ci.yml", ci_workflow(facts, args.branch or default_branch(root)))]
+    scanner = (root / SCANNER, Path(stack_scan.__file__).read_text(encoding="utf-8"))
     if args.provider == "cloudflare-pages":
         if not args.project:
             raise Unknown(["--project (the Cloudflare Pages project name)"])
-        return [(root / ".github" / "workflows" / "preview.yml", cloudflare_workflow(facts, args.project))]
+        return [(root / PREVIEW_FILES["cloudflare-pages"][0], cloudflare_workflow(facts, args.project)), scanner]
+    if facts.get("kind") not in ("static", "server"):
+        raise Unknown(["kind (static or server)"])
     return [(root / "render.yaml", render_blueprint(facts, args.name or root.name)),
-            (root / ".github" / "workflows" / "review-link.yml", render_tickets_workflow())]
+            (root / PREVIEW_FILES["render"][1], render_tickets_workflow(facts["kind"])), scanner]
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -527,7 +582,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if args.dry_run:
             print("--- %s\n%s" % (rel, text))
             continue
-        if path.exists() and not args.force:
+        if path.exists() and not args.force and path != root / SCANNER:
             if path.read_text(encoding="utf-8") != text:
                 print("exists, left alone (compare with --dry-run, replace with --force): %s" % rel)
                 code = 1
@@ -535,6 +590,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         print("wrote %s" % rel)
+    stale = replaced(args.provider, root) if args.what == "preview" else []
+    for path in stale:
+        rel = path.relative_to(root).as_posix()
+        if args.dry_run:
+            print("would remove %s (the old preview's)" % rel)
+        elif code == 0:
+            path.unlink()
+            print("removed %s (the old preview's)" % rel)
+    if stale and code == 0:
+        print("review links now look like %s: say so in the report, QA reads them from the ticket comment"
+              % LINKS[args.provider])
     secrets = SECRETS.get(args.provider or "", [])
     if args.what == "preview" and secrets:
         print("secrets the repo owner adds (never paste their values into a chat):")
