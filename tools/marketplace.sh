@@ -13,7 +13,7 @@
 # from the merged tree and marks the conflict resolved. CI also regenerates it
 # on main after every merge (docs/release.md), so main converges either way.
 #
-#   tools/marketplace.sh recruiter-inbox      # validate, regenerate, confirm it is listed
+#   tools/marketplace.sh notes                # validate, regenerate, confirm it is listed
 #   tools/marketplace.sh --commit             # ...and commit only the index
 #   tools/marketplace.sh --check              # would CI change the index? writes nothing
 #   tools/marketplace.sh --local              # path-form index for `/plugin marketplace add .`

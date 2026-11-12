@@ -60,7 +60,7 @@ per command is rarely what you want:
 ```bash
 tools/install.sh --all                    # build and install everything locally
 tools/pack.sh --all -T                    # one archive per plugin per harness
-tools/pack.sh job-hunter -o ~/Desktop     # a .plugin file to upload by hand
+tools/pack.sh developer -o ~/Desktop      # a .plugin file to upload by hand
 ```
 
 No third-party dependencies. Python 3.9+, standard library only.

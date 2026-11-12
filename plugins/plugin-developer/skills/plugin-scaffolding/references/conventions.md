@@ -60,5 +60,5 @@ it does not name.
 - **External CLIs are read-only by default.** Propose `gh` writes, sending a
   message, or anything else done on the user's behalf; do not execute it
   without approval.
-- **The user's state lives in the user's project** (`.jobhunt/`, `.pair/`), not
+- **The user's state lives in the user's project** (`.plugin-dev/`), not
   inside the plugin.

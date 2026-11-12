@@ -7,11 +7,11 @@
 # The archive's contents sit at its root, because a wrapper directory is the
 # difference between a plugin that installs and one that is silently ignored.
 #
-#   tools/pack.sh job-hunter                  # one plugin, claude-code
+#   tools/pack.sh developer                   # one plugin, claude-code
 #   tools/pack.sh --all                       # every plugin, claude-code
 #   tools/pack.sh -a -t cursor -t codex       # every plugin, two harnesses
 #   tools/pack.sh -a -T                       # every plugin, every harness
-#   tools/pack.sh job-hunter,developer -o ~/Desktop
+#   tools/pack.sh developer,qa -o ~/Desktop
 #   tools/pack.sh -a -n                       # print the commands, run nothing
 #   tools/pack.sh -l                          # what is available
 #
