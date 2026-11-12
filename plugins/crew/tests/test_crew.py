@@ -33,8 +33,9 @@ def run(args, **kwargs):
     return subprocess.run(args, capture_output=True, text=True, check=False, **kwargs)
 
 
-def _board(title, columns, closed=False, owner="acme"):
-    return {"title": title, "closed": closed, "owner": {"login": owner},
+def _board(title, columns, closed=False, owner="acme", board_id=None):
+    return {"id": board_id or "PVT_%s_%s" % (owner, title.replace(" ", "_")),
+            "title": title, "closed": closed, "owner": {"login": owner},
             "field": {"options": [{"name": c} for c in columns]}}
 
 
@@ -94,7 +95,11 @@ class CrewContextHookTest(unittest.TestCase):
             return self.repo_view
         if args[:3] == ["gh", "api", "graphql"]:
             if "query=" + crew_context.QA_QUERY in args:
-                return None if self.qa_reply is None else json.dumps(self.qa_reply)
+                if self.qa_reply is None:
+                    return None
+                if self.qa_reply.get("errors") and not keep_output_on_error:
+                    return None
+                return json.dumps(self.qa_reply)
             if self.gh_reply is None:
                 return None
             # gh exits non-zero when the reply carries errors; its stdout is
@@ -310,80 +315,200 @@ class CrewContextHookTest(unittest.TestCase):
 
     # --- a card the Captain moves to QA starts QA ---
 
-    def _qa_board(self, in_qa=(), elsewhere=(), title="Shop board", owner="acme"):
-        board = _board(title, CREW_COLUMNS, owner=owner)
-        nodes = [{"number": n, "projectItems": {"nodes": [
-            {"project": board, "fieldValueByName": {"name": "QA"}}]}} for n in in_qa]
-        nodes += [{"number": n, "projectItems": {"nodes": [
-            {"project": board, "fieldValueByName": {"name": "In approval"}}]}} for n in elsewhere]
-        return {"data": {"repository": {"issues": {"nodes": nodes}}}}
+    BOARD_ID = "PVT_acme_Shop_board"
 
-    def test_session_start_reports_every_card_in_qa_to_start_qa_without_asking(self):
+    def _crew_board(self):
+        """A crew board on GitHub, already cached by an earlier session start."""
         self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
-        self.qa_reply = self._qa_board(in_qa=[12, 7], elsewhere=[9])
-        lines = self._hook().splitlines()
+        (self.data / "crew_boards.json").write_text(json.dumps(
+            {"acme/shop": {"at": self.now, "board": "Shop board", "id": self.BOARD_ID}}))
+
+    @staticmethod
+    def _qa(*cards, errors=None):
+        """The board's items in QA: each card is (number, when its Status was set) or a full dict."""
+        nodes = []
+        for card in cards:
+            if isinstance(card, dict):
+                nodes.append(card)
+                continue
+            number, moved = card
+            nodes.append({"fieldValueByName": {"name": "QA", "updatedAt": moved},
+                          "content": {"number": number, "state": "OPEN",
+                                      "repository": {"nameWithOwner": "acme/shop"}}})
+        reply = {"data": {"node": {"items": {"nodes": nodes}}}}
+        if errors:
+            reply["errors"] = errors
+        return reply
+
+    def _prompt(self, step=None):
+        self.event = "UserPromptSubmit"
+        self.now += crew_context.QA_INTERVAL if step is None else step
+        return self._hook()
+
+    def _session_start(self, step=0):
+        self.event = "SessionStart"
+        self.now += step
+        return self._hook()
+
+    def test_session_start_reports_the_cards_in_qa_to_start_qa_without_asking(self):
+        self._crew_board()
+        other = {"fieldValueByName": {"name": "QA", "updatedAt": "t"},
+                 "content": {"number": 30, "state": "OPEN", "repository": {"nameWithOwner": "acme/other"}}}
+        closed = {"fieldValueByName": {"name": "QA", "updatedAt": "t"},
+                  "content": {"number": 31, "state": "CLOSED", "repository": {"nameWithOwner": "acme/shop"}}}
+        approval = {"fieldValueByName": {"name": "In approval", "updatedAt": "t"},
+                    "content": {"number": 9, "state": "OPEN", "repository": {"nameWithOwner": "acme/shop"}}}
+        self.qa_reply = self._qa((12, "t1"), (7, "t2"), other, closed, approval)
+        lines = self._session_start().splitlines()
         self.assertEqual(len(lines), 2, lines)
         self.assertIn("no asking from In Definition to In approval", lines[0])
-        self.assertIn("#7, #12 to QA", lines[1])
+        self.assertIn("moved #7, #12 to QA", lines[1])
         self.assertIn("/qa:verify #N", lines[1])
         self.assertIn("without asking", lines[1])
-        self.assertNotIn("#9", lines[1])
+        for number in ("#9", "#30", "#31"):
+            self.assertNotIn(number, lines[1])
 
-    def test_a_prompt_reports_only_cards_newly_in_qa_and_no_board_line(self):
-        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
-        self.qa_reply = self._qa_board(in_qa=[7])
-        self._hook()
-        self.event, self.now = "UserPromptSubmit", self.now + crew_context.QA_INTERVAL
-        self.qa_reply = self._qa_board(in_qa=[7, 12])
-        out = self._hook()
-        self.assertEqual(len(out.splitlines()), 1, out)
+    def test_the_qa_check_reads_the_crew_board_by_its_id_not_its_title(self):
+        # Two boards with the same title: only the one found first, by its ID, is read.
+        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS, board_id="PVT_real")],
+                                on_issues=[_board("Shop board", CREW_COLUMNS, board_id="PVT_decoy")])
+        self.qa_reply = self._qa()
+        self._session_start()
+        self.assertEqual(len(self._qa_calls()), 1)
+        self.assertIn("board=PVT_real", self._qa_calls()[0])
+        self.assertEqual(self._cached()["acme/shop"]["id"], "PVT_real")
+
+    def test_a_prompt_reports_only_cards_newly_moved_to_qa_and_no_board_line(self):
+        self._crew_board()
+        self.qa_reply = self._qa((7, "t1"))
+        self._session_start()
+        self.qa_reply = self._qa((7, "t1"), (12, "t2"))
+        out = self._prompt()
+        self.assertEqual(out.splitlines(), [out], out)
         self.assertIn("moved #12 to QA", out)
         self.assertNotIn("#7", out)
-        self.now += crew_context.QA_INTERVAL
-        self.assertEqual(self._hook(), "")  # still there: not reported again
+        self.assertEqual(self._prompt(), "")  # still there, not moved again: not reported again
 
-    def test_a_card_that_leaves_qa_and_comes_back_is_reported_again(self):
-        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
-        self.event = "UserPromptSubmit"
-        self.qa_reply = self._qa_board(in_qa=[7])
-        self.assertIn("#7", self._hook())
-        self.now += crew_context.QA_INTERVAL
-        self.qa_reply = self._qa_board(elsewhere=[7])
-        self.assertEqual(self._hook(), "")
-        self.now += crew_context.QA_INTERVAL
-        self.qa_reply = self._qa_board(in_qa=[7])
-        self.assertIn("#7", self._hook())
+    def test_a_card_moved_out_and_back_between_checks_is_reported_again(self):
+        # The whole reject, fix, review and approval loop can run inside one turn,
+        # so no check ever sees the card outside QA: the move time tells.
+        self._crew_board()
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertIn("#7", self._prompt())
+        self.qa_reply = self._qa((7, "t9"))
+        self.assertIn("#7", self._prompt())
+
+    def test_a_card_that_left_qa_and_came_back_is_reported_again(self):
+        self._crew_board()
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertIn("#7", self._prompt())
+        self.qa_reply = self._qa()
+        self.assertEqual(self._prompt(), "")
+        self.qa_reply = self._qa((7, "t5"))
+        self.assertIn("#7", self._prompt())
+
+    def test_a_session_start_does_not_report_a_card_again(self):
+        # Compaction, /clear, resume or a second session in the repo: no second /qa:verify.
+        self._crew_board()
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertIn("#7", self._prompt())
+        lines = self._session_start(step=1).splitlines()
+        self.assertEqual(len(lines), 1, lines)  # the board line only
+        self.assertEqual(len(self._qa_calls()), 2)  # a session start always checks, even inside the minute
+        self.qa_reply = self._qa((7, "t2"))
+        self.assertIn("#7", self._session_start(step=1))  # moved again: reported
 
     def test_prompts_check_the_board_at_most_once_a_minute(self):
-        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
-        self.event = "UserPromptSubmit"
-        self.qa_reply = self._qa_board()
-        self._hook()
-        self.now += crew_context.QA_INTERVAL - 1
-        self.qa_reply = self._qa_board(in_qa=[7])
-        self.assertEqual(self._hook(), "")
+        self._crew_board()
+        self.qa_reply = self._qa()
+        self._prompt()
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertEqual(self._prompt(step=crew_context.QA_INTERVAL - 1), "")
         self.assertEqual(len(self._qa_calls()), 1)
-        self.now += 1
-        self.assertIn("#7", self._hook())
+        self.assertIn("#7", self._prompt(step=1))
         self.assertEqual(len(self._qa_calls()), 2)
 
-    def test_a_prompt_without_a_crew_board_or_offline_prints_nothing(self):
-        self.event = "UserPromptSubmit"
-        self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
-        self.assertEqual(self._hook(), "")  # no board: no QA check, and never the create-board question
-        self.assertEqual(self._qa_calls(), [])
-        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
-        self.now += crew_context.NEGATIVE_TTL + 1
-        self.qa_reply = None
-        self.assertEqual(self._hook(), "")  # QA check unanswered
+    def test_a_failed_check_is_throttled_too_and_keeps_what_was_seen(self):
+        self._crew_board()
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertIn("#7", self._prompt())
+        self.qa_reply = None  # offline
+        self.assertEqual(self._prompt(), "")
+        self.assertEqual(self._prompt(step=1), "")
+        self.assertEqual(len(self._qa_calls()), 2)  # the failed check counts for the minute
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertEqual(self._prompt(), "")  # back online, #7 not moved: not reported again
 
-    def test_only_the_owners_crew_board_counts_for_qa(self):
-        self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])
-        reply = self._qa_board(in_qa=[3], owner="mallory")
-        reply["data"]["repository"]["issues"]["nodes"] += self._qa_board(
-            in_qa=[4], title="Other board")["data"]["repository"]["issues"]["nodes"]
-        self.qa_reply = reply
-        self.assertEqual(len(self._hook().splitlines()), 1)
+    def test_partial_data_with_errors_still_reports_the_card(self):
+        self._crew_board()
+        self.qa_reply = self._qa((7, "t1"), errors=[{"message": "an item's content could not be read"}])
+        self.assertIn("#7", self._prompt())
+
+    def test_a_prompt_never_looks_the_board_up_or_asks_about_one(self):
+        self.gh_reply = _answer(linked=[_board("Plain", PLAIN_COLUMNS)])
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertEqual(self._prompt(), "")  # nothing cached: no lookup at all
+        self.assertEqual(self.calls[1:], [])  # only `git remote`
+        self._session_start()  # caches "no crew board"
+        self.calls = []
+        self.assertEqual(self._prompt(), "")  # never the create-board question on a prompt
+        self.assertEqual(self._graphql_calls() + self._qa_calls(), [])
+
+    def test_a_cached_board_without_its_id_is_looked_up_again_at_session_start(self):
+        self._crew_board()
+        (self.data / "crew_boards.json").write_text(json.dumps(
+            {"acme/shop": {"at": self.now, "board": "Shop board"}}))  # cached before IDs were kept
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertEqual(self._prompt(step=0), "")  # a prompt can't check without the ID
+        self.assertIn("#7", self._session_start())
+        self.assertEqual(len(self._graphql_calls()), 1)
+
+    def test_an_alias_remote_is_resolved_once_and_prompts_never_call_gh_for_it(self):
+        self.remote = "git@github-work:acme/shop.git"
+        self.repo_view = "acme/shop\n"
+        self._crew_board()
+        self.qa_reply = self._qa()
+        self._session_start()
+        self.calls = []
+        self._prompt()
+        self._session_start()
+        self.assertEqual([c for c in self.calls if c[:3] == ["gh", "repo", "view"]], [])
+
+    def test_prompt_time_writes_never_touch_the_board_cache_or_the_declined_list(self):
+        self._crew_board()
+        self.qa_reply = self._qa()
+        self._session_start()
+        boards = self.data / "crew_boards.json"
+        before = boards.read_text()
+        self.qa_reply = self._qa((7, "t1"))
+        self.assertIn("#7", self._prompt())
+        self.assertEqual(boards.read_text(), before)
+        self.assertTrue((self.data / crew_context.QA_FILE).is_file())
+
+    def test_an_unreadable_cache_is_left_alone_not_overwritten(self):
+        boards = self.data / "crew_boards.json"
+        torn = '{"declined": ["acme/other"], "acme/sh'  # half of a file another session is writing
+        self._crew_board()
+        boards.write_text(torn)
+        self.qa_reply = self._qa()
+        self._session_start()
+        self.assertEqual(boards.read_text(), torn)
+        (self.data / crew_context.QA_FILE).write_text("{not json")
+        self._session_start()
+        self.assertEqual((self.data / crew_context.QA_FILE).read_text(), "{not json")
+
+    def test_cache_files_are_replaced_atomically(self):
+        boards = self.data / "crew_boards.json"
+        replaced = []
+        real_replace = os.replace
+        with mock.patch.object(crew_context.os, "replace",
+                               side_effect=lambda a, b: (replaced.append(b), real_replace(a, b))):
+            self.gh_reply = _answer(linked=[_board("Shop board", CREW_COLUMNS)])  # not cached yet
+            self.qa_reply = self._qa((7, "t1"))
+            self._session_start()
+        self.assertIn(str(boards), replaced)
+        self.assertIn(str(self.data / crew_context.QA_FILE), replaced)
+        self.assertEqual([p.name for p in self.data.iterdir() if p.suffix == ".tmp"], [])
 
     def test_remote_and_board_rules(self):
         self.assertTrue(crew_context.is_crew_board(_board("x", ["in approval", " QA "])))
