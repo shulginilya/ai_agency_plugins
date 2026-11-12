@@ -122,58 +122,6 @@
       ]
     },
     {
-      "name": "interview-prep",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
-        "path": "claude-code/interview-prep",
-        "ref": "dist"
-      },
-      "description": "Prepares an engineer for one specific interview loop, not interviews in general. Maps the rounds a job description implies, ranks what to fix by risk, and runs graded mock rounds -- recruiter screen, live coding, take-home review, system design, behavioral, hiring manager -- against a rubric willing to say no. Keeps the STAR story bank and what real rounds asked. Use when preparing for an interview, practising answers, running a mock, building behavioral stories, or debriefing a round.",
-      "version": "0.1.2",
-      "author": {
-        "name": "Ilya Shulgin",
-        "email": "ishulgin8@gmail.com"
-      },
-      "keywords": [
-        "interview",
-        "hiring",
-        "mock-interview",
-        "system-design",
-        "behavioral",
-        "star",
-        "career",
-        "preparation"
-      ]
-    },
-    {
-      "name": "job-hunter",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
-        "path": "claude-code/job-hunter",
-        "ref": "dist"
-      },
-      "description": "Runs a job or contract search as a pipeline. Searches Upwork, Arc and Contra against a declared profile, scores a posting as pursue or skip with the reason, writes portfolio case studies, tailors the application to one posting, and tracks follow-ups. Use when searching a platform for gigs, reviewing a job ad or RFP, deciding whether to bid, writing a proposal, cover letter or CV variant, or asking what needs chasing.",
-      "version": "0.3.1",
-      "author": {
-        "name": "Ilya Shulgin",
-        "email": "ishulgin8@gmail.com"
-      },
-      "keywords": [
-        "job-search",
-        "freelance",
-        "proposal",
-        "pipeline",
-        "hiring",
-        "contract",
-        "portfolio",
-        "case-study",
-        "upwork",
-        "search"
-      ]
-    },
-    {
       "name": "notes",
       "source": {
         "source": "git-subdir",
@@ -197,29 +145,6 @@
       ]
     },
     {
-      "name": "pair-programmer",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
-        "path": "claude-code/pair-programmer",
-        "ref": "dist"
-      },
-      "description": "Pairs on code instead of taking it over. Navigates while you drive -- holding the goal, questioning decisions before they are typed, catching a change spreading past its scope -- or plays TDD ping-pong where the suite decides when a turn ends. Keeps a journal of decisions, rejected alternatives and next steps, so work can be handed over. Use when the user wants to pair, asks for a second pair of eyes while coding, asks for ping-pong or test-first pairing, or asks whether a change is on track.",
-      "version": "0.1.2",
-      "author": {
-        "name": "Ilya Shulgin",
-        "email": "ishulgin8@gmail.com"
-      },
-      "keywords": [
-        "pair-programming",
-        "navigator",
-        "tdd",
-        "ping-pong",
-        "handoff",
-        "session"
-      ]
-    },
-    {
       "name": "plugin-developer",
       "source": {
         "source": "git-subdir",
@@ -228,7 +153,7 @@
         "ref": "dist"
       },
       "description": "Builds an agent plugin from a requirements prompt: splits it into testable requirements, maps each to the component that covers it (hooks, MCP servers and scripts only when needed), stops for approval, then scaffolds, tests and gates the plugin until it validates, loads and passes. Use when the user asks to build, plan or check a plugin or Claude Code extension from requirements.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -241,29 +166,6 @@
         "claude-code",
         "agent",
         "generator"
-      ]
-    },
-    {
-      "name": "prompt-engineer",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
-        "path": "claude-code/prompt-engineer",
-        "ref": "dist"
-      },
-      "description": "Turns raw text \u2014 a task, rough notes, an example or an underperforming prompt \u2014 into a prompt tailored to the task, the target model and where it will live: a chat message, a system prompt, a pipeline template, an agent file or an image prompt. Asks only what it cannot work without, states every assumption, lints the result and tests it cold. Use when the user asks to write, improve or test a prompt, a system prompt or instructions for an LLM, agent or image model.",
-      "version": "0.1.1",
-      "author": {
-        "name": "Ilya Shulgin",
-        "email": "ishulgin8@gmail.com"
-      },
-      "keywords": [
-        "prompt-engineering",
-        "prompts",
-        "system-prompt",
-        "llm",
-        "prompt-lint",
-        "templates"
       ]
     },
     {
@@ -286,31 +188,6 @@
         "acceptance-criteria",
         "test-plan",
         "bug-report"
-      ]
-    },
-    {
-      "name": "recruiter-inbox",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/shulginilya/ai_agency_plugins.git",
-        "path": "claude-code/recruiter-inbox",
-        "ref": "dist"
-      },
-      "description": "An actor agent for recruiter conversations on LinkedIn and email. Sweeps LinkedIn messages and InMails in your signed-in Chrome and recruiter email in Gmail, triages each one, drafts the reply that moves it toward a first call, and sends only the text you approved word for word; a hook stops anything else. Tracks who owes whom a reply. Use when answering recruiters, LinkedIn job offer messages, salary questions or follow-ups.",
-      "version": "0.1.1",
-      "author": {
-        "name": "Ilya Shulgin",
-        "email": "ishulgin8@gmail.com"
-      },
-      "keywords": [
-        "linkedin",
-        "recruiter",
-        "inbox",
-        "job-search",
-        "outreach",
-        "negotiation",
-        "gmail",
-        "interview"
       ]
     },
     {
@@ -345,7 +222,7 @@
         "ref": "dist"
       },
       "description": "Keeps a senior engineer's skills sharp next to a full-time job: daily and weekly plans across coding, system design, stack deep-dives, practices and builds, honest grading and spaced review, plus an interview track for coding and system design. Stack, coding language and cadence are changeable settings. Use when asked for a study plan, today's practice, a coding drill, interview practice or progress.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
