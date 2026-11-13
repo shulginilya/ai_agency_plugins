@@ -1,9 +1,9 @@
 ---
 description: Paused — review links are out of the crew workflow for now, so this sets up no PR previews; it says so and stops.
 argument_hint: "[repo path or owner/repo; optionally the host, e.g. \"render\"]"
-model: claude-opus-5-5
-effort: high
-allowed_tools: Read
+model: claude-sonnet-5-5
+effort: low
+allowed_tools: Read Glob
 ---
 
 PR previews for: {{ARGS}}
