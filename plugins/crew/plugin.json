@@ -1,7 +1,7 @@
 {
   "name": "crew",
   "displayName": "Crew",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "The crew's workflow, owned by no role: in a GitHub repository with a crew board it points every session at the crew-workflow skill (each step through its crew command, no asking from In Definition to In approval, stops at In approval, starts QA when the Captain moves a card to QA, stops at Ready for Merge); in one without, the session offers to create the board. Also creates crew boards. Use when asked to do, work or ship a ticket, pick up the next issue, or create a project board.",
   "author": {
     "name": "Ilya Shulgin",

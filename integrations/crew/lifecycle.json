@@ -63,6 +63,7 @@
     {"from": "Ready", "to": "In progress", "by": ["developer"], "how": "The developer starts the ticket (crew-workflow: one column at a time, without asking)"},
     {"from": "In progress", "to": "In review", "by": ["developer"], "how": "/developer:ship: branch, PR that closes the ticket, card moved after the PR exists"},
     {"from": "In review", "to": "In progress", "by": ["code-reviewer"], "how": "Request changes: any blocker or major finding", "back": true},
+    {"from": "In review", "to": "Ready", "by": ["code-reviewer"], "how": "Stop: the third review round still finds a blocker, major or minor; @mentions and emails the Captain", "back": true},
     {"from": "In review", "to": "In approval", "by": ["code-reviewer"], "how": "/code-reviewer:review approve: no blocker or major finding"},
     {"from": "In review", "to": "QA", "by": ["code-reviewer"], "how": "Approve on a ticket labelled skip_approval: skips the Captain's review"},
     {"from": "In approval", "to": "QA", "by": ["captain"], "how": "The Captain approves the code; the move starts /qa:verify"},

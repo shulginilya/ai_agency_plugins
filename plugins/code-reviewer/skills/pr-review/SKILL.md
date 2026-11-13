@@ -1,10 +1,10 @@
 ---
 name: pr-review
-description: Reviews a pull request's code in a fresh context — correctness and tests always, security, performance and accessibility when the diff touches them — and posts a PR review whose findings each carry a concrete failure scenario. Gives approve or request changes by fixed rules; approve moves the ticket to In approval for the Captain's review (to QA when labelled skip_approval), request changes moves it back to In progress. Re-reviews the new head after a fix push. Use when asked to review a PR or its code, check a diff before QA, find bugs in a shipped change, or re-review a PR after a fix.
+description: Reviews a pull request's code in a fresh context — correctness and tests always, security, performance and accessibility when the diff touches them — and posts a PR review whose findings each carry a concrete failure scenario. Gives approve or request changes by fixed rules; approve moves the ticket to In approval for the Captain's review (to QA when labelled skip_approval), request changes moves it back to In progress. On the third round with issues left it stops, moves the ticket to Ready and hands it to the Captain. Re-reviews the new head after a fix push. Use when asked to review a PR or its code, check a diff before QA, find bugs in a shipped change, or re-review a PR after a fix.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # PR review
@@ -16,11 +16,13 @@ findings, by rules, so it can't be argued into an approve.
 
 ```bash
 python scripts/pr_scope.py --pr 43                        # head, files, tickets, and review / re-review / up-to-date
-python scripts/review_report.py findings.json --commit SHA > review.md   # exit 0 only on approve
+python scripts/review_report.py findings.json --commit SHA --round R --captain LOGIN > review.md   # 0 approve, 1 changes, 3 stop
 gh pr review 43 --comment --body-file review.md
 python ../ticket-management/scripts/board.py move --project N --issue 42 --status "In progress"   # request changes
 python ../ticket-management/scripts/board.py move --project N --issue 42 --status "In approval" \
     --create-column --after "In review"                                                  # approve (QA if skip_approval)
+python ../ticket-management/scripts/board.py move --project N --issue 42 --status "Ready" \
+    --create-column --after "Backlog"                                                    # stop
 ```
 
 ## 1. Scope the PR
@@ -36,6 +38,13 @@ when the ticket is labelled `skip_approval`), and an `action`:
   findings you raised.
 - `up-to-date`: you already gave a verdict on this head. Say so and stop.
 - `closed`: the PR is closed or merged. Say so and stop.
+
+On `review` and `re-review` it also prints `round R of 3; captain @LOGIN`.
+The round is 1 plus the request-changes verdicts since the last **approve**
+or **stop**. Either one ends the fix loop: a review after a QA reject, or
+after the Captain picks a stopped ticket up again, starts at round 1. The Captain
+is the PR's first assignee, else the repository owner. Pass both to
+`review_report.py`.
 
 Check out the head (`gh pr checkout N`, then confirm `git rev-parse HEAD`
 matches the head commit) so you can read whole files and run the tests.
@@ -105,9 +114,13 @@ can't write one, you have a hunch, not a finding. Drop it.
 | --- | --- | --- |
 | **approve** | no blocker and no major finding | moves to **In approval**, for the Captain's own code review; to **QA** when labelled `skip_approval` |
 | **request changes** | at least one blocker or major | moves to **In progress** |
+| **stop** | round 3 or later, and any blocker, major **or minor** left | moves to **Ready**; the review loop ends |
 
-Minor findings go in the review either way. The developer decides whether
-to fix them in this PR.
+In rounds 1 and 2, minor findings go in the review either way and the
+developer decides whether to fix them in this PR. From round 3 a minor left
+unfixed stops the loop too: three rounds that still leave defects mean the
+fix loop isn't converging, and the Captain decides what happens next. A
+third round with only nits, or nothing, approves as usual.
 
 ## 5. Post the review, then move the ticket
 
@@ -120,6 +133,18 @@ time.
 
 Then move the card of every ticket the PR closes, on every board
 `pr_scope.py` listed:
+
+- **stop**: `board.py move --project N --issue I --status "Ready"
+  --create-column --after "Backlog"`, even when the ticket is labelled
+  `skip_approval`. The review body already opens with `@<captain>` and a
+  summary of the rounds and what is still open. GitHub doesn't notify you
+  of your own mention, and the crew usually posts as the Captain's own
+  account, so also send the Captain that summary by email when the session
+  has an email connector (Gmail): to the Captain's address (`git config
+  user.email`), subject `Review stopped: PR #N (#ticket) after R rounds`, the
+  PR link and the open findings in the body. Without a connector, say in the
+  report that no email went out. Then stop: no further fix or review round
+  on this PR until the Captain picks the ticket up again.
 
 - **request changes**: `board.py move --project N --issue I --status "In progress"`.
 - **approve**: to the column `pr_scope.py` printed for that ticket.
@@ -138,10 +163,11 @@ finding needs its own ticket, propose it in the report.
 
 ## 6. Report
 
-Give the verdict, the commit reviewed, the passes that ran, the review's
-link, where each card is now, and the findings ranked most severe first. On
-**request changes**, name exactly what would turn the review into an
-approve. An empty review is a valid result: "nothing I can prove would
+Give the verdict, the commit reviewed, the round, the passes that ran, the
+review's link, where each card is now, and the findings ranked most severe
+first. On **request changes**, name exactly what would turn the review into
+an approve. On **stop**, open the report with `STOPPED after R rounds`, say
+whether the email went out, and list what the Captain has to decide. An empty review is a valid result: "nothing I can prove would
 break" is worth more than five nits.
 
 ## Rules that keep a review useful
