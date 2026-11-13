@@ -17,6 +17,12 @@ prints. Then it says what to do:
 
 A PR that is closed or merged is reported as such, with action `closed`.
 
+It also prints the review `round` this one would be: 1 plus the verdicts given
+since the last `stop` (review_report.py stops the loop on round 3 when issues
+are left, and the Captain's pick-up starts the count again), and the
+`captain` to @mention on a stop: the PR's first assignee, else the repository
+owner.
+
 Standard library plus the gh CLI. Exit status: 0 done, 1 gh failed, 2 bad input.
 """
 
@@ -31,7 +37,7 @@ import sys
 from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from review_report import move_to, verdict_of  # noqa: E402
+from review_report import MAX_ROUNDS, move_to, verdict_of  # noqa: E402
 
 
 class ScopeError(Exception):
@@ -50,22 +56,36 @@ def same_commit(a: Optional[str], b: Optional[str]) -> bool:
     return bool(a and b) and (a.startswith(b) or b.startswith(a))
 
 
+def round_of(verdicts: List[Dict[str, Any]]) -> int:
+    """The next review's round: 1 plus the verdicts since the last stop, which ended the previous loop."""
+    since = 0
+    for v in sorted(verdicts, key=lambda v: v["at"]):
+        since = 0 if v.get("verdict") == "stop" else since + 1
+    return since + 1
+
+
+def captain_of(assignees: List[str], repo: str) -> str:
+    """Who a stop @mentions: the PR's first assignee, else the repository owner."""
+    return assignees[0] if assignees else repo.split("/")[0]
+
+
 def decide(head: str, reviews: List[Dict[str, Any]], state: str = "open") -> Dict[str, Any]:
     """`reviews` each {"body", "submitted_at", "url"?}, in any order."""
     if state != "open":
-        return {"action": "closed", "reason": "the PR is %s; there is nothing to review" % state, "last": None}
+        return {"action": "closed", "reason": "the PR is %s; there is nothing to review" % state, "last": None,
+                "round": None}
     verdicts = []
     for r in reviews:
         marker = verdict_of(r.get("body") or "")
         if marker is not None:
             verdicts.append(dict(marker, at=r.get("submitted_at") or "", url=r.get("url") or ""))
     if not verdicts:
-        return {"action": "review", "reason": "no earlier code-review verdict on this PR", "last": None}
+        return {"action": "review", "reason": "no earlier code-review verdict on this PR", "last": None, "round": 1}
     last = max(verdicts, key=lambda v: v["at"])
     if same_commit(last.get("commit"), head):
-        return {"action": "up-to-date", "last": last,
+        return {"action": "up-to-date", "last": last, "round": None,
                 "reason": "the last verdict (%s) already reviewed head %s" % (last.get("verdict"), head[:7])}
-    return {"action": "re-review", "last": last,
+    return {"action": "re-review", "last": last, "round": round_of(verdicts),
             "reason": "the last verdict (%s) reviewed %s; the head is now %s"
                       % (last.get("verdict"), (last.get("commit") or "unknown")[:7], head[:7])}
 
@@ -136,7 +156,8 @@ def fetch(repo: str, number: int) -> Dict[str, Any]:
                for r in pages("repos/%s/pulls/%d/reviews?per_page=100" % (repo, number))]
     return {"url": pr.get("html_url"), "title": pr.get("title"), "state": state,
             "head": pr["head"]["sha"], "head_ref": pr["head"]["ref"], "base": pr["base"]["ref"],
-            "files": files, "reviews": reviews, "tickets": closing_tickets(repo, number)}
+            "files": files, "reviews": reviews, "tickets": closing_tickets(repo, number),
+            "captain": captain_of([a["login"] for a in pr.get("assignees") or []], repo)}
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -153,11 +174,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         return exc.exit_code
     decided = decide(pr["head"], pr["reviews"], pr["state"])
     result = dict(decided, pr="%s#%d" % (repo, args.pr), url=pr["url"], title=pr["title"], head=pr["head"],
-                  head_ref=pr["head_ref"], base=pr["base"], files=pr["files"], tickets=pr["tickets"])
+                  head_ref=pr["head_ref"], base=pr["base"], files=pr["files"], tickets=pr["tickets"],
+                  captain=pr["captain"])
     if args.json:
         print(json.dumps(result, indent=2))
         return 0
     print("%s: %s — %s" % (result["pr"], result["action"], result["reason"]))
+    if result["round"]:
+        print("round %d of %d; captain @%s" % (result["round"], MAX_ROUNDS, result["captain"]))
     print("head %s (%s) into %s, %d files:" % (result["head"][:7], result["head_ref"], result["base"], len(result["files"])))
     for f in result["files"]:
         print("  %-9s +%-5d -%-5d %s" % (f["status"], f["added"], f["removed"], f["file"]))

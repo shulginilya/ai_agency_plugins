@@ -20,7 +20,7 @@ performance, accessibility and test gaps.
 | Command | `/review` | Review one PR and post the verdict |
 | Agent | `reviewer` | One pass (correctness, tests, security, performance or accessibility) in a fresh context, returning only findings that carry a failure scenario |
 
-**Verdicts.** There are two, and only two:
+**Verdicts.** There are three:
 
 - **approve**: no blocker and no major finding. The ticket moves to **In
   approval**, where the Captain reviews the code personally and moves it on
@@ -29,6 +29,13 @@ performance, accessibility and test gaps.
 - **request changes**: at least one blocker or major. The ticket moves back
   to **In progress**. The developer fixes it, pushes to the same PR, and the
   new head gets a full re-review.
+- **stop**: the third review round still finds a blocker, major or minor.
+  The fix loop isn't converging, so the ticket moves to **Ready**, the PR
+  review opens with an @mention of the Captain (the PR's assignee, else the
+  repo owner) and a summary of what's left, the Captain also gets the
+  summary by email when the session has a Gmail connector, and the crew stops
+  working on it. Rounds are counted from the PR's verdict markers since the
+  last stop, so a ticket the Captain picks up again gets three fresh rounds.
 
 A finding without a failure scenario is refused, so a review can't be padded
 with hunches. Nits never change the verdict.
@@ -48,11 +55,13 @@ Two scripts, both standard-library Python:
   commit, base, changed files, the tickets it closes and their board
   columns, and every earlier review. From the last verdict marker it says
   `review`, `re-review` (a new head since then), `up-to-date` (this head was
-  already reviewed) or `closed`.
+  already reviewed) or `closed`, plus the review round and the Captain to
+  @mention on a stop.
 - `skills/pr-review/scripts/review_report.py` turns recorded findings into
   the verdict and the PR review body. It refuses a finding that isn't a nit
   and has no failure scenario, and a review whose passes leave out
-  correctness or tests. It exits 0 only on approve.
+  correctness or tests. It exits 0 on approve, 1 on request changes and 3
+  on stop.
 
 `references/` holds the security, performance and accessibility checklists.
 Each pass loads its checklist only when the diff touches that area.

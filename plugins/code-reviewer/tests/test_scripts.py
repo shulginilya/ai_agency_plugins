@@ -79,11 +79,55 @@ class VerdictTest(unittest.TestCase):
         self.assertIn("REQUEST CHANGES", result.stdout)
         self.assertIn("Failure: empty list -> IndexError", result.stdout)
         marker = review_report.verdict_of(result.stdout)
-        self.assertEqual(marker, {"verdict": "request-changes", "pr": "43", "commit": "def5678"})
+        self.assertEqual(marker, {"verdict": "request-changes", "pr": "43", "commit": "def5678", "round": "1"})
 
     def test_exit_codes(self):
         self.assertEqual(run_report(findings()).returncode, 0)
         self.assertEqual(run_report({"findings": []}).returncode, 2)
+        self.assertEqual(run_report(findings(finding("minor")), "--round", "3").returncode, 3)
+        self.assertEqual(run_report(findings(), "--round", "0").returncode, 2)
+
+
+class StopTest(unittest.TestCase):
+    def judge(self, *items, rnd, **extra):
+        return review_report.judge(review_report.load(dict(findings(*items), round=rnd, **extra)))
+
+    def test_rounds_one_and_two_keep_the_usual_verdicts(self):
+        for rnd in (1, 2):
+            self.assertEqual(self.judge(finding("major"), rnd=rnd)["verdict"], "request-changes")
+            self.assertEqual(self.judge(finding("minor"), rnd=rnd)["verdict"], "approve")
+
+    def test_round_three_with_any_blocker_major_or_minor_left_stops_into_ready(self):
+        for severity in ("blocker", "major", "minor"):
+            for rnd in (3, 4):
+                result = self.judge(finding(severity), rnd=rnd, captain="octocat")
+                self.assertEqual(result["verdict"], "stop", (severity, rnd))
+                self.assertEqual(result["move_to"], "Ready")
+
+    def test_round_three_with_only_nits_or_nothing_still_approves(self):
+        self.assertEqual(self.judge(rnd=3)["verdict"], "approve")
+        self.assertEqual(self.judge(finding("nit", failure=""), rnd=3)["verdict"], "approve")
+
+    def test_a_stop_even_wins_over_skip_approval(self):
+        self.assertEqual(self.judge(finding("minor"), rnd=3, skip_approval=True)["move_to"], "Ready")
+
+    def test_stop_body_opens_with_the_captain_mention_and_a_summary(self):
+        done = run_report(findings(finding("major"), finding("minor"), finding("nit", failure="")),
+                          "--round", "3", "--captain", "@octocat", "--commit", "def5678")
+        self.assertEqual(done.returncode, 3, done.stderr)
+        self.assertTrue(done.stdout.startswith("@octocat **Review stopped after 3 rounds**: 1 major, 1 minor "
+                                               "still open"), done.stdout)
+        self.assertIn("Code review: **STOP**", done.stdout)
+        self.assertIn("**Ready**", done.stdout)
+        self.assertEqual(review_report.verdict_of(done.stdout),
+                         {"verdict": "stop", "pr": "43", "commit": "def5678", "round": "3"})
+
+    def test_bad_round_or_captain_is_refused(self):
+        for bad in (0, "3", True):
+            with self.assertRaisesRegex(review_report.ReportError, "round"):
+                review_report.load(dict(findings(), round=bad))
+        with self.assertRaisesRegex(review_report.ReportError, "login"):
+            review_report.load(dict(findings(), captain="a b"))
 
 
 class ScopeTest(unittest.TestCase):
@@ -103,6 +147,21 @@ class ScopeTest(unittest.TestCase):
         decided = pr_scope.decide("9999999aaaa", reviews)
         self.assertEqual(decided["action"], "re-review")
         self.assertEqual(decided["last"]["verdict"], "approve", "the newest verdict counts")
+
+    def test_the_round_counts_verdicts_since_the_last_stop(self):
+        self.assertEqual(pr_scope.decide("abc", [])["round"], 1)
+        reviews = [self.review("request-changes", "1111111", "2026-10-01T00:00:00Z"),
+                   self.review("request-changes", "2222222", "2026-10-02T00:00:00Z")]
+        self.assertEqual(pr_scope.decide("3333333", reviews)["round"], 3)
+        reviews.append(self.review("stop", "3333333", "2026-10-03T00:00:00Z"))
+        self.assertEqual(pr_scope.decide("4444444", reviews)["round"], 1, "a stop starts the count again")
+        reviews.append(self.review("request-changes", "4444444", "2026-10-04T00:00:00Z"))
+        self.assertEqual(pr_scope.decide("5555555", list(reversed(reviews)))["round"], 2, "order of input")
+        self.assertIsNone(pr_scope.decide("4444444ff", reviews)["round"], "up-to-date has no round")
+
+    def test_the_captain_is_the_first_assignee_else_the_owner(self):
+        self.assertEqual(pr_scope.captain_of(["alice", "bob"], "acme/app"), "alice")
+        self.assertEqual(pr_scope.captain_of([], "acme/app"), "acme")
 
     def test_closed_pr_has_nothing_to_review(self):
         self.assertEqual(pr_scope.decide("abc", [], state="merged")["action"], "closed")

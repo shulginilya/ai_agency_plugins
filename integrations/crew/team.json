@@ -80,11 +80,12 @@
         "A fresh-context review of every PR the developer ships, before QA: correctness and tests always; security, performance and accessibility when the diff touches them (/code-reviewer:review)",
         "Findings that each carry a concrete failure scenario, posted as one PR review with an approve / request-changes verdict by fixed rules",
         "On request changes, moving the ticket's card back to In progress; on approve, moving it to In approval for the Captain's review, or straight to QA when the ticket is labelled skip_approval",
-        "A full re-review of the new head after every fix push (never pushes code, never files tickets)"
+        "A full re-review of the new head after every fix push (never pushes code, never files tickets)",
+        "On the third review round with any blocker, major or minor left: stop, move the card to Ready, @mention the Captain in the PR review with a summary, and email it when a Gmail connector is available"
       ]
     }
   },
-  "crew_note": "The crew runs inside one Claude Code session with all crew plugins loaded; the crew-workflow skill picks the crew command for each step. A role is the plugin the skill routes that kind of work to, so on UI work the session plays Designer, then Developer, then Designer again. Developer and Scrum Master carry the full ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the Captain names it. QA Engineer creates and edits tickets, labelling each one it creates \"QA testing\". Code Reviewer only moves the card of a PR it reviewed: back to In progress, or on to In approval (QA when labelled skip_approval). The Captain moves a card from In approval to QA after reviewing the code. Designer, DevOps Engineer and Code Reviewer propose tickets, which a developer or scrum-master step files once the Captain agrees.",
+  "crew_note": "The crew runs inside one Claude Code session with all crew plugins loaded; the crew-workflow skill picks the crew command for each step. A role is the plugin the skill routes that kind of work to, so on UI work the session plays Designer, then Developer, then Designer again. Developer and Scrum Master carry the full ticket-management skill: they create, edit and close tickets and move board cards, and delete one only when the Captain names it. QA Engineer creates and edits tickets, labelling each one it creates \"QA testing\". Code Reviewer only moves the card of a PR it reviewed: back to In progress, on to In approval (QA when labelled skip_approval), or to Ready when its third round still finds issues. The Captain moves a card from In approval to QA after reviewing the code. Designer, DevOps Engineer and Code Reviewer propose tickets, which a developer or scrum-master step files once the Captain agrees.",
   "gaps": [],
   "raci": {
     "legend": {"R": "does the work", "A": "signs off", "C": "consulted", "I": "informed"},
