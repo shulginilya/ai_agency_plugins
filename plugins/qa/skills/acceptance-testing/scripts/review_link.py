@@ -22,13 +22,14 @@ Where links come from, newest first:
   link serves; `state=down` (the PR closed) means no link;
 * any other comment or the description: the link as pasted. Comments are newer
   than the description, later comments newer than earlier ones. The commit it
-  serves is unknown, so check it with preview_link.py.
+  serves is unknown; when review links are on, check it with preview_link.py.
 
 QA's own verdict comments (`<!-- qa:verdict ... -->`) are never read as a link.
 
 The decision, against the commit under test (`--commit`, or `--pr`'s head):
 
-    none        no review link: use the PR's preview (preview_link.py), else test locally
+    none        no review link: test the PR's head commit locally. While review links
+                are paused, never test on the PR's preview (preview_link.py) either
     wait        the link still serves an older commit than the one under test:
                 the new build hasn't landed. Don't test it; --wait polls until it has
     test        a review link and no QA verdict yet
@@ -287,7 +288,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("%s: %s — %s" % (result["ticket"], result["action"], result["reason"]))
         if result["link"]:
             print("review link: %s  (from %s)" % (result["link"], result["source"]))
-            print("serves: %s" % (result["serves"] or "unknown (a pasted link): check it with preview_link.py"))
+            print("serves: %s" % (result["serves"] or "unknown (a pasted link): when review links are on, check it with preview_link.py"))
         for b in result["boards"]:
             print("board #%d %s: %s" % (b["number"], b["title"], b["status"] or "(no column)"))
     return 3 if result["action"] == "wait" and args.wait else 0
