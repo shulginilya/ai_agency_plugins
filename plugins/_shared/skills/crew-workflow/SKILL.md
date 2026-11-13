@@ -4,7 +4,7 @@ description: Runs ticket work through the crew in a repository whose GitHub Proj
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Crew workflow
@@ -93,7 +93,8 @@ and what the Captain decides next.
 When the Captain moves the card to QA (the hook reports it, rule 5), without
 asking:
 
-10. `/qa:verify #N` on the ticket's review link when it has one:
+10. `/qa:verify #N` on the PR's head commit, run locally (review links are
+    paused):
     - reject: QA comments what fails and moves the card to In progress. Fix
       and push to the same PR, then go round again from step 8: move the card
       to In review, `/code-reviewer:review` the new head, and stop at In
@@ -126,18 +127,17 @@ asking:
   edits or closes a ticket.
 - Ticket with acceptance criteria: `/qa:plan` before building. Once the card
   is in QA (never from In review or In approval): `/qa:verify` against the
-  ticket and its PR, on the ticket's review link when it has one (any
-  `<name>.<project>.<review domain>` link in its description or comments). The
-  newest link wins. While it serves an older commit than the PR's head, QA
-  waits. A new commit or link after QA's verdict means verify again. QA never
-  blocks a ticket; it may suggest blocking in its comment.
+  ticket and its PR, on the PR's head commit checked out and run locally.
+  Review links are paused: QA never looks for, waits on or tests a review
+  link or preview deployment. A new commit after QA's verdict means verify
+  again. QA never blocks a ticket; it may suggest blocking in its comment.
 - Bug found while testing: `/qa:bug` writes the report and files it as a
   ticket labelled "QA testing". Never patch it from the QA step.
-- CI/CD: `/devops:ci` sets up or fixes CI. `/devops:preview` gives every PR a
-  review link. `/devops:triage` says why a run is red and whose fix it is. A
-  PR's review link: `preview_link.py` from the `preview-link` skill. Never ask
-  for, print or write a secret value: name the secrets with a
-  `gh secret set NAME -R <owner>/<repo>` line for the Captain to run.
+- CI/CD: `/devops:ci` sets up or fixes CI. `/devops:triage` says why a run is
+  red and whose fix it is. Review links (PR previews) are paused: never set
+  one up or run `/devops:preview`. Never ask for, print or write a secret
+  value: name the secrets with a `gh secret set NAME -R <owner>/<repo>` line
+  for the Captain to run.
 - Backlog grooming: `/scrum-master:refine`, `/scrum-master:backlog-health`,
   then file the stories with the `ticket-management` skill
   (`tickets.py batch`).

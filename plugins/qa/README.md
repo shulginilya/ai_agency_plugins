@@ -15,10 +15,10 @@ things go wrong.
 | Component | Name | Purpose |
 | --- | --- | --- |
 | Skill | `test-planning` | Criteria → cases (happy, edge and boundary, negative, regression, accessibility); flag untestable criteria |
-| Skill | `acceptance-testing` | Gate on the repo's checks, test on the ticket's review link (re-test on a new one), run every case with evidence, verdict accept / reject, comment, move the card |
+| Skill | `acceptance-testing` | Gate on the repo's checks, test the PR's head commit locally (re-test on a new commit), run every case with evidence, verdict accept / reject, comment, move the card |
 | Skill | `bug-reporting` | Reproducible report: steps, expected vs actual, build, severity, evidence, what was ruled out |
 | Skill (shared) | `ticket-management` | Create and edit GitHub issues; QA's tickets are labelled **QA testing**. Source: `plugins/_shared/skills/` |
-| Skill (shared) | `preview-link` | The fallback when the ticket names no review link: a PR's preview from the Deployments API, used only when it was deployed from the PR's head commit (devops publishes it). Source: `plugins/_shared/skills/` |
+| Skill (shared) | `preview-link` | Reads a PR's preview from the Deployments API. Unused while review links are paused. Source: `plugins/_shared/skills/` |
 | Command | `/plan` | Test plan for a ticket |
 | Command | `/verify` | Verify a branch or PR against its ticket and give the verdict |
 | Command | `/bug` | Write one bug report and file it, labelled **QA testing** |
@@ -37,24 +37,19 @@ Ready for Merge column, QA adds it after QA, keeping every other card
 where it was. QA never blocks a ticket; when it can't check a criterion, the
 verdict is reject and the comment suggests blocking, for the Captain to decide.
 
-**Review links.** Any link shaped `<name>.<project_slug>.<review domain>` in
-the ticket's description or comments is a review link, whatever the name is
-(usually the branch). The review domain is the repo variable `REVIEW_DOMAIN`,
-or the placeholder `review.com` until one is set. Devops' preview workflow
-keeps one comment on the ticket, edited on every deploy. Its hidden marker
-says which commit the link serves. QA picks the latest version like this:
+**Review links are paused.** QA checks out the PR's head commit and tests it
+locally. It never looks for, waits on or tests a review link or a preview
+deployment, even when the ticket has one. `review_link.py --local` decides on
+the commit alone:
 
-1. **Newest wins.** The devops comment counts as new as of its last edit, and
-   a pasted link as of when it was posted.
-2. **Right build, or wait.** If the link serves an older commit than the PR's
-   head, the new build hasn't landed: QA waits (`wait`) and never tests it.
-3. **Re-test on change.** A different commit or a different link since QA's
-   last verdict means every case runs again (`retest`). The same link and
-   commit means nothing new (`up-to-date`).
-4. **No link on the ticket:** the PR's preview (`preview-link`), else a local
-   run.
+1. **No verdict yet:** `test`.
+2. **Re-test on change.** The last verdict tested another commit, so every
+   case runs again (`retest`).
+3. **Same commit:** nothing new (`up-to-date`).
 
-The whole flow, devops to QA, is drawn in
+Without `--local`, the script still reads review links the old way: newest
+link wins, `wait` while it serves an older commit. The whole flow, devops to
+QA, is drawn in
 [`../devops/docs/review-links.drawio`](../devops/docs/review-links.drawio).
 
 There are no hooks, because a crew plugin's hooks run in every crew
@@ -70,7 +65,9 @@ Three scripts, all standard-library Python:
   link on a ticket and the commit it serves (from the devops marker), compares
   them with the commit under test and QA's last verdict comment, and says
   `wait`, `test`, `retest`, `up-to-date` or `none`. `--wait` polls while the
-  new build hasn't landed. It also lists the ticket's boards.
+  new build hasn't landed. `--local`, which QA uses while review links are
+  paused, ignores links and decides on the commit alone. It also lists the
+  ticket's boards.
 - `skills/acceptance-testing/scripts/qa_report.py` turns recorded results
   into the verdict and the ticket comment. Only when every criterion has a
   passing case with evidence and nothing failed is it **accept**. Anything
@@ -86,8 +83,8 @@ evidence.
 
 ```bash
 python plugins/qa/skills/test-planning/scripts/criteria.py --issue 52
-python plugins/qa/skills/acceptance-testing/scripts/review_link.py --issue 52
-python plugins/qa/skills/acceptance-testing/scripts/qa_report.py results.json --link https://52-feat-x.my-app.review.com
+python plugins/qa/skills/acceptance-testing/scripts/review_link.py --issue 52 --pr 53 --local
+python plugins/qa/skills/acceptance-testing/scripts/qa_report.py results.json --commit abc1234
 python -m tools.apkit test --plugin qa
 ```
 

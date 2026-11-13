@@ -29,7 +29,6 @@
     "In review": {
       "meaning": "A PR that closes the ticket is open, waiting for code review.",
       "while_here": [
-        {"by": "devops", "text": "Repo with PR previews: every push deploys a review link and names its commit on the ticket"},
         {"by": "code-reviewer", "text": "/code-reviewer:review: approve moves it on; request changes sends it back"}
       ]
     },
@@ -42,7 +41,7 @@
     "QA": {
       "meaning": "Approved for testing. QA picks up tickets only from this column.",
       "while_here": [
-        {"by": "qa", "text": "/qa:verify on the newest review link that serves the PR's head"}
+        {"by": "qa", "text": "/qa:verify on the PR's head commit, run locally (review links paused)"}
       ]
     },
     "Ready for Merge": {

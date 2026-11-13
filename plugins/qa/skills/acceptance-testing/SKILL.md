@@ -1,10 +1,10 @@
 ---
 name: acceptance-testing
-description: Verifies a built change — a branch, a PR, or the review link on its ticket (any <name>.<project>.review.com link in the description or comments), re-testing when a new link appears — against the ticket's acceptance criteria, case by case with evidence, after the repository's own checks pass. Gives accept or reject by fixed rules, comments on the ticket, and moves it to Ready for Merge (adding that column if the board lacks it) or back to In progress. Use when asked to QA, test, verify or sign off a change, check a PR or review link against its ticket, or decide whether work is done.
+description: Verifies a built change — a branch or a PR, checked out at its head commit and run locally (review links are paused), re-testing when a new commit lands — against the ticket's acceptance criteria, case by case with evidence, after the repository's own checks pass. Gives accept or reject by fixed rules, comments on the ticket, and moves it to Ready for Merge (adding that column if the board lacks it) or back to In progress. Use when asked to QA, test, verify or sign off a change, check a PR against its ticket, or decide whether work is done.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Acceptance testing
@@ -15,8 +15,8 @@ comes from the evidence, by rules, so it can't be talked into a pass.
 
 ```bash
 python ../test-planning/scripts/criteria.py --issue 42       # what was promised
-python scripts/review_link.py --issue 42 --commit SHA        # the review link, and test / retest / up-to-date
-python scripts/qa_report.py results.json --link URL --commit SHA > verdict.md   # exit 0 only on accept
+python scripts/review_link.py --issue 42 --pr 43 --local     # the card's column, and test / retest / up-to-date
+python scripts/qa_report.py results.json --commit SHA > verdict.md   # exit 0 only on accept
 gh issue comment 42 --body-file verdict.md
 python ../ticket-management/scripts/board.py move --project N --issue 42 \
     --status "Ready for Merge" --create-column --after QA    # on accept; on reject: --status "In progress"
@@ -39,43 +39,19 @@ where it is and stop: verifying it early tests code nobody has approved yet.
   be. The criteria decide that.
 - **The build:** the exact commit you test (`git rev-parse --short HEAD`).
   Record it, because a verdict on the wrong commit is worthless.
-- **The review link:** run `review_link.py --issue N --pr PR --wait 600`
-  (or `--commit SHA` instead of `--pr`). A review link is any link shaped
-  `<name>.<project_slug>.<review domain>` in the ticket's description or
-  comments. The name is usually the branch, but can be anything. The review
-  domain is the repo variable `REVIEW_DOMAIN`, and `review.com` until one is
-  set. **The newest one wins:**
-  - **The devops comment** is one comment on the ticket, edited by the
-    preview workflow on every deploy. Its hidden marker names the link, the
-    commit it serves and whether it's still up. It counts as new as of its
-    last edit, and the commit comes from the marker, not from guessing.
-  - **A pasted link** (description or comment) counts as of when it was
-    posted. Which build it serves is unknown, so confirm the PR's head
-    commit with `preview_link.py --pr N` before trusting it.
-
-  Its `action` says what to do:
-  - `wait`: the link still serves an older commit than the one under test,
-    because the new build hasn't landed. Never test it: you'd pass old code.
-    With `--wait` the script polls until the build lands and exits 3 if it
-    doesn't. Then report that the preview is stuck.
-  - `test`: test against that link. It is the build the user will see, so
-    every case runs there, not only locally.
-  - `retest`: since your last verdict the link serves a different commit, or
-    it's a different link, or one was pasted after it. Run every case again,
-    against the new build. A re-test is a full test; a fix can break what
-    passed before.
-  - `up-to-date`: you already gave a verdict on this link and commit. Say so,
-    and stop. Nothing has changed to test.
-  - `none`: no review link in the ticket. For a PR, look for its preview
-    deployment: `python ../preview-link/scripts/preview_link.py --pr N --wait 600 --check`.
-    Test on it only when it's **current**, meaning it was deployed from
-    the PR's head commit, and record the URL and its commit. Stale,
-    pending or failed means the running build isn't the code under test:
-    wait, or test locally. A failed preview deploy is itself a finding.
-    With no preview at all, run the app locally.
-
-  If the link doesn't load, that is not a pass: record the cases as
-  `unchecked`, with what you saw.
+- **Review links are paused.** Test the PR's head commit locally. Never
+  look for, wait on or test a review link or a preview deployment, even when
+  the ticket or the PR has one: it is not part of the workflow for now.
+- **What to do:** run `review_link.py --issue N --pr PR --local` (or
+  `--commit SHA` instead of `--pr`). It ignores links and decides on the
+  commit alone. Its `action` says what to do:
+  - `test`: no QA verdict yet. Check out the PR (`gh pr checkout PR`),
+    confirm `git rev-parse HEAD` is its head commit, and test it.
+  - `retest`: the last verdict tested another commit. Run every case again
+    on the new one. A re-test is a full test; a fix can break what passed
+    before.
+  - `up-to-date`: you already gave a verdict on this commit. Say so, and
+    stop. Nothing has changed to test.
 
 ## 2. Gate on the repository's own checks
 
@@ -85,12 +61,12 @@ features on top of a red build.
 
 ## 3. Execute every case
 
-Run the app on the review link, or the way the README says, and work through the plan. For each
+Run the app locally from the commit under test, the way the README says, and work through the plan. For each
 case record `status` (pass, fail, unchecked or skipped) and `evidence`: the
 command and output, a screenshot path, a response, a log line.
 
 - **unchecked** means you couldn't make the check: the environment is missing,
-  the review link is down, the data can't be created. Say why in `note`.
+  the app won't start locally, the data can't be created. Say why in `note`.
 - Don't fix anything you find, even a one-liner. Record it as a failure and
   write it up with the `bug-reporting` skill. QA that patches what it tests
   is no longer testing.
@@ -107,12 +83,11 @@ both assumed.
 
 Write `results.json` in the shape `qa_report.py` documents: the criteria, and
 every case with its `ac`, `kind`, `status`, `evidence`, `steps` and `note`.
-Then run `qa_report.py --link <review link> --commit <sha>` (leave out
-`--link` when there is none). There are two verdicts, and only two:
+Then run `qa_report.py --commit <sha>`. There are two verdicts, and only two:
 
 | Verdict | When | The ticket moves to |
 | --- | --- | --- |
-| **accept** | every criterion has a passing case with evidence, on the review link when there is one, and nothing failed | **Ready for Merge** |
+| **accept** | every criterion has a passing case with evidence, on the commit under test, and nothing failed | **Ready for Merge** |
 | **reject** | anything else: a failure, a criterion with no case, or one that couldn't be checked | **In progress** |
 
 A pass with no evidence is counted as not run. QA never blocks a ticket. When
@@ -121,7 +96,7 @@ it under "Suggest blocking", with why. Blocking is the Captain's call.
 
 ## 5. Comment, then move the ticket
 
-`qa_report.py` prints the ticket comment: the verdict, the link and commit
+`qa_report.py` prints the ticket comment: the verdict, the commit
 tested, what fails and how to see it, any blocking suggestion, and a
 `<!-- qa:verdict ... -->` marker that `review_link.py` reads next time to know
 what was already tested. Post it on the ticket with `gh issue comment N
@@ -141,7 +116,7 @@ Never move a ticket to Ready for Merge on anything less than an accept.
 
 Give the report `qa_report.py` prints, plus:
 
-- the commit tested, and how (review link, local run, test data used),
+- the commit tested, and how (local run, test data used),
 - the comment's link, and the column each board's card is now in,
 - one bug ticket per failure, filed by QA with the `bug-reporting` skill and
   labelled **QA testing**, with each ticket's link,
