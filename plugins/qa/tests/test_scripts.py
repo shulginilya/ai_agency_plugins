@@ -245,6 +245,35 @@ class ReviewLinkTest(unittest.TestCase):
         d = review_link.decide("", [newer, verdict])
         self.assertEqual(d["action"], "retest", "without --commit, the commit the link serves is what gets tested")
 
+    # --- --local: review links are paused, QA tests the PR head locally -------
+
+    def test_local_ignores_every_review_link(self):
+        d = review_link.decide("https://a.app.review.com", [self.devops_comment("abc1234")],
+                               commit="def5678", local=True)
+        self.assertEqual((d["action"], d["link"]), ("test", None), "an older build on a link is no reason to wait")
+
+    def test_local_with_no_verdict_means_test(self):
+        d = review_link.decide("no link", [], commit="abc1234", local=True)
+        self.assertEqual(d["action"], "test")
+
+    def test_local_decides_on_the_commit_alone(self):
+        verdict = self.verdict_comment("none", commit="abc1234")
+        d = review_link.decide("", [verdict], commit="abc1234ffff", local=True)
+        self.assertEqual(d["action"], "up-to-date", "a longer form of the same commit is the same commit")
+        d = review_link.decide("", [verdict], commit="def5678", local=True)
+        self.assertEqual(d["action"], "retest")
+        self.assertIn("abc1234", d["reason"])
+
+    def test_local_reads_verdicts_given_on_a_review_link_too(self):
+        verdict = self.verdict_comment("https://a.app.review.com", commit="abc1234")
+        later = comment("new link: https://b.app.review.com", "2026-10-25T09:00:00Z")
+        d = review_link.decide("", [verdict, later], commit="abc1234", local=True)
+        self.assertEqual(d["action"], "up-to-date", "a link posted after the verdict changes nothing locally")
+
+    def test_local_without_a_commit_is_test(self):
+        d = review_link.decide("", [self.verdict_comment("none")], local=True)
+        self.assertEqual(d["action"], "test", "with no commit to compare, test rather than skip")
+
     def test_a_link_taken_down_is_no_link(self):
         d = review_link.decide("", [self.devops_comment("abc1234", state="down")])
         self.assertEqual(d["action"], "none")

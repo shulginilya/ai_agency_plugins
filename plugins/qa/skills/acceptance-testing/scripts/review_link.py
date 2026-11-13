@@ -2,7 +2,12 @@
 """Find the review link on a ticket, which build it serves, and whether QA tests, waits, re-tests or has nothing new.
 
     review_link.py --issue 42 [--pr 43 | --commit SHA] [--repo owner/name]
-                   [--domain review.example.com] [--wait SECONDS] [--json]
+                   [--domain review.example.com] [--wait SECONDS] [--local] [--json]
+
+With --local (review links are paused: QA tests the PR's head commit locally),
+every link is ignored and the decision rests on the commit alone: `test` with
+no QA verdict yet (or no commit to compare), `retest` when the last verdict
+tested another commit, `up-to-date` when it tested this one.
 
 A review link is any link shaped `<name>.<project_slug>.<review domain>`, with
 or without `https://` and a path. `<name>` is usually the branch, but anything
@@ -102,9 +107,32 @@ def same_commit(a: Optional[str], b: Optional[str]) -> bool:
     return bool(a and b) and (a.startswith(b) or b.startswith(a))
 
 
+def decide_local(comments: List[Dict[str, Any]], commit: Optional[str] = None) -> Dict[str, Any]:
+    """Review links are paused: test / retest / up-to-date on the commit alone, whatever links the ticket holds."""
+    verdicts = sorted((dict(v, at=c.get("created_at", ""), url=c.get("url", ""))
+                       for c in comments for v in [verdict_of(c.get("body", ""))] if v is not None),
+                      key=lambda v: v["at"])
+    last_verdict = verdicts[-1] if verdicts else None
+    result: Dict[str, Any] = {"link": None, "source": None, "serves": None, "domain": None,
+                              "all_links": [], "last_verdict": last_verdict, "local": True}
+    if last_verdict is None:
+        result.update(action="test", reason="no QA verdict yet: test the PR head locally")
+    elif not commit:
+        result.update(action="test", reason="no commit to compare with the last verdict: test locally")
+    elif last_verdict.get("commit") and same_commit(commit, last_verdict["commit"]):
+        result.update(action="up-to-date", reason="commit %s was already verdicted (%s); nothing new"
+                      % (commit[:7], last_verdict.get("verdict", "?")))
+    else:
+        result.update(action="retest", reason="the last verdict tested commit %s, not %s"
+                      % (last_verdict.get("commit") or "unknown", commit[:7]))
+    return result
+
+
 def decide(body: str, comments: List[Dict[str, Any]], commit: Optional[str] = None,
-           domain: str = DEFAULT_DOMAIN) -> Dict[str, Any]:
+           domain: str = DEFAULT_DOMAIN, local: bool = False) -> Dict[str, Any]:
     """`comments` each {"body", "created_at", "updated_at"?, "url"}, in any order."""
+    if local:
+        return decide_local(comments, commit)
     sources = [{"where": "description", "at": "", "links": links_in(body, domain), "serves": None, "kind": "pasted"}]
     verdicts = []
     for c in comments:
@@ -234,16 +262,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--domain", help="review domain (default: repo variable REVIEW_DOMAIN, else review.com)")
     parser.add_argument("--wait", type=int, default=0, metavar="SECONDS",
                         help="while the link serves an older commit, poll for up to this long")
+    parser.add_argument("--local", action="store_true",
+                        help="review links are paused: ignore them and decide on the commit alone")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
         repo = current_repo(args.repo)
-        domain = review_domain(repo, args.domain)
+        domain = None if args.local else review_domain(repo, args.domain)
         commit = args.commit or (pr_head(repo, args.pr) if args.pr else None)
         deadline = time.time() + max(args.wait, 0)
         while True:
             ticket = fetch(repo, args.issue)
-            decided = decide(ticket["body"], ticket["comments"], commit, domain)
+            decided = decide(ticket["body"], ticket["comments"], commit, domain or DEFAULT_DOMAIN, local=args.local)
             if decided["action"] != "wait" or time.time() >= deadline:
                 break
             time.sleep(min(20, max(1, deadline - time.time())))

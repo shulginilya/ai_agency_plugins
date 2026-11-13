@@ -1,13 +1,19 @@
 ---
 name: preview-environments
-description: Gives every pull request its own review link — a running preview of the PR's head commit — on a free host picked for the stack (Cloudflare Pages for static frontends, Render for backends), optionally served at <branch>.<slug>.<review domain>, published the same way whatever the host as a GitHub Deployment, one sticky PR comment and one comment on each ticket the PR closes saying which commit the link serves, taken down when the PR closes, and proved with a real PR whose link answers. Use when asked for PR previews, preview or review links, deploy previews, ephemeral or staging environments per pull request, or a link QA can test a PR on.
+description: Paused — review links are out of the crew workflow for now, so this sets up nothing; say so and stop. When re-enabled, it gives every pull request its own review link — a running preview of the PR's head commit — on a free host picked for the stack (Cloudflare Pages for static frontends, Render for backends), optionally served at <branch>.<slug>.<review domain>, published the same way whatever the host as a GitHub Deployment, one sticky PR comment and one comment on each ticket the PR closes saying which commit the link serves, taken down when the PR closes, and proved with a real PR whose link answers. Use when asked for PR previews, preview or review links, deploy previews, ephemeral or staging environments per pull request, or a link QA can test a PR on.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Preview environments
+
+> **Paused.** Review links are out of the crew workflow for now, and QA tests
+> each PR's head commit locally. Don't scaffold, push, set secrets for or
+> prove a preview. Say that review links are paused and stop. If the repo
+> already has a preview workflow, name it and leave it alone: removing it is
+> the Captain's call. The rest of this skill is kept for when they come back.
 
 Every PR gets a link to a running build of its head commit. Whatever hosts it,
 the link ends up in the same three places:

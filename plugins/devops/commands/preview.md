@@ -1,29 +1,17 @@
 ---
-description: Give every PR of a repository a review link (a preview deployment of its head commit) on Cloudflare Pages or Render, and prove it on a real PR.
+description: Paused — review links are out of the crew workflow for now, so this sets up no PR previews; it says so and stops.
 argument_hint: "[repo path or owner/repo; optionally the host, e.g. \"render\"]"
 model: claude-opus-5-5
 effort: high
-allowed_tools: Bash(gh:*) Bash(git:*) Bash(python:*) Bash(actionlint:*) Bash(curl:*) Bash Read Grep Glob Edit Write
+allowed_tools: Read
 ---
 
 PR previews for: {{ARGS}}
 
-Follow the `preview-environments` skill:
+The `preview-environments` skill is paused. Review links are paused: they are out of the crew workflow for now, and QA
+tests each PR's head commit locally. Don't scan the repo, write a workflow,
+set a secret or open a test PR.
 
-1. Scan the repo with `python {{PLUGIN_ROOT}}/skills/ci-setup/scripts/stack_scan.py <root>` and
-   pick the host from its `kind` (static: Cloudflare Pages, server: Render), unless the
-   arguments name one.
-2. List the repository owner's one-time steps (account, Pages project or Blueprint, and
-   `gh secret set` for each secret name). Never ask for, print or write a secret's value.
-   Check what already exists with `gh secret list`, which shows names only, and stop with the
-   list if anything is missing.
-3. Write the files with `python {{PLUGIN_ROOT}}/skills/ci-setup/scripts/scaffold.py preview --root <root> ...`,
-   then run `actionlint` if it is installed.
-   With a review domain (repo variable `REVIEW_DOMAIN`, Cloudflare only), the link is
-   `<branch>.<slug>.<domain>`: list `CLOUDFLARE_ZONE_ID` and the token's DNS edit permission too.
-4. Prove it on a test PR that closes a ticket: a green run, then
-   `python {{PLUGIN_ROOT}}/skills/preview-link/scripts/preview_link.py --pr <N> --wait 600 --check`
-   returns current with HTTP 2xx. After one more push the link follows the new commit, and
-   there is still only one PR comment. The ticket has one review-link comment at the new head
-   commit. Closing the PR marks it down and, with a review domain, removes the domain.
-5. Report in the skill's format.
+Say that review links are paused, so no PR preview was set up, and stop. If
+the repository already has a preview workflow, name its file and leave it as
+it is: removing it is the Captain's call.
