@@ -40,8 +40,9 @@ when the ticket is labelled `skip_approval`), and an `action`:
 - `closed`: the PR is closed or merged. Say so and stop.
 
 On `review` and `re-review` it also prints `round R of 3; captain @LOGIN`.
-The round is 1 plus the verdicts given since the last **stop**, so a ticket
-the Captain picks up again after a stop gets three fresh rounds. The Captain
+The round is 1 plus the request-changes verdicts since the last **approve**
+or **stop**. Either one ends the fix loop: a review after a QA reject, or
+after the Captain picks a stopped ticket up again, starts at round 1. The Captain
 is the PR's first assignee, else the repository owner. Pass both to
 `review_report.py`.
 

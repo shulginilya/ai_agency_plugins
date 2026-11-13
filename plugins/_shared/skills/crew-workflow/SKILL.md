@@ -91,7 +91,8 @@ and what the Captain decides next.
    - stop: the third round still found issues. The reviewer moved the card
      to Ready, @mentioned the Captain with a summary and emailed it. Stop
      and report: no further fix or review round until the Captain picks
-     the ticket up again (its next review starts again at round 1).
+     the ticket up again (its next review starts again at round 1, as does
+     a review after an approve, e.g. after a QA reject).
 9. **Stop at In approval** (or at Ready after a stop) and report.
 
 When the Captain moves the card to QA (the hook reports it, rule 5), without

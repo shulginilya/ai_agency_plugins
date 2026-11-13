@@ -17,9 +17,10 @@ prints. Then it says what to do:
 
 A PR that is closed or merged is reported as such, with action `closed`.
 
-It also prints the review `round` this one would be: 1 plus the verdicts given
-since the last `stop` (review_report.py stops the loop on round 3 when issues
-are left, and the Captain's pick-up starts the count again), and the
+It also prints the review `round` this one would be: 1 plus the request-changes
+verdicts given since the last approve or stop. An approve ends a fix loop (a
+QA reject after it starts a new one at round 1), and so does a stop
+(review_report.py stops the loop on round 3 when issues are left). And the
 `captain` to @mention on a stop: the PR's first assignee, else the repository
 owner.
 
@@ -57,10 +58,11 @@ def same_commit(a: Optional[str], b: Optional[str]) -> bool:
 
 
 def round_of(verdicts: List[Dict[str, Any]]) -> int:
-    """The next review's round: 1 plus the verdicts since the last stop, which ended the previous loop."""
+    """The next review's round: 1 plus the request-changes verdicts since the last approve or stop,
+    either of which ended the previous fix loop."""
     since = 0
     for v in sorted(verdicts, key=lambda v: v["at"]):
-        since = 0 if v.get("verdict") == "stop" else since + 1
+        since = 0 if v.get("verdict") in ("approve", "stop") else since + 1
     return since + 1
 
 

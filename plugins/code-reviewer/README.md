@@ -35,7 +35,8 @@ performance, accessibility and test gaps.
   repo owner) and a summary of what's left, the Captain also gets the
   summary by email when the session has a Gmail connector, and the crew stops
   working on it. Rounds are counted from the PR's verdict markers since the
-  last stop, so a ticket the Captain picks up again gets three fresh rounds.
+  last approve or stop, so a review after a QA reject, or after the Captain
+  picks a stopped ticket up again, starts at round 1.
 
 A finding without a failure scenario is refused, so a review can't be padded
 with hunches. Nits never change the verdict.

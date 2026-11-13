@@ -22,8 +22,8 @@ The verdict follows fixed rules, so it cannot be argued into an approve:
     request-changes  at least one blocker or major finding
     stop             round 3 or later, and any blocker, major or minor left
 
-`round` is the review round pr_scope.py printed (1 for the first review,
-counted since the last stop). On a stop the review loop ends: the body opens
+`round` is the review round pr_scope.py printed (1 for the first review
+after an approve, a stop, or none yet). On a stop the review loop ends: the body opens
 with an @mention of the Captain (`captain`, from pr_scope.py) and a summary of
 what is still open, and every closing ticket moves to Ready for the Captain to
 pick up.

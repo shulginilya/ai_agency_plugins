@@ -159,6 +159,13 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(pr_scope.decide("5555555", list(reversed(reviews)))["round"], 2, "order of input")
         self.assertIsNone(pr_scope.decide("4444444ff", reviews)["round"], "up-to-date has no round")
 
+    def test_an_approve_ends_the_loop_so_a_review_after_a_qa_reject_is_round_one(self):
+        reviews = [self.review("request-changes", "1111111", "2026-10-01T00:00:00Z"),
+                   self.review("approve", "2222222", "2026-10-02T00:00:00Z")]
+        self.assertEqual(pr_scope.decide("3333333", reviews)["round"], 1)
+        reviews.append(self.review("request-changes", "3333333", "2026-10-03T00:00:00Z"))
+        self.assertEqual(pr_scope.decide("4444444", reviews)["round"], 2)
+
     def test_the_captain_is_the_first_assignee_else_the_owner(self):
         self.assertEqual(pr_scope.captain_of(["alice", "bob"], "acme/app"), "alice")
         self.assertEqual(pr_scope.captain_of([], "acme/app"), "acme")
