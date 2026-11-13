@@ -1,13 +1,22 @@
 ---
 name: preview-link
-description: Finds the review link of a pull request — the URL of its preview deployment, read back from GitHub's Deployments API — and says whether it was deployed from the PR's head commit, is still deploying, failed, is stale (an older commit) or doesn't exist, and optionally whether it answers. Use when asked for a PR's preview, review or staging link, to open or test the running build of a PR, to wait for a preview to come up, or to check that a preview deploy worked.
+description: Paused for QA — review links are out of the crew workflow for now, so QA never tests on a PR's preview deployment; it checks out the PR's head commit and tests locally. Still finds the review link of a pull request — the URL of its preview deployment, read back from GitHub's Deployments API — and says whether it was deployed from the PR's head commit, is still deploying, failed, is stale (an older commit) or doesn't exist, and optionally whether it answers. Use when asked for a PR's preview, review or staging link, to see whether an old preview is still up, to wait for a preview to come up, or to check that a preview deploy worked.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.1"
+  version: "0.2.0"
 ---
 
 # Preview link
+
+> **Paused for QA.** Review links are out of the crew workflow for now. QA
+> checks out the PR's head commit and tests it locally
+> (`review_link.py --local`); it never tests on a preview deployment or a
+> pasted review link, even when this script reports one as `current`. Asked
+> to test "the running build" of a PR, run the head commit locally instead,
+> and say that review links are paused. DevOps' preview setup
+> (`preview-environments`) is paused too. Reading a link for any other
+> reason (is an old preview still up?) is fine.
 
 A pull request's review link is the running build of its head commit. Every
 preview, whatever hosts it, ends as a **GitHub Deployment** whose latest status
@@ -21,11 +30,11 @@ So the PR's preview link comes from the Deployments API, never from a PR
 comment or a guess at a URL pattern. With a review domain set,
 `environment_url` is the `<branch>.<slug>.<domain>` address.
 
-QA looks on the *ticket* first: the devops workflow keeps a comment there
-with the same link and the commit it serves, and people may paste one.
-QA's `review_link.py` reads those. This skill is the fallback when the
-ticket names no link, and the way to check which commit a pasted link
-serves.
+When review links are on, QA looks on the *ticket* first: the devops
+workflow keeps a comment there with the same link and the commit it serves,
+and people may paste one. QA's `review_link.py` reads those. This skill is
+the fallback when the ticket names no link, and the way to check which
+commit a pasted link serves. While review links are paused, neither applies.
 
 ```bash
 python scripts/preview_link.py --pr 42                 # the link, and whether it's current

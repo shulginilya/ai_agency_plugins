@@ -13,7 +13,7 @@ answers, not YAML that only looks right.
 | Skill | `ci-setup` | Scan the repo, write a GitHub Actions workflow from its own commands (least privilege, caching, concurrency, timeouts), prove it on a PR. Also deploy jobs and Dockerfiles |
 | Skill | `preview-environments` | **Paused.** A preview per PR on a free host: Cloudflare Pages (static) or Render (server), optionally at `<branch>.<slug>.<review domain>`. Published as a GitHub Deployment, one sticky PR comment and one comment per ticket saying which commit it serves; taken down on close |
 | Skill | `pipeline-triage` | The failed job and step, the lines that prove the cause, a category and an owner (developer or devops) |
-| Skill (shared) | `preview-link` | Reads a PR's review link from the Deployments API: current, pending, failed, stale or none. QA uses the same skill. Source: `plugins/_shared/skills/` |
+| Skill (shared) | `preview-link` | Reads a PR's review link from the Deployments API: current, pending, failed, stale or none. Paused for QA while review links are paused: QA tests locally. Source: `plugins/_shared/skills/` |
 | Command | `/ci` | Set up or fix CI for a repo |
 | Command | `/preview` | **Paused:** says review links are out of the workflow and stops |
 | Command | `/triage` | Why a run failed, and whose fix it is |

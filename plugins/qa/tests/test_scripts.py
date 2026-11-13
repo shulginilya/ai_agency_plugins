@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import subprocess
@@ -10,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 PLUGIN = Path(__file__).resolve().parent.parent
 CRITERIA = PLUGIN / "skills" / "test-planning" / "scripts" / "criteria.py"
@@ -273,6 +276,44 @@ class ReviewLinkTest(unittest.TestCase):
     def test_local_without_a_commit_is_test(self):
         d = review_link.decide("", [self.verdict_comment("none")], local=True)
         self.assertEqual(d["action"], "test", "with no commit to compare, test rather than skip")
+
+    def test_local_the_newest_verdict_wins(self):
+        older = self.verdict_comment("none", commit="abc1234", at="2026-10-25T02:00:00Z")
+        newer = self.verdict_comment("none", commit="def5678", at="2026-10-25T04:00:00Z")
+        for comments in ([older, newer], [newer, older]):
+            d = review_link.decide("", comments, commit="def5678", local=True)
+            self.assertEqual(d["action"], "up-to-date", "the newest verdict tested def5678")
+            d = review_link.decide("", comments, commit="abc1234", local=True)
+            self.assertEqual(d["action"], "retest", "abc1234 is only the older verdict's commit")
+
+    def test_local_cli_never_reads_the_review_domain_or_prints_a_link(self):
+        calls = []
+        link_comment = self.devops_comment("abc1234")
+        link_comment.update(html_url="https://github.com/me/app/issues/7#c1")
+
+        def fake_gh(*args):
+            calls.append(args)
+            path = next((a for a in args if a.startswith("repos/") or a == "graphql"), "")
+            if "REVIEW_DOMAIN" in path:
+                raise AssertionError("--local must not look up REVIEW_DOMAIN")
+            if path.startswith("repos/me/app/pulls/8"):
+                return json.dumps({"head": {"sha": "def5678"}})
+            if "/comments" in path:
+                return json.dumps([link_comment])
+            if path == "graphql":
+                return json.dumps({"data": {"repository": {"issue": {"projectItems": {"nodes": [
+                    {"project": {"number": 1, "title": "Board"}, "fieldValueByName": {"name": "QA"}}]}}}}})
+            return json.dumps({"title": "t", "body": "see https://a.app.review.com", "html_url": "u"})
+
+        out = io.StringIO()
+        with mock.patch.object(review_link, "gh", fake_gh), contextlib.redirect_stdout(out):
+            code = review_link.main(["--issue", "7", "--repo", "me/app", "--pr", "8", "--local"])
+        self.assertEqual(code, 0)
+        self.assertFalse(any("REVIEW_DOMAIN" in " ".join(c) for c in calls))
+        text = out.getvalue()
+        self.assertIn("me/app#7: test", text)
+        self.assertNotIn("review link:", text)
+        self.assertIn("board #1 Board: QA", text)
 
     def test_a_link_taken_down_is_no_link(self):
         d = review_link.decide("", [self.devops_comment("abc1234", state="down")])

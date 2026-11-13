@@ -5,14 +5,19 @@
 
 results.json:
 
-    {"ticket": "#42", "change": "PR #43", "review_link": "https://...review.com", "commit": "abc1234",
+    {"ticket": "#42", "change": "PR #43", "commit": "abc1234",
      "criteria": [{"id": "AC1", "text": "..."}, ...],
      "cases": [{"id": "AC1-1", "ac": "AC1", "kind": "happy", "steps": "...",
                 "status": "pass|fail|unchecked|skipped", "evidence": "...", "note": "..."}]}
 
 `unchecked` means the check could not be made (no environment, the data can't
-be created); `blocked` is still read as `unchecked`. `--link` and `--commit`
-override the file's review_link and commit.
+be created); `blocked` is still read as `unchecked`. `--commit` overrides the
+file's commit.
+
+Review links are paused: QA tests the PR's head commit locally, so leave out
+`review_link` and `--link`. Filling either in makes the comment claim a
+review-link test that never happened. When links come back, `review_link`
+(or `--link URL`) names the link tested.
 
 The verdict follows fixed rules, so it cannot be argued into a pass:
 
