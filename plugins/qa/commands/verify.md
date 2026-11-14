@@ -38,8 +38,10 @@ Follow the `acceptance-testing` skill:
 
    Then, on accept and on reject, leave the PR branch: check out the default branch, looked up
    and never assumed to be `main`, and fast-forward it:
-   `base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name) && git checkout "$base" && git pull --ff-only`.
-   Keep `results.json` and `verdict.md` outside the working tree.
+   `base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name) && git restore . && git checkout "$base" && git pull --ff-only`
+   (`git restore .` drops what the test run changed in tracked files; QA never commits). Keep
+   `results.json` and `verdict.md` outside the working tree. If the switch or pull still fails, don't
+   force it: report the branch you are on and why.
 6. Report the verdict, the commit tested, the comment's link, where the card is now, the branch
    you are back on, any column you added, and one bug ticket per failure, filed with the `bug-reporting` skill and
    labelled "QA testing", with each ticket's link.

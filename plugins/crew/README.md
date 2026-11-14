@@ -66,15 +66,19 @@ board's cards that are not in Done (filtered on GitHub's side) and move to Done:
 - an issue of this repository that a merged PR closes, whatever branch the PR targeted;
 - a merged PR's own card.
 
+Only a merge newer than the card's last Status change counts: a ticket the
+Captain reopens and moves on after its merge stays where they put it.
+
 | When | What happens |
 | --- | --- |
-| Session start, and a prompt at most once a minute | Up to 5 cards are moved (the rest on the next check); the session is told `crew: moved #N to Done` |
-| A move fails, or the board has no Done column | The session is told to move the card to Done itself, without asking |
-| A card already in Done, or with no merged PR | Nothing |
-| Offline, without `gh`, or a failed check | Nothing |
+| Session start, and a prompt at most once a minute | Up to 3 pages of 100 cards are read, and up to 5 cards moved within 8 s (the rest on the next check); the session is told `crew: moved #N to Done` |
+| A move fails, or the board has no Done column | The session is told once to move the card to Done itself, without asking; the hook doesn't try that card again until it changes, and tries no more moves that run |
+| A card already in Done, with no merged PR, or moved after its merge | Nothing |
+| Offline, without `gh`, or a failed check | Nothing (a failed check still waits a minute before the next) |
 
-The last check time is kept in `crew_done.json`. Moving is idempotent, so two
-sessions checking at once do no harm.
+The last check time and the cards handed to the session are kept in
+`crew_done.json`. Moving is idempotent, so two sessions checking at once do no
+harm.
 
 ## Harnesses
 

@@ -118,11 +118,15 @@ starts on the branch QA tested. Look the branch up, never assume `main`:
 
 ```bash
 base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+git restore .                     # what the test run changed (lockfiles, builds): QA never commits
 git checkout "$base" && git pull --ff-only
+git branch --show-current         # must print $base
 ```
 
 Write `results.json` and `verdict.md` outside the working tree (or delete
-them) so they don't follow you onto it.
+them) so they don't follow you onto it. If the switch or the pull still fails
+(an untracked file in the way, a diverged local branch), don't force it:
+say in the report which branch you are on and why.
 
 ## 6. Report
 

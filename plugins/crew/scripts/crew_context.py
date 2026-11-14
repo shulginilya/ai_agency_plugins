@@ -42,10 +42,15 @@ It also moves a ticket to Done, from whatever column it is in, once its PR
 is merged: an issue a merged PR closes (whatever branch that PR targeted), or
 a merged PR's own card. GitHub's board automation only does this when its
 "Item closed" workflow is on and the PR targeted the default branch, so the
-hook does it itself. It checks at session start and at most every
-DONE_INTERVAL seconds on a prompt, moves at most DONE_MAX_MOVES cards a run
-(the rest go on the next check), and prints each move. A card it could not
-move is printed for the session to move without asking.
+hook does it itself. Only a merge newer than the card's last Status change
+counts, so a ticket the Captain reopens and moves on after its merge stays
+where they put it. It checks at session start and at most every
+DONE_INTERVAL seconds on a prompt, reads at most DONE_PAGES pages of cards,
+and spends at most DONE_BUDGET seconds on moves (at most DONE_MAX_MOVES): the
+rest go on the next check. Each move is printed. A card it could not move
+(the move failed, or the board has no Done column) is printed once, for the
+session to move without asking, and not tried again until its card changes;
+after a failed move the run tries no more.
 
 A found board is cached per repository for CACHE_TTL seconds; "no crew board"
 only for NEGATIVE_TTL, so a board created with /crew:create-board is
@@ -77,7 +82,9 @@ DONE_FILE = "crew_done.json"
 DONE_INTERVAL = 60
 DONE_COLUMN = "done"
 DONE_PAGE = 100
+DONE_PAGES = 3
 DONE_MAX_MOVES = 5
+DONE_BUDGET = 8.0
 ALIASES_KEY = "aliases"
 PROMPT_EVENT = "UserPromptSubmit"
 DECLINED_KEY = "declined"
@@ -107,14 +114,14 @@ QA_QUERY = """query($board:ID!){node(id:$board){... on ProjectV2{
     fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name updatedAt}}
     content{... on Issue{number state repository{nameWithOwner}}}}}}}}""" % QA_PAGE
 
-DONE_QUERY = """query($board:ID!){node(id:$board){... on ProjectV2{
+DONE_QUERY = """query($board:ID!,$after:String){node(id:$board){... on ProjectV2{
   field(name:"Status"){... on ProjectV2SingleSelectField{id options{id name}}}
-  items(first:%d,query:"-status:Done"){nodes{id
-    fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}
+  items(first:%d,after:$after,query:"-status:Done"){pageInfo{hasNextPage endCursor} nodes{id
+    fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name updatedAt}}
     content{
       ... on Issue{number repository{nameWithOwner}
-        closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{merged}}}
-      ... on PullRequest{number merged repository{nameWithOwner}}}}}}}}""" % DONE_PAGE
+        closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{merged mergedAt}}}
+      ... on PullRequest{number merged mergedAt repository{nameWithOwner}}}}}}}}""" % DONE_PAGE
 
 DONE_MUTATION = """mutation($board:ID!,$item:ID!,$field:ID!,$option:String!){
   updateProjectV2ItemFieldValue(input:{projectId:$board,itemId:$item,fieldId:$field,
@@ -364,92 +371,148 @@ def qa_cards_to_report(repo: str, board_id: str, path: Path, now: float, prompt:
     return sorted(n for n, moved in cards.items() if seen.get(n) != moved)
 
 
-def merged_cards(data: Any, repo: str) -> Tuple[Optional[str], Optional[str], List[Tuple[str, str]]]:
-    """(Status field ID, Done option ID, [(card label, item ID)]) for this repository's cards not in
-    Done whose PR was merged: an issue a merged PR closes, or a merged PR's own card."""
-    board = ((data or {}).get("data") or {}).get("node") or {}
-    field = board.get("field") or {}
+def done_option(data: Any) -> Tuple[Optional[str], Optional[str]]:
+    """(Status field ID, Done option ID) of the board in a DONE_QUERY reply."""
+    field = ((((data or {}).get("data") or {}).get("node") or {}).get("field")) or {}
     field_id = field.get("id") if isinstance(field.get("id"), str) else None
-    option_id = None
     for option in field.get("options") or []:
         if isinstance(option, dict) and str(option.get("name") or "").strip().lower() == DONE_COLUMN:
-            option_id = option.get("id") if isinstance(option.get("id"), str) else None
-            break
-    found: List[Tuple[str, str]] = []
+            return field_id, option.get("id") if isinstance(option.get("id"), str) else None
+    return field_id, None
+
+
+def merged_cards(data: Any, repo: str) -> List[Tuple[str, str, str]]:
+    """[(card label, item ID, when its Status was set)] for this repository's cards not in Done whose
+    PR was merged after the card's Status was last set: an issue a merged PR closes, or a merged PR's
+    own card. A card moved after the merge (the Captain reopened it) is left where it is."""
+    board = ((data or {}).get("data") or {}).get("node") or {}
+    found: List[Tuple[str, str, str]] = []
     for item in (board.get("items") or {}).get("nodes") or []:
         if not isinstance(item, dict) or not isinstance(item.get("id"), str):
             continue
-        status = str((item.get("fieldValueByName") or {}).get("name") or "").strip().lower()
+        status = item.get("fieldValueByName") or {}
         content = item.get("content") or {}
         number = content.get("number")
-        if (status == DONE_COLUMN or not isinstance(number, int)
+        if (str(status.get("name") or "").strip().lower() == DONE_COLUMN or not isinstance(number, int)
                 or str((content.get("repository") or {}).get("nameWithOwner") or "").lower() != repo.lower()):
             continue
         if "closedByPullRequestsReferences" in content:
             prs = (content.get("closedByPullRequestsReferences") or {}).get("nodes") or []
-            if any(isinstance(pr, dict) and pr.get("merged") is True for pr in prs):
-                found.append(("#%d" % number, item["id"]))
-        elif content.get("merged") is True:
-            found.append(("PR #%d" % number, item["id"]))
-    return field_id, option_id, found
+            label = "#%d" % number
+        else:
+            prs = [content]
+            label = "PR #%d" % number
+        merges = [str(pr.get("mergedAt") or "") for pr in prs if isinstance(pr, dict) and pr.get("merged") is True]
+        moved_at = str(status.get("updatedAt") or "")
+        # GitHub's timestamps share one ISO format, so they compare as strings.
+        if merges and (not moved_at or max(merges) > moved_at):
+            found.append((label, item["id"], moved_at))
+    return found
 
 
 def done_path() -> Path:
     return cache_path().with_name(DONE_FILE)
 
 
-def _done_checked(path: Path, repo: str) -> float:
+def done_state(path: Path, repo: str) -> Tuple[float, Dict[str, str]]:
+    """(when the Done check last ran, {card label: its Status time when a move of it failed})."""
+    entry = (_load(path) or {}).get(repo)
+    if not isinstance(entry, dict):
+        return 0.0, {}
     try:
-        return float(((_load(path) or {}).get(repo) or {}).get("at", 0))
-    except (TypeError, ValueError, AttributeError):
-        return 0.0
+        at = float(entry.get("at", 0))
+    except (TypeError, ValueError):
+        at = 0.0
+    failed = entry.get("failed") if isinstance(entry.get("failed"), dict) else {}
+    return at, {str(k): str(v) for k, v in failed.items()}
 
 
-def _claim_done_check(path: Path, repo: str, now: float) -> None:
+def save_done_state(path: Path, repo: str, now: float, failed: Dict[str, str]) -> None:
+    """Record a check. A file that exists but can't be read is left alone rather than overwritten."""
     state = _load(path)
     if state is None:
         return
-    state[repo] = {"at": now}
+    state[repo] = {"at": now, "failed": dict(sorted(failed.items()))}
     try:
         _save(path, state)
     except OSError:
         pass
 
 
+def read_unfinished(board_id: str, repo: str) -> Optional[Tuple[Optional[str], Optional[str], List[Tuple[str, str, str]]]]:
+    """(Status field ID, Done option ID, merged cards) over up to DONE_PAGES pages, or None on no usable answer."""
+    field_id = option_id = None
+    cards: List[Tuple[str, str, str]] = []
+    after: Optional[str] = None
+    for page in range(DONE_PAGES):
+        args = ["gh", "api", "graphql", "-f", "query=" + DONE_QUERY, "-f", "board=" + board_id]
+        if after:
+            args += ["-f", "after=" + after]
+        try:
+            data = json.loads(_run(args, keep_output_on_error=True) or "")
+        except ValueError:
+            data = None
+        node = (data.get("data") or {}).get("node") if isinstance(data, dict) else None
+        if not isinstance(node, dict):
+            return None if page == 0 else (field_id, option_id, cards)
+        if page == 0:
+            field_id, option_id = done_option(data)
+        cards += merged_cards(data, repo)
+        info = (node.get("items") or {}).get("pageInfo") or {}
+        after = info.get("endCursor") if info.get("hasNextPage") else None
+        if not isinstance(after, str) or not after:
+            break
+    return field_id, option_id, cards
+
+
 def move_merged_to_done(repo: str, board_id: str, path: Path, now: float,
                         prompt: bool) -> Tuple[List[str], List[str]]:
-    """([cards moved to Done], [cards with a merged PR the hook could not move]).
+    """([cards moved to Done], [cards with a merged PR the session should move, each reported once]).
 
     A prompt checks at most every DONE_INTERVAL seconds; a session start always
     checks. Moving is idempotent, so two sessions racing do no harm.
     """
-    checked = _done_checked(path, repo)
+    checked, failed = done_state(path, repo)
     if prompt and 0 <= now - checked < DONE_INTERVAL:
         return [], []
-    _claim_done_check(path, repo, now)
-    raw = _run(["gh", "api", "graphql", "-f", "query=" + DONE_QUERY, "-f", "board=" + board_id],
-               keep_output_on_error=True)
-    try:
-        data = json.loads(raw or "")
-    except ValueError:
+    # Claim the check before the slow gh calls, so a failed check is throttled too.
+    save_done_state(path, repo, now, failed)
+    found = read_unfinished(board_id, repo)
+    if found is None:
         return [], []
-    if not isinstance(data, dict) or not isinstance((data.get("data") or {}).get("node"), dict):
-        return [], []
-    field_id, option_id, cards = merged_cards(data, repo)
+    field_id, option_id, cards = found
+    _, failed = done_state(path, repo)  # as it is now: another session may have reported meanwhile
+    pending = {label for label, _, _ in cards}
+    failed = {k: v for k, v in failed.items() if k in pending}  # moved since, by anyone: forget it
     moved: List[str] = []
-    failed: List[str] = []
-    for label, item_id in cards[:DONE_MAX_MOVES]:
-        reply = None
-        if field_id and option_id:
-            reply = _run(["gh", "api", "graphql", "-f", "query=" + DONE_MUTATION, "-f", "board=" + board_id,
-                          "-f", "item=" + item_id, "-f", "field=" + field_id, "-f", "option=" + option_id])
+    report: List[str] = []
+    started = time.monotonic()
+    tries = 0
+    for label, item_id, moved_at in cards:
+        if failed.get(label) == moved_at:
+            continue  # already handed to a session, and the card hasn't changed since
+        if not (field_id and option_id):
+            failed[label] = moved_at
+            report.append(label)
+            continue
+        if tries >= DONE_MAX_MOVES or time.monotonic() - started > DONE_BUDGET:
+            continue  # the next check
+        tries += 1
+        reply = _run(["gh", "api", "graphql", "-f", "query=" + DONE_MUTATION, "-f", "board=" + board_id,
+                      "-f", "item=" + item_id, "-f", "field=" + field_id, "-f", "option=" + option_id])
         try:
             ok = bool(((json.loads(reply or "").get("data") or {}).get("updateProjectV2ItemFieldValue") or {})
                       .get("projectV2Item"))
         except (ValueError, AttributeError):
             ok = False
-        (moved if ok else failed).append(label)
-    return moved, failed
+        if ok:
+            moved.append(label)
+            continue
+        failed[label] = moved_at
+        report.append(label)
+        tries = DONE_MAX_MOVES  # a failed move is likely to fail again: try no more this run
+    save_done_state(path, repo, now, failed)
+    return moved, report
 
 
 def done_message(moved: List[str], failed: List[str], board: str) -> str:

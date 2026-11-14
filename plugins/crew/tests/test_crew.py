@@ -80,7 +80,8 @@ class CrewContextHookTest(unittest.TestCase):
         self.qa_reply = None  # the QA check's reply; None: no answer
         self.done_reply = None  # the merged-to-Done check's reply; None: no answer
         self.move_ok = True  # whether a move to Done succeeds
-        self.moves = []  # item IDs moved to Done
+        self.fail_items = set()  # item IDs whose move to Done fails
+        self.moves = []  # (item, field, option) of each move made
         self.event = "SessionStart"
         self.repo_view = None
         self.calls = []
@@ -98,13 +99,17 @@ class CrewContextHookTest(unittest.TestCase):
             return self.repo_view
         if args[:3] == ["gh", "api", "graphql"]:
             if "query=" + crew_context.DONE_QUERY in args:
-                return None if self.done_reply is None else json.dumps(self.done_reply)
+                reply = self.done_reply
+                if isinstance(reply, list):  # pages, picked by the cursor sent
+                    after = next((a[6:] for a in args if a.startswith("after=")), None)
+                    reply = reply[0 if after is None else int(after)]
+                return None if reply is None else json.dumps(reply)
             if "query=" + crew_context.DONE_MUTATION in args:
-                if not self.move_ok:
+                sent = {a.split("=", 1)[0]: a.split("=", 1)[1] for a in args if "=" in a and not a.startswith("query=")}
+                if not self.move_ok or sent["item"] in self.fail_items:
                     return None
-                item = next(a[5:] for a in args if a.startswith("item="))
-                self.moves.append(item)
-                return json.dumps({"data": {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": item}}}})
+                self.moves.append((sent["item"], sent["field"], sent["option"]))
+                return json.dumps({"data": {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": sent["item"]}}}})
             if "query=" + crew_context.QA_QUERY in args:
                 if self.qa_reply is None:
                     return None
@@ -616,32 +621,65 @@ class CrewContextHookTest(unittest.TestCase):
         self.assertEqual([p.name for p in self.data.iterdir() if p.suffix == ".tmp"], [])
 
     @staticmethod
-    def _done(*cards, done_option=True):
-        """The board's cards not in Done: (label, column, merged) where label is "#N" for an issue, "PR #N" for a PR."""
+    def _done(*cards, done_option=True, next_page=None):
+        """The board's cards not in Done: (label, column, merged) or (label, column, merged, merged at,
+        Status set at), where label is "#N" for an issue and "PR #N" for a PR. A merge is newer than
+        the card's last move unless said otherwise."""
         nodes = []
-        for label, column, merged in cards:
+        for card in cards:
+            label, column, merged = card[:3]
+            merged_at, moved_at = card[3:] if len(card) > 3 else ("2026-01-02T00:00:00Z", "2026-01-01T00:00:00Z")
             number = int(label.split("#")[1])
             content = {"number": number, "repository": {"nameWithOwner": "acme/shop"}}
+            pr = {"merged": merged, "mergedAt": merged_at if merged else None}
             if label.startswith("PR"):
-                content["merged"] = merged
+                content.update(pr)
             else:
-                content["closedByPullRequestsReferences"] = {"nodes": [{"merged": False}, {"merged": merged}]}
-            nodes.append({"id": "ITEM_%d" % number, "fieldValueByName": {"name": column}, "content": content})
-        options = [{"id": "OPT_qa", "name": "QA"}] + ([{"id": "OPT_done", "name": "Done"}] if done_option else [])
-        return {"data": {"node": {"field": {"id": "FIELD", "options": options}, "items": {"nodes": nodes}}}}
+                content["closedByPullRequestsReferences"] = {"nodes": [{"merged": False, "mergedAt": None}, pr]}
+            nodes.append({"id": "ITEM_%d" % number, "fieldValueByName": {"name": column, "updatedAt": moved_at},
+                          "content": content})
+        options = [{"id": "OPT_qa", "name": "QA"}]
+        options += [{"id": "OPT_done", "name": " DONE "}] if done_option else []
+        options += [{"id": "OPT_later", "name": "Archived"}]
+        info = {"hasNextPage": next_page is not None, "endCursor": next_page}
+        return {"data": {"node": {"field": {"id": "FIELD", "options": options},
+                                  "items": {"pageInfo": info, "nodes": nodes}}}}
+
+    def _moved(self):
+        return sorted(item for item, _, _ in self.moves)
 
     def test_a_merged_ticket_moves_to_done_from_any_column(self):
         self._crew_board()
         self.done_reply = self._done(("#5", "In approval", True), ("#6", "In review", False),
                                      ("PR #8", "Ready", True), ("#9", "Ready for Merge", True))
         lines = self._session_start().splitlines()
-        self.assertEqual(sorted(self.moves), ["ITEM_5", "ITEM_8", "ITEM_9"])
+        self.assertEqual(sorted(self.moves), [("ITEM_5", "FIELD", "OPT_done"), ("ITEM_8", "FIELD", "OPT_done"),
+                                              ("ITEM_9", "FIELD", "OPT_done")])
         self.assertIn('crew: moved #5, PR #8, #9 to Done on "Shop board"', lines[-1])
         self.assertNotIn("#6", lines[-1])
 
+    def test_a_ticket_moved_after_its_merge_stays_where_the_captain_put_it(self):
+        # #12 was merged, then reopened and moved to In progress: its Status is newer than the merge.
+        self._crew_board()
+        self.done_reply = self._done(("#12", "In progress", True, "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"),
+                                     ("PR #13", "In review", True, "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"),
+                                     ("#14", "QA", True, "2026-01-04T00:00:00Z", "2026-01-03T00:00:00Z"))
+        out = self._session_start()
+        self.assertEqual(self._moved(), ["ITEM_14"])
+        self.assertNotIn("#12", out)
+        self.assertNotIn("#13", out)
+
+    def test_a_card_without_a_status_moves_when_merged(self):
+        self._crew_board()
+        reply = self._done(("#5", "", True))
+        reply["data"]["node"]["items"]["nodes"][0]["fieldValueByName"] = None
+        self.done_reply = reply
+        self._session_start()
+        self.assertEqual(self._moved(), ["ITEM_5"])
+
     def test_the_done_check_skips_cards_in_done_and_other_repositories(self):
         self._crew_board()
-        reply = self._done(("#5", "Done", True), ("#6", "QA", True))
+        reply = self._done(("#5", "done ", True), ("#6", "QA", True))
         reply["data"]["node"]["items"]["nodes"][1]["content"]["repository"]["nameWithOwner"] = "acme/other"
         self.done_reply = reply
         self.assertEqual(self._session_start().splitlines()[1:], [])
@@ -651,7 +689,7 @@ class CrewContextHookTest(unittest.TestCase):
         self.assertIn('query:"-status:Done"', crew_context.DONE_QUERY)
         self.assertIn("includeClosedPrs:true", crew_context.DONE_QUERY)
 
-    def test_a_move_that_fails_is_handed_to_the_session(self):
+    def test_a_move_that_fails_is_handed_to_the_session_once(self):
         self._crew_board()
         self.move_ok = False
         self.done_reply = self._done(("#5", "In approval", True))
@@ -659,19 +697,70 @@ class CrewContextHookTest(unittest.TestCase):
         self.assertIn("#5", out)
         self.assertIn("Move it to Done now, without asking", out)
         self.assertNotIn("crew: moved", out)
+        self.assertEqual(self._prompt(), "")  # not reported, nor tried, again
+        self.assertEqual(len([c for c in self.calls if "query=" + crew_context.DONE_MUTATION in c]), 1)
+        # The card changed (someone moved it), and its merge is still newer: tried again.
+        self.move_ok = True
+        self.done_reply = self._done(("#5", "QA", True, "2026-01-09T00:00:00Z", "2026-01-05T00:00:00Z"))
+        self.assertIn("crew: moved #5", self._prompt())
 
-    def test_a_board_without_a_done_column_hands_the_move_to_the_session(self):
+    def test_after_a_failed_move_the_run_tries_no_more_and_reports_the_moves_made(self):
         self._crew_board()
-        self.done_reply = self._done(("#5", "QA", True), done_option=False)
+        self.fail_items = {"ITEM_2"}
+        self.done_reply = self._done(("#1", "Ready", True), ("#2", "Ready", True), ("#3", "Ready", True))
+        out = self._session_start()
+        self.assertEqual(self._moved(), ["ITEM_1"])
+        self.assertIn("crew: moved #1 to Done", out)
+        self.assertIn("crew: #2 on", out)
+        self.assertNotIn("#3", out)
+        self.done_reply = self._done(("#2", "Ready", True), ("#3", "Ready", True))
+        self.assertIn("crew: moved #3 to Done", self._prompt())  # the next check; #2 is the session's now
+
+    def test_a_board_without_a_done_column_hands_each_card_to_the_session_once(self):
+        self._crew_board()
+        self.done_reply = self._done(("#5", "QA", True), ("#6", "Ready", True), done_option=False)
         out = self._session_start()
         self.assertEqual(self.moves, [])
+        self.assertIn("#5, #6", out)
         self.assertIn("Move it to Done now, without asking", out)
+        self.assertEqual(self._prompt(), "")
 
-    def test_at_most_a_few_cards_move_per_run(self):
+    def test_at_most_a_few_cards_move_per_run_and_the_rest_on_the_next_check(self):
         self._crew_board()
-        self.done_reply = self._done(*[("#%d" % n, "Ready", True) for n in range(1, 9)])
-        self._session_start()
+        cards = [("#%d" % n, "Ready", True) for n in range(1, 9)]
+        self.done_reply = self._done(*cards)
+        out = self._session_start()
         self.assertEqual(len(self.moves), crew_context.DONE_MAX_MOVES)
+        self.assertNotIn("Move it to Done now", out)
+        self.done_reply = self._done(*cards[crew_context.DONE_MAX_MOVES:])
+        self._prompt()
+        self.assertEqual(len(self.moves), len(cards))
+
+    def test_moves_stop_when_the_time_budget_is_spent(self):
+        self._crew_board()
+        self.done_reply = self._done(("#1", "Ready", True), ("#2", "Ready", True))
+        clock = iter([0.0, 1.0, crew_context.DONE_BUDGET + 1])
+        with mock.patch.object(crew_context.time, "monotonic", side_effect=lambda: next(clock)):
+            out = self._session_start()
+        self.assertEqual(self._moved(), ["ITEM_1"])
+        self.assertNotIn("#2", out)
+
+    def test_later_pages_are_read_up_to_a_limit(self):
+        self._crew_board()
+        self.done_reply = [self._done(("#1", "Backlog", False), next_page="1"),
+                           self._done(("#2", "Ready", True), next_page="2"),
+                           self._done(("#3", "Ready", True), next_page="3"),
+                           self._done(("#4", "Ready", True))]
+        self._session_start()
+        self.assertEqual(self._moved(), ["ITEM_2", "ITEM_3"])
+        self.assertEqual(len(self._done_calls()), crew_context.DONE_PAGES)
+
+    def test_a_prompt_moves_merged_cards_and_says_so(self):
+        self._crew_board()
+        self.done_reply = self._done(("#5", "In approval", True))
+        out = self._prompt()
+        self.assertEqual(self._moved(), ["ITEM_5"])
+        self.assertIn("crew: moved #5 to Done", out)
 
     def test_prompts_check_for_merged_cards_at_most_once_a_minute(self):
         self._crew_board()
@@ -684,11 +773,13 @@ class CrewContextHookTest(unittest.TestCase):
         self._session_start(step=1)  # a session start always checks
         self.assertEqual(len(self._done_calls()), 3)
 
-    def test_a_failed_done_check_prints_nothing(self):
+    def test_a_failed_done_check_prints_nothing_and_is_throttled_too(self):
         self._crew_board()
         self.done_reply = {"errors": [{"message": "boom"}]}
         self.assertEqual(self._session_start().splitlines()[1:], [])
         self.assertEqual(self.moves, [])
+        self._prompt(step=10)
+        self.assertEqual(len(self._done_calls()), 1)
 
     def test_remote_and_board_rules(self):
         self.assertTrue(crew_context.is_crew_board(_board("x", ["in approval", " QA "])))
