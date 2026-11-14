@@ -47,16 +47,20 @@ where it is and stop: verifying it early tests code nobody has approved yet.
   commit alone. Its `action` says what to do:
   - `test`: no QA verdict yet. Check out the PR (`gh pr checkout PR`),
     confirm `git rev-parse HEAD` is its head commit, and test it.
-
-  Before any checkout, keep the working copy's own changes safe: they are
-  someone's work, not QA's. If `git status --porcelain --untracked-files=no`
-  prints anything, `git stash push -m "qa #N: before checkout"` and say so;
-  step 5 puts it back.
   - `retest`: the last verdict tested another commit. Run every case again
     on the new one. A re-test is a full test; a fix can break what passed
     before.
   - `up-to-date`: you already gave a verdict on this commit. Say so, and
     stop. Nothing has changed to test.
+
+Before any checkout, keep the working copy's own changes safe: they are
+someone's work, not QA's. Note the branch you start on
+(`start=$(git branch --show-current)`). If
+`git status --porcelain --untracked-files=no` prints anything,
+`git stash push -m "qa #N: from $start"` and say so; step 5 deals with it. If
+you stop at any point after stashing (the checkout fails, the head commit
+doesn't match), go back with `git checkout "$start" && git stash pop` before
+you stop, and if that fails, report the stash and its branch.
 
 ## 2. Gate on the repository's own checks
 
@@ -126,8 +130,15 @@ base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 git restore .                     # only what the test run changed: the tree was clean, or stashed, before
 git checkout "$base" && git pull --ff-only
 git branch --show-current         # must print $base
-git stash pop                     # only if step 1 stashed: the working copy's own changes back
 ```
+
+If step 1 stashed, the changes belong to the branch you started on:
+
+- started on `$base`: `git stash pop`, so they are back where they were;
+- started on another branch: leave the stash where it is, never pop it onto
+  `$base`, and report it: its name (`qa #N: from <start>`), the branch it
+  came from, and the line that restores it,
+  `git checkout <start> && git stash pop`.
 
 Write `results.json` and `verdict.md` outside the working tree (or delete
 them) so they don't follow you onto it. If the switch, the pull or the stash
@@ -141,7 +152,8 @@ Give the report `qa_report.py` prints, plus:
 
 - the commit tested, and how (local run, test data used),
 - the comment's link, and the column each board's card is now in,
-- the branch the working copy is back on (the default branch),
+- the branch the working copy is back on (the default branch), and any
+  stash QA left, with the branch it came from and how to restore it,
 - one bug ticket per failure, filed by QA with the `bug-reporting` skill and
   labelled **QA testing**, with each ticket's link,
 - anything the criteria never covered but a user will hit, as proposed new
