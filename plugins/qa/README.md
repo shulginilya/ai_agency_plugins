@@ -34,7 +34,9 @@ When it's done testing, it comments the verdict on the ticket and moves the
 card: an **accept** to **Ready for Merge**, a **reject** back to **In
 progress**, with the comment saying exactly what fails. If the board has no
 Ready for Merge column, QA adds it after QA, keeping every other card
-where it was. QA never blocks a ticket; when it can't check a criterion, the
+where it was. Then it checks out the repository's default branch (`main`,
+`master` or whatever GitHub says) and fast-forwards it, so the working copy
+never stays on the PR branch it tested. QA never blocks a ticket; when it can't check a criterion, the
 verdict is reject and the comment suggests blocking, for the Captain to decide.
 
 **Review links are paused.** QA checks out the PR's head commit and tests it

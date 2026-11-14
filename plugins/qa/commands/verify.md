@@ -22,7 +22,12 @@ Follow the `acceptance-testing` skill:
    Then, by its action:
    `test` or `retest` means check out the PR (`gh pr checkout <pr>`), confirm `git rev-parse HEAD`
    is its head commit, and run every case locally; `up-to-date` means you already verdicted this
-   commit, so say so and stop.
+   commit, so say so and stop. Before the checkout, note where you start,
+   `start=$(git branch --show-current); [ -n "$start" ] || start=$(git rev-parse HEAD)` (the commit on a
+   detached HEAD), and if
+   `git status --porcelain --untracked-files=no` prints anything, `git stash push -m "qa #<n>: from $start"`
+   and say so: those changes are someone's work. If you stop after stashing and before step 5,
+   `git checkout "$start" && git stash pop` first, or report the stash and its branch if that fails.
 2. Run the repository's checks (`/developer:verify`). If they fail, the verdict is reject.
 3. Execute every case against the app running locally from that commit and record
    status and evidence; a check you couldn't make is `unchecked`, with why. Explore
@@ -35,6 +40,16 @@ Follow the `acceptance-testing` skill:
    - accept: `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py move --project <N> --issue <n> --status "Ready for Merge" --create-column --after QA`
      (adds the column, without asking, if the board lacks it);
    - reject: `... board.py move --project <N> --issue <n> --status "In progress"`.
-6. Report the verdict, the commit tested, the comment's link, where the card is now, any
-   column you added, and one bug ticket per failure, filed with the `bug-reporting` skill and
+
+   Then, on accept and on reject, leave the PR branch: check out the default branch, looked up
+   and never assumed to be `main`, and fast-forward it:
+   `base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name) && git restore . && git checkout "$base" && git pull --ff-only`
+   (`git restore .` drops only what the test run changed: the tree was clean or stashed before). If
+   step 1 stashed: started on the default branch, `git stash pop`; started on another branch, leave the
+   stash (never pop it onto the default branch) and report its name, its branch and
+   `git checkout <start> && git stash pop` to restore it. Keep `results.json` and `verdict.md` outside the working tree. If
+   the switch, pull or pop fails, don't force it and never drop the stash: report the branch you are
+   on, what is still stashed, and why.
+6. Report the verdict, the commit tested, the comment's link, where the card is now, the branch
+   you are back on, any stash left with its branch, any column you added, and one bug ticket per failure, filed with the `bug-reporting` skill and
    labelled "QA testing", with each ticket's link.

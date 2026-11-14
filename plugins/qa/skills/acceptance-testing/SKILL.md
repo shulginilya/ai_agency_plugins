@@ -4,7 +4,7 @@ description: Verifies a built change — a branch or a PR, checked out at its he
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Acceptance testing
@@ -52,6 +52,17 @@ where it is and stop: verifying it early tests code nobody has approved yet.
     before.
   - `up-to-date`: you already gave a verdict on this commit. Say so, and
     stop. Nothing has changed to test.
+
+Before any checkout, keep the working copy's own changes safe: they are
+someone's work, not QA's. Note where you start: the branch, or the commit
+on a detached HEAD, where `git branch --show-current` prints nothing
+(`start=$(git branch --show-current); [ -n "$start" ] || start=$(git rev-parse HEAD)`).
+If
+`git status --porcelain --untracked-files=no` prints anything,
+`git stash push -m "qa #N: from $start"` and say so; step 5 deals with it. If
+you stop at any point after stashing (the checkout fails, the head commit
+doesn't match), go back with `git checkout "$start" && git stash pop` before
+you stop, and if that fails, report the stash and its branch.
 
 ## 2. Gate on the repository's own checks
 
@@ -112,12 +123,39 @@ what was already tested. Post it on the ticket with `gh issue comment N
 
 Never move a ticket to Ready for Merge on anything less than an accept.
 
+Then, on accept and on reject alike, leave the PR branch: check out the
+repository's default branch and bring it up to date, so the next step never
+starts on the branch QA tested. Look the branch up, never assume `main`:
+
+```bash
+base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+git restore .                     # only what the test run changed: the tree was clean, or stashed, before
+git checkout "$base" && git pull --ff-only
+git branch --show-current         # must print $base
+```
+
+If step 1 stashed, the changes belong to the branch you started on:
+
+- started on `$base`: `git stash pop`, so they are back where they were;
+- started on another branch: leave the stash where it is, never pop it onto
+  `$base`, and report it: its name (`qa #N: from <start>`), the branch it
+  came from, and the line that restores it,
+  `git checkout <start> && git stash pop`.
+
+Write `results.json` and `verdict.md` outside the working tree (or delete
+them) so they don't follow you onto it. If the switch, the pull or the stash
+pop fails (an untracked file in the way, a diverged local branch, a
+conflict), don't force it and never drop the stash: say in the report which
+branch you are on, what is still stashed, and why.
+
 ## 6. Report
 
 Give the report `qa_report.py` prints, plus:
 
 - the commit tested, and how (local run, test data used),
 - the comment's link, and the column each board's card is now in,
+- the branch the working copy is back on (the default branch), and any
+  stash QA left, with the branch it came from and how to restore it,
 - one bug ticket per failure, filed by QA with the `bug-reporting` skill and
   labelled **QA testing**, with each ticket's link,
 - anything the criteria never covered but a user will hit, as proposed new

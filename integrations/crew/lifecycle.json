@@ -51,7 +51,7 @@
       ]
     },
     "Done": {
-      "meaning": "Merged. GitHub closed the ticket through the PR's Closes #N.",
+      "meaning": "Merged. GitHub closed the ticket through the PR's Closes #N; a merged PR puts its ticket here from any column.",
       "while_here": []
     }
   },
@@ -69,6 +69,6 @@
     {"from": "In approval", "to": "QA", "by": ["captain"], "how": "The Captain approves the code; the move starts /qa:verify"},
     {"from": "QA", "to": "In progress", "by": ["qa"], "how": "Reject: a comment on what fails, a bug ticket per failure", "back": true},
     {"from": "QA", "to": "Ready for Merge", "by": ["qa"], "how": "/qa:verify accept: every criterion passed with evidence (adds the column if the board lacks it)"},
-    {"from": "Ready for Merge", "to": "Done", "by": ["captain", "github"], "how": "The Captain merges; GitHub closes the ticket and the board moves it"}
+    {"from": "Ready for Merge", "to": "Done", "by": ["captain", "github", "crew"], "how": "The Captain merges; GitHub closes the ticket, and the crew hook moves the card to Done from whatever column it is in once its PR is merged"}
   ]
 }
