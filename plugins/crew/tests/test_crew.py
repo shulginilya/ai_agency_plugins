@@ -755,6 +755,20 @@ class CrewContextHookTest(unittest.TestCase):
         self.assertEqual(self._moved(), ["ITEM_2", "ITEM_3"])
         self.assertEqual(len(self._done_calls()), crew_context.DONE_PAGES)
 
+    def test_a_later_page_that_fails_keeps_the_cards_already_read_and_what_was_handed_over(self):
+        self._crew_board()
+        self.move_ok = False
+        self.done_reply = [self._done(("#2", "Ready", True), next_page="1"), self._done(("#250", "Ready", True))]
+        self.assertIn("crew: #2 on", self._session_start())  # #2 handed over; the run tries no more
+        self.move_ok = True
+        self.done_reply = [self._done(("#2", "Ready", True), next_page="1"), self._done(("#250", "Ready", True))]
+        self.assertIn("crew: moved #250", self._prompt())
+        self.done_reply = [self._done(("#3", "Ready", True), next_page="1"), {"errors": [{"message": "boom"}]}]
+        self.assertIn("crew: moved #3", self._prompt())  # page 1 still counts
+        self.move_ok = False
+        self.done_reply = [self._done(next_page="1"), self._done(("#2", "Ready", True))]
+        self.assertEqual(self._prompt(), "")  # #2 was on an unread page last time: still handed over, not retried
+
     def test_a_prompt_moves_merged_cards_and_says_so(self):
         self._crew_board()
         self.done_reply = self._done(("#5", "In approval", True))

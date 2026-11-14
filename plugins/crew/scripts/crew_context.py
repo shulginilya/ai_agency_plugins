@@ -439,8 +439,10 @@ def save_done_state(path: Path, repo: str, now: float, failed: Dict[str, str]) -
         pass
 
 
-def read_unfinished(board_id: str, repo: str) -> Optional[Tuple[Optional[str], Optional[str], List[Tuple[str, str, str]]]]:
-    """(Status field ID, Done option ID, merged cards) over up to DONE_PAGES pages, or None on no usable answer."""
+def read_unfinished(board_id: str, repo: str
+                    ) -> Optional[Tuple[Optional[str], Optional[str], List[Tuple[str, str, str]], bool]]:
+    """(Status field ID, Done option ID, merged cards, whether every card was read) over up to DONE_PAGES
+    pages, or None on no usable answer."""
     field_id = option_id = None
     cards: List[Tuple[str, str, str]] = []
     after: Optional[str] = None
@@ -454,15 +456,15 @@ def read_unfinished(board_id: str, repo: str) -> Optional[Tuple[Optional[str], O
             data = None
         node = (data.get("data") or {}).get("node") if isinstance(data, dict) else None
         if not isinstance(node, dict):
-            return None if page == 0 else (field_id, option_id, cards)
+            return None if page == 0 else (field_id, option_id, cards, False)
         if page == 0:
             field_id, option_id = done_option(data)
         cards += merged_cards(data, repo)
         info = (node.get("items") or {}).get("pageInfo") or {}
         after = info.get("endCursor") if info.get("hasNextPage") else None
         if not isinstance(after, str) or not after:
-            break
-    return field_id, option_id, cards
+            return field_id, option_id, cards, True
+    return field_id, option_id, cards, False
 
 
 def move_merged_to_done(repo: str, board_id: str, path: Path, now: float,
@@ -480,10 +482,11 @@ def move_merged_to_done(repo: str, board_id: str, path: Path, now: float,
     found = read_unfinished(board_id, repo)
     if found is None:
         return [], []
-    field_id, option_id, cards = found
+    field_id, option_id, cards, complete = found
     _, failed = done_state(path, repo)  # as it is now: another session may have reported meanwhile
-    pending = {label for label, _, _ in cards}
-    failed = {k: v for k, v in failed.items() if k in pending}  # moved since, by anyone: forget it
+    if complete:  # cards on pages not read keep what was recorded about them
+        pending = {label for label, _, _ in cards}
+        failed = {k: v for k, v in failed.items() if k in pending}  # moved since, by anyone: forget it
     moved: List[str] = []
     report: List[str] = []
     started = time.monotonic()

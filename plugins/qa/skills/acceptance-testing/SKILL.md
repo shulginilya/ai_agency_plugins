@@ -47,6 +47,11 @@ where it is and stop: verifying it early tests code nobody has approved yet.
   commit alone. Its `action` says what to do:
   - `test`: no QA verdict yet. Check out the PR (`gh pr checkout PR`),
     confirm `git rev-parse HEAD` is its head commit, and test it.
+
+  Before any checkout, keep the working copy's own changes safe: they are
+  someone's work, not QA's. If `git status --porcelain --untracked-files=no`
+  prints anything, `git stash push -m "qa #N: before checkout"` and say so;
+  step 5 puts it back.
   - `retest`: the last verdict tested another commit. Run every case again
     on the new one. A re-test is a full test; a fix can break what passed
     before.
@@ -118,15 +123,17 @@ starts on the branch QA tested. Look the branch up, never assume `main`:
 
 ```bash
 base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
-git restore .                     # what the test run changed (lockfiles, builds): QA never commits
+git restore .                     # only what the test run changed: the tree was clean, or stashed, before
 git checkout "$base" && git pull --ff-only
 git branch --show-current         # must print $base
+git stash pop                     # only if step 1 stashed: the working copy's own changes back
 ```
 
 Write `results.json` and `verdict.md` outside the working tree (or delete
-them) so they don't follow you onto it. If the switch or the pull still fails
-(an untracked file in the way, a diverged local branch), don't force it:
-say in the report which branch you are on and why.
+them) so they don't follow you onto it. If the switch, the pull or the stash
+pop fails (an untracked file in the way, a diverged local branch, a
+conflict), don't force it and never drop the stash: say in the report which
+branch you are on, what is still stashed, and why.
 
 ## 6. Report
 
