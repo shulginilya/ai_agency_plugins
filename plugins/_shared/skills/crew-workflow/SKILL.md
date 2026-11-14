@@ -4,7 +4,7 @@ description: Runs ticket work through the crew in a repository whose GitHub Proj
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.4.1"
+  version: "0.4.2"
 ---
 
 # Crew workflow
@@ -88,7 +88,7 @@ and what the Captain decides next.
      review.
    - approve: the card goes to In approval, or to QA when the ticket is
      labelled `skip_approval`.
-   - stop: the third round still found issues. The reviewer moved the card
+   - stop: the fourth round still found issues. The reviewer moved the card
      to Ready, @mentioned the Captain with a summary and emailed it. Stop
      and report: no further fix or review round until the Captain picks
      the ticket up again (its next review starts again at round 1, as does
@@ -161,7 +161,7 @@ asking:
 | In progress → In review | `/developer:ship`, after the PR exists |
 | In review → In approval, or QA with `skip_approval` | `/code-reviewer:review` approve |
 | In review → In progress | `/code-reviewer:review` request changes |
-| In review → Ready | `/code-reviewer:review` stop: third round with issues left; hands the ticket to the Captain |
+| In review → Ready | `/code-reviewer:review` stop: fourth round with issues left; hands the ticket to the Captain |
 | In approval → QA | the Captain only; the move starts `/qa:verify` (rule 5) |
 | QA → Ready for Merge | `/qa:verify` accept (adds the column if the board lacks it) |
 | QA → In progress | `/qa:verify` reject |

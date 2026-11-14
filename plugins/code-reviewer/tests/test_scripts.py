@@ -84,7 +84,7 @@ class VerdictTest(unittest.TestCase):
     def test_exit_codes(self):
         self.assertEqual(run_report(findings()).returncode, 0)
         self.assertEqual(run_report({"findings": []}).returncode, 2)
-        self.assertEqual(run_report(findings(finding("minor")), "--round", "3").returncode, 3)
+        self.assertEqual(run_report(findings(finding("minor")), "--round", "4").returncode, 3)
         self.assertEqual(run_report(findings(), "--round", "0").returncode, 2)
 
 
@@ -92,35 +92,36 @@ class StopTest(unittest.TestCase):
     def judge(self, *items, rnd, **extra):
         return review_report.judge(review_report.load(dict(findings(*items), round=rnd, **extra)))
 
-    def test_rounds_one_and_two_keep_the_usual_verdicts(self):
-        for rnd in (1, 2):
+    def test_rounds_one_to_three_keep_the_usual_verdicts(self):
+        for rnd in (1, 2, 3):
             self.assertEqual(self.judge(finding("major"), rnd=rnd)["verdict"], "request-changes")
             self.assertEqual(self.judge(finding("minor"), rnd=rnd)["verdict"], "approve")
 
-    def test_round_three_with_any_blocker_major_or_minor_left_stops_into_ready(self):
+    def test_round_four_with_any_blocker_major_or_minor_left_stops_into_ready(self):
+        self.assertEqual(review_report.MAX_ROUNDS, 4)
         for severity in ("blocker", "major", "minor"):
-            for rnd in (3, 4):
+            for rnd in (4, 5):
                 result = self.judge(finding(severity), rnd=rnd, captain="octocat")
                 self.assertEqual(result["verdict"], "stop", (severity, rnd))
                 self.assertEqual(result["move_to"], "Ready")
 
-    def test_round_three_with_only_nits_or_nothing_still_approves(self):
-        self.assertEqual(self.judge(rnd=3)["verdict"], "approve")
-        self.assertEqual(self.judge(finding("nit", failure=""), rnd=3)["verdict"], "approve")
+    def test_round_four_with_only_nits_or_nothing_still_approves(self):
+        self.assertEqual(self.judge(rnd=4)["verdict"], "approve")
+        self.assertEqual(self.judge(finding("nit", failure=""), rnd=4)["verdict"], "approve")
 
     def test_a_stop_even_wins_over_skip_approval(self):
-        self.assertEqual(self.judge(finding("minor"), rnd=3, skip_approval=True)["move_to"], "Ready")
+        self.assertEqual(self.judge(finding("minor"), rnd=4, skip_approval=True)["move_to"], "Ready")
 
     def test_stop_body_opens_with_the_captain_mention_and_a_summary(self):
         done = run_report(findings(finding("major"), finding("minor"), finding("nit", failure="")),
-                          "--round", "3", "--captain", "@octocat", "--commit", "def5678")
+                          "--round", "4", "--captain", "@octocat", "--commit", "def5678")
         self.assertEqual(done.returncode, 3, done.stderr)
-        self.assertTrue(done.stdout.startswith("@octocat **Review stopped after 3 rounds**: 1 major, 1 minor "
+        self.assertTrue(done.stdout.startswith("@octocat **Review stopped after 4 rounds**: 1 major, 1 minor "
                                                "still open"), done.stdout)
         self.assertIn("Code review: **STOP**", done.stdout)
         self.assertIn("**Ready**", done.stdout)
         self.assertEqual(review_report.verdict_of(done.stdout),
-                         {"verdict": "stop", "pr": "43", "commit": "def5678", "round": "3"})
+                         {"verdict": "stop", "pr": "43", "commit": "def5678", "round": "4"})
 
     def test_bad_round_or_captain_is_refused(self):
         for bad in (0, "3", True):

@@ -20,7 +20,7 @@ A PR that is closed or merged is reported as such, with action `closed`.
 It also prints the review `round` this one would be: 1 plus the request-changes
 verdicts given since the last approve or stop. An approve ends a fix loop (a
 QA reject after it starts a new one at round 1), and so does a stop
-(review_report.py stops the loop on round 3 when issues are left). And the
+(review_report.py stops the loop on round 4 when issues are left). And the
 `captain` to @mention on a stop: the PR's first assignee, else the repository
 owner.
 

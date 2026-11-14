@@ -1,5 +1,5 @@
 ---
-description: Review a pull request's code in a fresh context and post a PR review; approve moves the ticket to In approval for the Captain's review (to QA when labelled skip_approval), request changes moves it back to In progress, and a third round with issues left stops, moves it to Ready and hands it to the Captain.
+description: Review a pull request's code in a fresh context and post a PR review; approve moves the ticket to In approval for the Captain's review (to QA when labelled skip_approval), request changes moves it back to In progress, and a fourth round with issues left stops, moves it to Ready and hands it to the Captain.
 argument_hint: "[PR number; nothing for the current branch's PR]"
 model: claude-opus-5-5
 effort: high
@@ -15,7 +15,7 @@ Follow the `pr-review` skill:
 1. Run `python {{PLUGIN_ROOT}}/skills/pr-review/scripts/pr_scope.py --pr <N>`. `up-to-date` or
    `closed`: say so and stop. `review` or `re-review`: check out the head (`gh pr checkout <N>`) and
    confirm `git rev-parse HEAD` is the head commit it printed. A re-review covers the whole new head.
-   Note the `round R of 3; captain @LOGIN` line.
+   Note the `round R of 4; captain @LOGIN` line.
 2. Read every changed file in full and the callers of anything whose contract changed. Run the
    repo's checks (`/developer:verify`): a red check is a blocker.
 3. Run the correctness and tests passes always, and security, performance and accessibility when
@@ -23,7 +23,7 @@ Follow the `pr-review` skill:
 4. Write `findings.json` and run
    `python {{PLUGIN_ROOT}}/skills/pr-review/scripts/review_report.py findings.json --commit <sha> --round <R> --captain <LOGIN> > review.md`.
    Add `--skip-approval` when pr_scope shows every closing ticket's approve as `QA`.
-   Round 3 or later with any blocker, major or minor left means stop (exit 3); otherwise any blocker
+   Round 4 or later with any blocker, major or minor left means stop (exit 3); otherwise any blocker
    or major means request changes, and anything else approve.
 5. Post it: `gh pr review <N> --comment --body-file review.md`. Then move each closing ticket's card
    on every board pr_scope listed:
