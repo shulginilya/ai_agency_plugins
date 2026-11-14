@@ -16,8 +16,8 @@
         "path": "claude-code/code-reviewer",
         "ref": "dist"
       },
-      "description": "Crew code review: reads every PR the developer ships in a fresh context for correctness, security, performance, accessibility and tests, and posts a review whose findings each carry a failure scenario. Approve moves the ticket to In approval (QA if labelled skip_approval); request changes, back to In progress; a third round with issues left stops it in Ready for the Captain. Never pushes code. Use when asked to review a PR or its code, check a diff before QA, or re-review a PR after a fix.",
-      "version": "0.3.0",
+      "description": "Crew code review: reads every PR the developer ships in a fresh context for correctness, security, performance, accessibility and tests, and posts a review whose findings each carry a failure scenario. Approve moves the ticket to In approval (QA if labelled skip_approval); request changes, back to In progress; a fourth round with issues left stops it in Ready for the Captain. Never pushes code. Use when asked to review a PR or its code, check a diff before QA, or re-review a PR after a fix.",
+      "version": "0.4.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -39,7 +39,7 @@
         "ref": "dist"
       },
       "description": "The crew's workflow, owned by no role: in a GitHub repository with a crew board it points every session at the crew-workflow skill (each step through its crew command, no asking from In Definition to In approval, stops at In approval, starts QA when the Captain moves a card to QA, stops at Ready for Merge); in one without, the session offers to create the board. Also creates crew boards. Use when asked to do, work or ship a ticket, pick up the next issue, or create a project board.",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
