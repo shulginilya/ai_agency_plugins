@@ -38,8 +38,8 @@
         "path": "claude-code/crew",
         "ref": "dist"
       },
-      "description": "The crew's workflow, owned by no role: in a GitHub repository with a crew board it points every session at the crew-workflow skill (each step through its crew command, no asking from In Definition to In approval, stops at In approval, starts QA when the Captain moves a card to QA, stops at Ready for Merge); in one without, the session offers to create the board. Also creates crew boards. Use when asked to do, work or ship a ticket, pick up the next issue, or create a project board.",
-      "version": "0.4.2",
+      "description": "The crew's workflow, owned by no role: in a GitHub repository with a crew board it points every session at the crew-workflow skill (each step through its crew command, no asking until In approval, stops at In approval, starts QA when the Captain moves a card to QA, stops at Ready for Merge, moves merged tickets to Done); in one without, the session offers to create the board. Also creates crew boards. Use when asked to do, work or ship a ticket, pick up the next issue, or create a project board.",
+      "version": "0.5.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
@@ -177,7 +177,7 @@
         "ref": "dist"
       },
       "description": "Quality assurance for the crew: turns a ticket's acceptance criteria into a test plan before work starts, verifies a change in the QA column against every criterion with evidence, on its PR's head commit run locally, gives an accept or reject verdict and moves the ticket to Ready for Merge or back to In progress, and files reproducible bug tickets labelled \"QA testing\". Use when asked to test, QA or verify a change, check acceptance criteria, write test cases or a test plan, or report a bug.",
-      "version": "0.7.2",
+      "version": "0.8.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
