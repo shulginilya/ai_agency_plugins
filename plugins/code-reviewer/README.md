@@ -29,7 +29,7 @@ performance, accessibility and test gaps.
 - **request changes**: at least one blocker or major. The ticket moves back
   to **In progress**. The developer fixes it, pushes to the same PR, and the
   new head gets a full re-review.
-- **stop**: the third review round still finds a blocker, major or minor.
+- **stop**: the fourth review round still finds a blocker, major or minor.
   The fix loop isn't converging, so the ticket moves to **Ready**, the PR
   review opens with an @mention of the Captain (the PR's assignee, else the
   repo owner) and a summary of what's left, the Captain also gets the

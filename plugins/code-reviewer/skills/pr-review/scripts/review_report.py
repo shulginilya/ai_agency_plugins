@@ -20,7 +20,7 @@ The verdict follows fixed rules, so it cannot be argued into an approve:
 
     approve          no blocker and no major finding
     request-changes  at least one blocker or major finding
-    stop             round 3 or later, and any blocker, major or minor left
+    stop             round 4 or later, and any blocker, major or minor left
 
 `round` is the review round pr_scope.py printed (1 for the first review
 after an approve, a stop, or none yet). On a stop the review loop ends: the body opens
@@ -50,7 +50,7 @@ from typing import Any, Dict, List, Optional
 SEVERITIES = ("blocker", "major", "minor", "nit")
 BLOCKING = ("blocker", "major")
 OPEN = ("blocker", "major", "minor")
-MAX_ROUNDS = 3
+MAX_ROUNDS = 4
 REQUIRED_PASSES = ("correctness", "tests")
 PASSES = ("correctness", "security", "performance", "accessibility", "tests")
 SKIP_APPROVAL = "skip_approval"

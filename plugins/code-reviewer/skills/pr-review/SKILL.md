@@ -1,10 +1,10 @@
 ---
 name: pr-review
-description: Reviews a pull request's code in a fresh context — correctness and tests always, security, performance and accessibility when the diff touches them — and posts a PR review whose findings each carry a concrete failure scenario. Gives approve or request changes by fixed rules; approve moves the ticket to In approval for the Captain's review (to QA when labelled skip_approval), request changes moves it back to In progress. On the third round with issues left it stops, moves the ticket to Ready and hands it to the Captain. Re-reviews the new head after a fix push. Use when asked to review a PR or its code, check a diff before QA, find bugs in a shipped change, or re-review a PR after a fix.
+description: Reviews a pull request's code in a fresh context — correctness and tests always, security, performance and accessibility when the diff touches them — and posts a PR review whose findings each carry a concrete failure scenario. Gives approve or request changes by fixed rules; approve moves the ticket to In approval for the Captain's review (to QA when labelled skip_approval), request changes moves it back to In progress. On the fourth round with issues left it stops, moves the ticket to Ready and hands it to the Captain. Re-reviews the new head after a fix push. Use when asked to review a PR or its code, check a diff before QA, find bugs in a shipped change, or re-review a PR after a fix.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # PR review
@@ -39,7 +39,7 @@ when the ticket is labelled `skip_approval`), and an `action`:
 - `up-to-date`: you already gave a verdict on this head. Say so and stop.
 - `closed`: the PR is closed or merged. Say so and stop.
 
-On `review` and `re-review` it also prints `round R of 3; captain @LOGIN`.
+On `review` and `re-review` it also prints `round R of 4; captain @LOGIN`.
 The round is 1 plus the request-changes verdicts since the last **approve**
 or **stop**. Either one ends the fix loop: a review after a QA reject, or
 after the Captain picks a stopped ticket up again, starts at round 1. The Captain
@@ -114,13 +114,13 @@ can't write one, you have a hunch, not a finding. Drop it.
 | --- | --- | --- |
 | **approve** | no blocker and no major finding | moves to **In approval**, for the Captain's own code review; to **QA** when labelled `skip_approval` |
 | **request changes** | at least one blocker or major | moves to **In progress** |
-| **stop** | round 3 or later, and any blocker, major **or minor** left | moves to **Ready**; the review loop ends |
+| **stop** | round 4 or later, and any blocker, major **or minor** left | moves to **Ready**; the review loop ends |
 
-In rounds 1 and 2, minor findings go in the review either way and the
-developer decides whether to fix them in this PR. From round 3 a minor left
-unfixed stops the loop too: three rounds that still leave defects mean the
+In rounds 1 to 3, minor findings go in the review either way and the
+developer decides whether to fix them in this PR. From round 4 a minor left
+unfixed stops the loop too: four rounds that still leave defects mean the
 fix loop isn't converging, and the Captain decides what happens next. A
-third round with only nits, or nothing, approves as usual.
+fourth round with only nits, or nothing, approves as usual.
 
 ## 5. Post the review, then move the ticket
 
