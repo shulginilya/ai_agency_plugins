@@ -78,6 +78,9 @@ class CrewContextHookTest(unittest.TestCase):
         self.remote = "git@github.com:acme/shop.git"
         self.gh_reply = None  # None: gh can't run (offline, missing, timeout)
         self.qa_reply = None  # the QA check's reply; None: no answer
+        self.done_reply = None  # the merged-to-Done check's reply; None: no answer
+        self.move_ok = True  # whether a move to Done succeeds
+        self.moves = []  # item IDs moved to Done
         self.event = "SessionStart"
         self.repo_view = None
         self.calls = []
@@ -94,6 +97,14 @@ class CrewContextHookTest(unittest.TestCase):
         if args[:3] == ["gh", "repo", "view"]:
             return self.repo_view
         if args[:3] == ["gh", "api", "graphql"]:
+            if "query=" + crew_context.DONE_QUERY in args:
+                return None if self.done_reply is None else json.dumps(self.done_reply)
+            if "query=" + crew_context.DONE_MUTATION in args:
+                if not self.move_ok:
+                    return None
+                item = next(a[5:] for a in args if a.startswith("item="))
+                self.moves.append(item)
+                return json.dumps({"data": {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": item}}}})
             if "query=" + crew_context.QA_QUERY in args:
                 if self.qa_reply is None:
                     return None
@@ -124,7 +135,11 @@ class CrewContextHookTest(unittest.TestCase):
     def _graphql_calls(self):
         """The board lookups (the QA check is counted by _qa_calls)."""
         return [c for c in self.calls if c[:3] == ["gh", "api", "graphql"]
-                and "query=" + crew_context.QA_QUERY not in c]
+                and not {"query=" + q for q in (crew_context.QA_QUERY, crew_context.DONE_QUERY,
+                                                crew_context.DONE_MUTATION)} & set(c)]
+
+    def _done_calls(self):
+        return [c for c in self.calls if "query=" + crew_context.DONE_QUERY in c]
 
     def _qa_calls(self):
         return [c for c in self.calls if "query=" + crew_context.QA_QUERY in c]
@@ -599,6 +614,81 @@ class CrewContextHookTest(unittest.TestCase):
             out = self._session_start()
         self.assertIn('crew board "Shop board"', out)
         self.assertEqual([p.name for p in self.data.iterdir() if p.suffix == ".tmp"], [])
+
+    @staticmethod
+    def _done(*cards, done_option=True):
+        """The board's cards not in Done: (label, column, merged) where label is "#N" for an issue, "PR #N" for a PR."""
+        nodes = []
+        for label, column, merged in cards:
+            number = int(label.split("#")[1])
+            content = {"number": number, "repository": {"nameWithOwner": "acme/shop"}}
+            if label.startswith("PR"):
+                content["merged"] = merged
+            else:
+                content["closedByPullRequestsReferences"] = {"nodes": [{"merged": False}, {"merged": merged}]}
+            nodes.append({"id": "ITEM_%d" % number, "fieldValueByName": {"name": column}, "content": content})
+        options = [{"id": "OPT_qa", "name": "QA"}] + ([{"id": "OPT_done", "name": "Done"}] if done_option else [])
+        return {"data": {"node": {"field": {"id": "FIELD", "options": options}, "items": {"nodes": nodes}}}}
+
+    def test_a_merged_ticket_moves_to_done_from_any_column(self):
+        self._crew_board()
+        self.done_reply = self._done(("#5", "In approval", True), ("#6", "In review", False),
+                                     ("PR #8", "Ready", True), ("#9", "Ready for Merge", True))
+        lines = self._session_start().splitlines()
+        self.assertEqual(sorted(self.moves), ["ITEM_5", "ITEM_8", "ITEM_9"])
+        self.assertIn('crew: moved #5, PR #8, #9 to Done on "Shop board"', lines[-1])
+        self.assertNotIn("#6", lines[-1])
+
+    def test_the_done_check_skips_cards_in_done_and_other_repositories(self):
+        self._crew_board()
+        reply = self._done(("#5", "Done", True), ("#6", "QA", True))
+        reply["data"]["node"]["items"]["nodes"][1]["content"]["repository"]["nameWithOwner"] = "acme/other"
+        self.done_reply = reply
+        self.assertEqual(self._session_start().splitlines()[1:], [])
+        self.assertEqual(self.moves, [])
+
+    def test_the_done_query_leaves_done_cards_out_on_githubs_side(self):
+        self.assertIn('query:"-status:Done"', crew_context.DONE_QUERY)
+        self.assertIn("includeClosedPrs:true", crew_context.DONE_QUERY)
+
+    def test_a_move_that_fails_is_handed_to_the_session(self):
+        self._crew_board()
+        self.move_ok = False
+        self.done_reply = self._done(("#5", "In approval", True))
+        out = self._session_start()
+        self.assertIn("#5", out)
+        self.assertIn("Move it to Done now, without asking", out)
+        self.assertNotIn("crew: moved", out)
+
+    def test_a_board_without_a_done_column_hands_the_move_to_the_session(self):
+        self._crew_board()
+        self.done_reply = self._done(("#5", "QA", True), done_option=False)
+        out = self._session_start()
+        self.assertEqual(self.moves, [])
+        self.assertIn("Move it to Done now, without asking", out)
+
+    def test_at_most_a_few_cards_move_per_run(self):
+        self._crew_board()
+        self.done_reply = self._done(*[("#%d" % n, "Ready", True) for n in range(1, 9)])
+        self._session_start()
+        self.assertEqual(len(self.moves), crew_context.DONE_MAX_MOVES)
+
+    def test_prompts_check_for_merged_cards_at_most_once_a_minute(self):
+        self._crew_board()
+        self.done_reply = self._done()
+        self._prompt()
+        self._prompt(step=10)
+        self.assertEqual(len(self._done_calls()), 1)
+        self._prompt(step=crew_context.DONE_INTERVAL)
+        self.assertEqual(len(self._done_calls()), 2)
+        self._session_start(step=1)  # a session start always checks
+        self.assertEqual(len(self._done_calls()), 3)
+
+    def test_a_failed_done_check_prints_nothing(self):
+        self._crew_board()
+        self.done_reply = {"errors": [{"message": "boom"}]}
+        self.assertEqual(self._session_start().splitlines()[1:], [])
+        self.assertEqual(self.moves, [])
 
     def test_remote_and_board_rules(self):
         self.assertTrue(crew_context.is_crew_board(_board("x", ["in approval", " QA "])))

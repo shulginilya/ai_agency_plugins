@@ -4,7 +4,7 @@ description: Runs ticket work through the crew in a repository whose GitHub Proj
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.4.2"
+  version: "0.5.0"
 ---
 
 # Crew workflow
@@ -47,6 +47,10 @@ Without either line, this skill does not apply.
    without asking, one ticket at a time, then go on with the Captain's
    message. The hook checks the board at session start and on each message.
 6. **Stop at Ready for Merge.** Never merge a PR. The Captain merges.
+   **A merged PR puts its ticket in Done**, whatever column the card is in:
+   the crew hook moves it and says so (`crew: moved #N to Done`). When the
+   hook says it could not, move the card to Done straight away, without
+   asking, with the `ticket-management` skill.
 7. **No PR without a ticket, and never a second ticket for the same work.**
    For a ticket that exists, run `/developer:ship #N` so it reuses #N. Only
    work with no ticket gets a new one from `/developer:ship`. Tickets are
@@ -106,6 +110,9 @@ asking:
       approval. QA verifies again only after the Captain moves the card to
       QA; `/qa:verify` refuses a card in any other column.
     - accept: QA moves the card to Ready for Merge.
+
+    Either way QA ends on the repository's default branch, up to date, not on
+    the PR branch.
 11. **Stop at Ready for Merge** and report.
 
 ## Routing
@@ -166,6 +173,7 @@ asking:
 | QA → Ready for Merge | `/qa:verify` accept (adds the column if the board lacks it) |
 | QA → In progress | `/qa:verify` reject |
 | Ready for Merge → Done | the Captain merges; GitHub closes the ticket |
+| any column → Done, once the PR is merged | the crew hook (rule 6) |
 
 Tickets: the developer and scrum-master commands create, edit and close
 tickets and move cards with their `ticket-management` skill. QA creates and

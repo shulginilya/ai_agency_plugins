@@ -35,6 +35,11 @@ Follow the `acceptance-testing` skill:
    - accept: `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/board.py move --project <N> --issue <n> --status "Ready for Merge" --create-column --after QA`
      (adds the column, without asking, if the board lacks it);
    - reject: `... board.py move --project <N> --issue <n> --status "In progress"`.
-6. Report the verdict, the commit tested, the comment's link, where the card is now, any
-   column you added, and one bug ticket per failure, filed with the `bug-reporting` skill and
+
+   Then, on accept and on reject, leave the PR branch: check out the default branch, looked up
+   and never assumed to be `main`, and fast-forward it:
+   `base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name) && git checkout "$base" && git pull --ff-only`.
+   Keep `results.json` and `verdict.md` outside the working tree.
+6. Report the verdict, the commit tested, the comment's link, where the card is now, the branch
+   you are back on, any column you added, and one bug ticket per failure, filed with the `bug-reporting` skill and
    labelled "QA testing", with each ticket's link.

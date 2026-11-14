@@ -4,7 +4,7 @@ description: Verifies a built change — a branch or a PR, checked out at its he
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Acceptance testing
@@ -112,12 +112,25 @@ what was already tested. Post it on the ticket with `gh issue comment N
 
 Never move a ticket to Ready for Merge on anything less than an accept.
 
+Then, on accept and on reject alike, leave the PR branch: check out the
+repository's default branch and bring it up to date, so the next step never
+starts on the branch QA tested. Look the branch up, never assume `main`:
+
+```bash
+base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+git checkout "$base" && git pull --ff-only
+```
+
+Write `results.json` and `verdict.md` outside the working tree (or delete
+them) so they don't follow you onto it.
+
 ## 6. Report
 
 Give the report `qa_report.py` prints, plus:
 
 - the commit tested, and how (local run, test data used),
 - the comment's link, and the column each board's card is now in,
+- the branch the working copy is back on (the default branch),
 - one bug ticket per failure, filed by QA with the `bug-reporting` skill and
   labelled **QA testing**, with each ticket's link,
 - anything the criteria never covered but a user will hit, as proposed new

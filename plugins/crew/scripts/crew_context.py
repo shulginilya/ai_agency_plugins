@@ -38,6 +38,15 @@ that isn't cached means nothing is checked. Only issue numbers are printed.
 The QA state lives in its own file, so prompt-time writes never touch the
 board cache or the declined list, and every file is replaced atomically.
 
+It also moves a ticket to Done, from whatever column it is in, once its PR
+is merged: an issue a merged PR closes (whatever branch that PR targeted), or
+a merged PR's own card. GitHub's board automation only does this when its
+"Item closed" workflow is on and the PR targeted the default branch, so the
+hook does it itself. It checks at session start and at most every
+DONE_INTERVAL seconds on a prompt, moves at most DONE_MAX_MOVES cards a run
+(the rest go on the next check), and prints each move. A card it could not
+move is printed for the session to move without asking.
+
 A found board is cached per repository for CACHE_TTL seconds; "no crew board"
 only for NEGATIVE_TTL, so a board created with /crew:create-board is
 picked up by the next sessions. Everything is best effort: no repository, no
@@ -64,6 +73,11 @@ QA_FILE = "crew_qa.json"
 QA_INTERVAL = 60
 QA_COLUMN = "qa"
 QA_PAGE = 100
+DONE_FILE = "crew_done.json"
+DONE_INTERVAL = 60
+DONE_COLUMN = "done"
+DONE_PAGE = 100
+DONE_MAX_MOVES = 5
 ALIASES_KEY = "aliases"
 PROMPT_EVENT = "UserPromptSubmit"
 DECLINED_KEY = "declined"
@@ -92,6 +106,19 @@ QA_QUERY = """query($board:ID!){node(id:$board){... on ProjectV2{
   items(first:%d,query:"status:QA is:open"){nodes{
     fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name updatedAt}}
     content{... on Issue{number state repository{nameWithOwner}}}}}}}}""" % QA_PAGE
+
+DONE_QUERY = """query($board:ID!){node(id:$board){... on ProjectV2{
+  field(name:"Status"){... on ProjectV2SingleSelectField{id options{id name}}}
+  items(first:%d,query:"-status:Done"){nodes{id
+    fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}
+    content{
+      ... on Issue{number repository{nameWithOwner}
+        closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{merged}}}
+      ... on PullRequest{number merged repository{nameWithOwner}}}}}}}}""" % DONE_PAGE
+
+DONE_MUTATION = """mutation($board:ID!,$item:ID!,$field:ID!,$option:String!){
+  updateProjectV2ItemFieldValue(input:{projectId:$board,itemId:$item,fieldId:$field,
+    value:{singleSelectOptionId:$option}}){projectV2Item{id}}}"""
 
 REMOTE = re.compile(r"github\.com[:/]+([^/\s]+)/([^/\s]+?)(?:\.git)?/?$")
 NAME_WITH_OWNER = re.compile(r"^([A-Za-z0-9-]+)/([A-Za-z0-9._-]+)$")
@@ -337,6 +364,117 @@ def qa_cards_to_report(repo: str, board_id: str, path: Path, now: float, prompt:
     return sorted(n for n, moved in cards.items() if seen.get(n) != moved)
 
 
+def merged_cards(data: Any, repo: str) -> Tuple[Optional[str], Optional[str], List[Tuple[str, str]]]:
+    """(Status field ID, Done option ID, [(card label, item ID)]) for this repository's cards not in
+    Done whose PR was merged: an issue a merged PR closes, or a merged PR's own card."""
+    board = ((data or {}).get("data") or {}).get("node") or {}
+    field = board.get("field") or {}
+    field_id = field.get("id") if isinstance(field.get("id"), str) else None
+    option_id = None
+    for option in field.get("options") or []:
+        if isinstance(option, dict) and str(option.get("name") or "").strip().lower() == DONE_COLUMN:
+            option_id = option.get("id") if isinstance(option.get("id"), str) else None
+            break
+    found: List[Tuple[str, str]] = []
+    for item in (board.get("items") or {}).get("nodes") or []:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            continue
+        status = str((item.get("fieldValueByName") or {}).get("name") or "").strip().lower()
+        content = item.get("content") or {}
+        number = content.get("number")
+        if (status == DONE_COLUMN or not isinstance(number, int)
+                or str((content.get("repository") or {}).get("nameWithOwner") or "").lower() != repo.lower()):
+            continue
+        if "closedByPullRequestsReferences" in content:
+            prs = (content.get("closedByPullRequestsReferences") or {}).get("nodes") or []
+            if any(isinstance(pr, dict) and pr.get("merged") is True for pr in prs):
+                found.append(("#%d" % number, item["id"]))
+        elif content.get("merged") is True:
+            found.append(("PR #%d" % number, item["id"]))
+    return field_id, option_id, found
+
+
+def done_path() -> Path:
+    return cache_path().with_name(DONE_FILE)
+
+
+def _done_checked(path: Path, repo: str) -> float:
+    try:
+        return float(((_load(path) or {}).get(repo) or {}).get("at", 0))
+    except (TypeError, ValueError, AttributeError):
+        return 0.0
+
+
+def _claim_done_check(path: Path, repo: str, now: float) -> None:
+    state = _load(path)
+    if state is None:
+        return
+    state[repo] = {"at": now}
+    try:
+        _save(path, state)
+    except OSError:
+        pass
+
+
+def move_merged_to_done(repo: str, board_id: str, path: Path, now: float,
+                        prompt: bool) -> Tuple[List[str], List[str]]:
+    """([cards moved to Done], [cards with a merged PR the hook could not move]).
+
+    A prompt checks at most every DONE_INTERVAL seconds; a session start always
+    checks. Moving is idempotent, so two sessions racing do no harm.
+    """
+    checked = _done_checked(path, repo)
+    if prompt and 0 <= now - checked < DONE_INTERVAL:
+        return [], []
+    _claim_done_check(path, repo, now)
+    raw = _run(["gh", "api", "graphql", "-f", "query=" + DONE_QUERY, "-f", "board=" + board_id],
+               keep_output_on_error=True)
+    try:
+        data = json.loads(raw or "")
+    except ValueError:
+        return [], []
+    if not isinstance(data, dict) or not isinstance((data.get("data") or {}).get("node"), dict):
+        return [], []
+    field_id, option_id, cards = merged_cards(data, repo)
+    moved: List[str] = []
+    failed: List[str] = []
+    for label, item_id in cards[:DONE_MAX_MOVES]:
+        reply = None
+        if field_id and option_id:
+            reply = _run(["gh", "api", "graphql", "-f", "query=" + DONE_MUTATION, "-f", "board=" + board_id,
+                          "-f", "item=" + item_id, "-f", "field=" + field_id, "-f", "option=" + option_id])
+        try:
+            ok = bool(((json.loads(reply or "").get("data") or {}).get("updateProjectV2ItemFieldValue") or {})
+                      .get("projectV2Item"))
+        except (ValueError, AttributeError):
+            ok = False
+        (moved if ok else failed).append(label)
+    return moved, failed
+
+
+def done_message(moved: List[str], failed: List[str], board: str) -> str:
+    lines = []
+    if moved:
+        lines.append('crew: moved %s to Done on "%s": the PR was merged.' % (", ".join(moved), clean_title(board)))
+    if failed:
+        lines.append(
+            'crew: %s on "%s" has a merged PR but is not in Done. Move it to Done now, without asking, with the '
+            "ticket-management skill (board.py move --status Done), whatever column it is in."
+            % (", ".join(failed), clean_title(board))
+        )
+    return "\n".join(lines)
+
+
+def board_checks(repo: str, board_id: str, board: str, now: float, prompt: bool) -> None:
+    """Print the QA cards to verify and the merged cards moved to Done."""
+    cards = qa_cards_to_report(repo, board_id, qa_path(), now, prompt=prompt)
+    if cards:
+        print(qa_message(cards, board))
+    moved, failed = move_merged_to_done(repo, board_id, done_path(), now, prompt=prompt)
+    if moved or failed:
+        print(done_message(moved, failed, board))
+
+
 def cache_path() -> Path:
     root = os.environ.get("CLAUDE_PLUGIN_DATA") or os.path.join(
         os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache"),
@@ -486,9 +624,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         # A prompt never looks the board up: that is session start's job, and
         # a prompt must not wait on it. No cached crew board, nothing to check.
         if hit and board and board_id:
-            cards = qa_cards_to_report(repo, board_id, qa_path(), now, prompt=True)
-            if cards:
-                print(qa_message(cards, board))
+            board_checks(repo, board_id, board, now, prompt=True)
         return 0
     if not hit or (board and not board_id):
         answered, found, found_id = lookup(owner, name)
@@ -501,9 +637,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if board:
         print(message(board, repo))
         if board_id:
-            cards = qa_cards_to_report(repo, board_id, qa_path(), now, prompt=False)
-            if cards:
-                print(qa_message(cards, board))
+            board_checks(repo, board_id, board, now, prompt=False)
     elif not unattended() and repo.lower() not in (n.lower() for n in declined(path)):
         print(ask_message(repo))
     return 0

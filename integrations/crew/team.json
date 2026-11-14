@@ -45,7 +45,8 @@
       "role": "Crew workflow",
       "owns": [
         "The crew's process in interactive sessions: the crew-workflow skill and the session-start hook that points a session at it",
-        "Creating the project board and its columns (/crew:create-board)"
+        "Creating the project board and its columns (/crew:create-board)",
+        "Moving a ticket to Done, from any column, once its PR is merged (the crew hook)"
       ]
     },
     "scrum-master": {
@@ -63,6 +64,7 @@
         "A test plan from each ticket's acceptance criteria, before it is built",
         "The accept / reject verdict on a built change, on the PR's head commit run locally (review links are paused; re-tested on a new commit), with evidence per criterion",
         "Moving a verified ticket to Ready for Merge on accept (adding the column if missing) or back to In progress on reject, with a comment on what fails",
+        "Returning the working copy to the default branch once the verdict is posted",
         "Bug tickets for every failure, filed by QA and labelled \"QA testing\" (create and edit, never close or delete)"
       ]
     },

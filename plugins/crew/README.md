@@ -56,6 +56,26 @@ alone rather than overwritten. After a check, cards are compared with the state
 as it is then, so a card another session reported meanwhile is not reported
 twice.
 
+## Moving a merged ticket to Done
+
+A merged PR puts its ticket in **Done**, whatever column its card is in. GitHub's
+board automation only does that when the board's "Item closed" workflow is on and
+the PR targeted the default branch, so the same check-ins also read the crew
+board's cards that are not in Done (filtered on GitHub's side) and move to Done:
+
+- an issue of this repository that a merged PR closes, whatever branch the PR targeted;
+- a merged PR's own card.
+
+| When | What happens |
+| --- | --- |
+| Session start, and a prompt at most once a minute | Up to 5 cards are moved (the rest on the next check); the session is told `crew: moved #N to Done` |
+| A move fails, or the board has no Done column | The session is told to move the card to Done itself, without asking |
+| A card already in Done, or with no merged PR | Nothing |
+| Offline, without `gh`, or a failed check | Nothing |
+
+The last check time is kept in `crew_done.json`. Moving is idempotent, so two
+sessions checking at once do no harm.
+
 ## Harnesses
 
 - **Claude Code** takes everything, including the hook.
