@@ -22,7 +22,9 @@ Follow the `acceptance-testing` skill:
    Then, by its action:
    `test` or `retest` means check out the PR (`gh pr checkout <pr>`), confirm `git rev-parse HEAD`
    is its head commit, and run every case locally; `up-to-date` means you already verdicted this
-   commit, so say so and stop. Before the checkout, note `start=$(git branch --show-current)`, and if
+   commit, so say so and stop. Before the checkout, note where you start,
+   `start=$(git branch --show-current); [ -n "$start" ] || start=$(git rev-parse HEAD)` (the commit on a
+   detached HEAD), and if
    `git status --porcelain --untracked-files=no` prints anything, `git stash push -m "qa #<n>: from $start"`
    and say so: those changes are someone's work. If you stop after stashing and before step 5,
    `git checkout "$start" && git stash pop` first, or report the stash and its branch if that fails.

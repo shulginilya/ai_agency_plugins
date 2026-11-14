@@ -54,8 +54,10 @@ where it is and stop: verifying it early tests code nobody has approved yet.
     stop. Nothing has changed to test.
 
 Before any checkout, keep the working copy's own changes safe: they are
-someone's work, not QA's. Note the branch you start on
-(`start=$(git branch --show-current)`). If
+someone's work, not QA's. Note where you start: the branch, or the commit
+on a detached HEAD, where `git branch --show-current` prints nothing
+(`start=$(git branch --show-current); [ -n "$start" ] || start=$(git rev-parse HEAD)`).
+If
 `git status --porcelain --untracked-files=no` prints anything,
 `git stash push -m "qa #N: from $start"` and say so; step 5 deals with it. If
 you stop at any point after stashing (the checkout fails, the head commit
