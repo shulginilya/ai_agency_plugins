@@ -13,6 +13,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 PLUGIN = Path(__file__).resolve().parent.parent
 SCRIPT = PLUGIN / "skills" / "plugin-freshness" / "scripts" / "check.py"
@@ -122,8 +123,45 @@ class PluginListTests(unittest.TestCase):
         self.assertEqual(check.parse_plugin_list(""), [])
 
     def test_version_ordering(self) -> None:
-        self.assertLess(check.version_key("0.1.1"), check.version_key("0.7.1"))
-        self.assertLess(check.version_key("0.9.0"), check.version_key("0.10.0"))
+        self.assertEqual(check.compare_versions("0.1.1", "0.7.1"), -1)
+        self.assertEqual(check.compare_versions("0.10.0", "0.9.0"), 1)
+        self.assertEqual(check.compare_versions("1.2.3", "1.2.3"), 0)
+
+    def test_pre_release_is_older_than_its_release(self) -> None:
+        self.assertEqual(check.compare_versions("1.0.0-rc1", "1.0.0"), -1)
+        self.assertEqual(check.compare_versions("1.0.0", "1.0.0-rc1"), 1)
+
+    def test_non_numeric_version_is_not_comparable_and_does_not_raise(self) -> None:
+        self.assertIsNone(check.compare_versions("unknown", "0.7.1"))
+        self.assertIsNone(check.compare_versions("a1b2c3d4e5f6", "0.7.1"))
+
+
+class ClaudeListTests(unittest.TestCase):
+    """read_plugin_list when it runs `claude plugin list` itself."""
+
+    def run_with(self, returncode: int, stdout: str = "", stderr: str = ""):
+        seen = {}
+
+        def fake_run(cmd, **kwargs):
+            seen.update(kwargs)
+            return subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
+
+        with mock.patch.object(check.shutil, "which", return_value="claude"), \
+                mock.patch.object(check.subprocess, "run", side_effect=fake_run):
+            return check.read_plugin_list(None), seen
+
+    def test_output_is_decoded_as_utf8_whatever_the_locale(self) -> None:
+        (listing, note), seen = self.run_with(0, PLUGIN_LIST)
+        self.assertEqual(seen.get("encoding"), "utf-8")
+        self.assertEqual(seen.get("errors"), "replace")
+        self.assertIsNone(note)
+        self.assertEqual(len(listing), 4)
+
+    def test_a_failing_listing_becomes_a_note(self) -> None:
+        (listing, note), _ = self.run_with(1, "", "not logged in\n")
+        self.assertEqual(listing, [])
+        self.assertIn("exited 1", note)
+        self.assertIn("not logged in", note)
 
 
 class GitSyncTests(unittest.TestCase):
@@ -151,12 +189,15 @@ class GitSyncTests(unittest.TestCase):
     def test_behind_is_counted_after_fetch(self) -> None:
         sync = check.git_sync(self.clone, fetch=True)
         self.assertEqual((sync["default"], sync["behind"], sync["ahead"]), ("main", 1, 0))
+        self.assertFalse(check.sync_ok(sync))
+        self.assertIn("1 behind, 0 ahead of origin/main", check.render_sync(sync))
 
     def test_in_sync_after_pull(self) -> None:
         git(self.clone, "pull", "-q")
         sync = check.git_sync(self.clone, fetch=False)
         self.assertEqual((sync["behind"], sync["ahead"]), (0, 0))
         self.assertEqual(sync["branch"], "main")
+        self.assertTrue(check.sync_ok(sync))
 
     def test_not_a_git_repo_gives_none(self) -> None:
         self.assertIsNone(check.git_sync(self.tmp / "nowhere", fetch=False))
@@ -229,6 +270,12 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("alpha@skills-dir", out)  # the copy being checked
         self.assertNotIn("| developer |", table)
 
+    def test_unparseable_other_source_version_is_a_note_not_a_crash(self) -> None:
+        listing = self.tmp / "list.txt"
+        listing.write_text("  ❯ alpha@market\n    Version: unknown\n", encoding="utf-8")
+        _, out = self.fx.run("--plugin-list-file", str(listing))
+        self.assertIn("alpha@market unknown differs from the source (1.0.0)", out)
+
     def test_outside_the_plugins_repo_stops_without_a_table(self) -> None:
         shutil.rmtree(str(self.fx.repo / "tools"))
         code, out = self.fx.run()
@@ -252,12 +299,57 @@ class ReportTests(unittest.TestCase):
         self.assertIn("uncommitted changes under plugins/", check.render_sync(sync))
         self.assertFalse(check.sync_ok(sync))
 
+
+
+def snapshot(root: Path):
+    return sorted((p.relative_to(root).as_posix(), p.read_bytes()) for p in root.rglob("*") if p.is_file())
+
+
+class RealBuildTests(unittest.TestCase):
+    """The default path: a fresh apkit build of this repo, read-only."""
+
+    REPO = PLUGIN.parent.parent
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp())
+        self.skills = self.tmp / "skills"
+        built = check.build(self.REPO, self.tmp / "build")
+        self.assertEqual(built, self.tmp / "build" / "claude-code")
+        shutil.copytree(str(built / "plugin-maintainer"), str(self.skills / "plugin-maintainer"))
+        self.scratch = self.tmp / "scratch"
+        self.scratch.mkdir()
+
+    def tearDown(self) -> None:
+        shutil.rmtree(str(self.tmp), ignore_errors=True)
+
+    def run_main(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf), mock.patch.object(check.tempfile, "tempdir", str(self.scratch)):
+            code = check.main(["--repo", str(self.REPO), "--skills-dir", str(self.skills),
+                               "--no-fetch", "--plugin-list-file", os.devnull])
+        return code, buf.getvalue()
+
+    def test_fresh_build_matches_its_own_install(self) -> None:
+        version = json.loads((PLUGIN / "plugin.json").read_text(encoding="utf-8"))["version"]
+        _, out = self.run_main()
+        self.assertIn("| plugin-maintainer | %s | %s | identical | up to date |" % (version, version), out)
+
     def test_read_only(self) -> None:
-        def snapshot(root: Path):
-            return sorted((str(p.relative_to(root)), p.read_bytes()) for p in root.rglob("*") if p.is_file())
-        before = (snapshot(self.fx.repo), snapshot(self.fx.skills))
-        self.fx.run()
-        self.assertEqual(before, (snapshot(self.fx.repo), snapshot(self.fx.skills)))
+        status = lambda: git(self.REPO, "status", "--porcelain")  # noqa: E731
+        before = (status(), snapshot(self.skills))
+        self.run_main()
+        self.assertEqual(before, (status(), snapshot(self.skills)))
+        self.assertEqual(list(self.scratch.iterdir()), [], "the temporary build was left behind")
+
+    def test_a_failed_build_exits_2_without_a_table(self) -> None:
+        failed = subprocess.CompletedProcess([], 1, "", "boom\n")
+        buf = io.StringIO()
+        with redirect_stdout(buf), mock.patch.object(check.subprocess, "run", return_value=failed):
+            code = check.main(["--repo", str(self.REPO), "--skills-dir", str(self.skills),
+                               "--no-fetch", "--plugin-list-file", os.devnull])
+        self.assertEqual(code, 2)
+        self.assertIn("Build failed", buf.getvalue())
+        self.assertNotIn("| Plugin |", buf.getvalue())
 
 
 if __name__ == "__main__":

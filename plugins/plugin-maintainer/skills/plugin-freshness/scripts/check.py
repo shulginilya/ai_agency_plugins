@@ -59,8 +59,15 @@ def read_version(manifest: Path) -> Optional[str]:
         return None
 
 
-def version_key(version: str) -> Tuple:
-    return tuple(int(n) if n.isdigit() else n for n in re.split(r"[.\-+]", version))
+def compare_versions(a: str, b: str) -> Optional[int]:
+    """-1, 0 or 1 for x.y.z[-pre] versions (a pre-release sorts below its release); None if either isn't one."""
+    keys = []
+    for v in (a, b):
+        m = re.fullmatch(r"(\d+(?:\.\d+)*)(?:-([0-9A-Za-z.-]+))?(?:\+\S*)?", v.strip())
+        if not m:
+            return None
+        keys.append((tuple(int(n) for n in m.group(1).split(".")), m.group(2) is None, m.group(2) or ""))
+    return (keys[0] > keys[1]) - (keys[0] < keys[1])
 
 
 def parse_plugin_list(text: str) -> List[Tuple[str, str, str]]:
@@ -81,7 +88,8 @@ def parse_plugin_list(text: str) -> List[Tuple[str, str, str]]:
 
 def _git(repo: Path, *args: str) -> Optional[str]:
     try:
-        out = subprocess.run(["git", *args], cwd=str(repo), capture_output=True, text=True, timeout=60)
+        out = subprocess.run(["git", *args], cwd=str(repo), capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=60)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return out.stdout.strip() if out.returncode == 0 else None
@@ -152,7 +160,8 @@ def source_plugins(repo: Path) -> Dict[str, str]:
 def build(repo: Path, into: Path) -> Optional[Path]:
     cmd = [sys.executable, "-m", "tools.apkit", "--root", str(repo), "build",
            "--target", TARGET, "--dist-dir", str(into), "--skip-validate"]
-    out = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True)
+    out = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True,
+                         encoding="utf-8", errors="replace")
     if out.returncode != 0:
         sys.stdout.write("Build failed (%s):\n%s%s" % (" ".join(cmd[1:]), out.stdout, out.stderr))
         return None
@@ -169,9 +178,13 @@ def read_plugin_list(path: Optional[str]) -> Tuple[List[Tuple[str, str, str]], O
     if not claude:
         return [], "`claude` is not on PATH, so plugins from other sources were not checked"
     try:
-        out = subprocess.run([claude, "plugin", "list"], capture_output=True, text=True, timeout=120)
+        out = subprocess.run([claude, "plugin", "list"], capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=120)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return [], "`claude plugin list` failed: %s" % exc
+    if out.returncode != 0:
+        return [], "`claude plugin list` exited %d (%s), so plugins from other sources were not checked" % (
+            out.returncode, (out.stderr or "").strip() or "no output")
     return parse_plugin_list(out.stdout), None
 
 
@@ -200,9 +213,9 @@ def report(repo: Path, skills: Path, built: Path, sync: Optional[Dict],
     for name, source, version in listing:
         if source == "skills-dir" or name not in sources or version == sources[name]:
             continue
-        older = version_key(version) < version_key(sources[name])
-        notes.append("%s@%s %s is %s than the source (%s)." % (
-            name, source, version, "older" if older else "newer", sources[name]))
+        order = compare_versions(version, sources[name])
+        relation = {-1: "is older than", 1: "is newer than"}.get(order, "differs from")
+        notes.append("%s@%s %s %s the source (%s)." % (name, source, version, relation, sources[name]))
     if listing_note:
         notes.append(listing_note[0].upper() + listing_note[1:] + ".")
 
