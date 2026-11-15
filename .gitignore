@@ -21,6 +21,3 @@ Thumbs.db
 
 # Local, machine-specific installs
 /.apkit.local.json
-
-# plugin-developer build state (gate results, open build session)
-.plugin-dev/
