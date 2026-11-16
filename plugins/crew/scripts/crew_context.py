@@ -39,10 +39,13 @@ The QA state lives in its own file, so prompt-time writes never touch the
 board cache or the declined list, and every file is replaced atomically.
 
 It also moves a ticket to Done, from whatever column it is in, once its PR
-is merged: an issue a merged PR closes (whatever branch that PR targeted), or
-a merged PR's own card. GitHub's board automation only does this when its
-"Item closed" workflow is on and the PR targeted the default branch, so the
-hook does it itself. Only a merge newer than the card's last Status change
+is merged into the repository's default branch: an issue a merged PR closes, or
+a merged PR's own card. A PR merged into any other branch (a stacked PR) never
+moves a card, because its work did not reach the default branch: the card stays
+where it is and a warning names the PR and the branch it merged into, once per
+change of the card. (When GitHub does not say the default branch or a PR's base,
+the merge counts, as before.) GitHub's board automation only does this when its
+"Item closed" workflow is on, so the hook does it itself. Only a merge newer than the card's last Status change
 counts, so a ticket the Captain reopens and moves on after its merge stays
 where they put it. It checks at session start and at most every
 DONE_INTERVAL seconds on a prompt, reads at most DONE_PAGES pages of cards,
@@ -80,6 +83,7 @@ QA_COLUMN = "qa"
 QA_PAGE = 100
 DONE_FILE = "crew_done.json"
 DONE_INTERVAL = 60
+WARNED = "warned:"  # prefix of a done-state key recording a stacked-merge warning already printed
 DONE_COLUMN = "done"
 DONE_PAGE = 100
 DONE_PAGES = 3
@@ -119,9 +123,9 @@ DONE_QUERY = """query($board:ID!,$after:String){node(id:$board){... on ProjectV2
   items(first:%d,after:$after,query:"-status:Done"){pageInfo{hasNextPage endCursor} nodes{id
     fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name updatedAt}}
     content{
-      ... on Issue{number repository{nameWithOwner}
-        closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{merged mergedAt}}}
-      ... on PullRequest{number merged mergedAt repository{nameWithOwner}}}}}}}}""" % DONE_PAGE
+      ... on Issue{number repository{nameWithOwner defaultBranchRef{name}}
+        closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{number merged mergedAt baseRefName}}}
+      ... on PullRequest{number merged mergedAt baseRefName repository{nameWithOwner defaultBranchRef{name}}}}}}}}}""" % DONE_PAGE
 
 DONE_MUTATION = """mutation($board:ID!,$item:ID!,$field:ID!,$option:String!){
   updateProjectV2ItemFieldValue(input:{projectId:$board,itemId:$item,fieldId:$field,
@@ -381,12 +385,29 @@ def done_option(data: Any) -> Tuple[Optional[str], Optional[str]]:
     return field_id, None
 
 
-def merged_cards(data: Any, repo: str) -> List[Tuple[str, str, str]]:
-    """[(card label, item ID, when its Status was set)] for this repository's cards not in Done whose
-    PR was merged after the card's Status was last set: an issue a merged PR closes, or a merged PR's
-    own card. A card moved after the merge (the Captain reopened it) is left where it is."""
+def _merges(content: Dict[str, Any], number: int) -> Tuple[str, List[Dict[str, Any]]]:
+    """(card label, the card's PRs) of a DONE_QUERY card: an issue's closing PRs, or the PR itself."""
+    if "closedByPullRequestsReferences" in content:
+        prs = (content.get("closedByPullRequestsReferences") or {}).get("nodes") or []
+        return "#%d" % number, [pr for pr in prs if isinstance(pr, dict)]
+    return "PR #%d" % number, [content]
+
+
+def _default_branch(content: Dict[str, Any]) -> str:
+    ref = (content.get("repository") or {}).get("defaultBranchRef") or {}
+    return str(ref.get("name") or "")
+
+
+def _lands_on_default(pr: Dict[str, Any], default: str) -> bool:
+    """A merged PR counts when it went into the default branch; unknown branches count, as before."""
+    base = str(pr.get("baseRefName") or "")
+    return not (base and default) or base == default
+
+
+def _cards(data: Any, repo: str) -> Iterable[Tuple[str, str, str, str, List[Dict[str, Any]]]]:
+    """(label, item ID, Status set at, default branch, merged PRs newer than that) of this repository's
+    cards not in Done that have such a merge. A card moved after the merge (the Captain reopened it) has none."""
     board = ((data or {}).get("data") or {}).get("node") or {}
-    found: List[Tuple[str, str, str]] = []
     for item in (board.get("items") or {}).get("nodes") or []:
         if not isinstance(item, dict) or not isinstance(item.get("id"), str):
             continue
@@ -396,17 +417,33 @@ def merged_cards(data: Any, repo: str) -> List[Tuple[str, str, str]]:
         if (str(status.get("name") or "").strip().lower() == DONE_COLUMN or not isinstance(number, int)
                 or str((content.get("repository") or {}).get("nameWithOwner") or "").lower() != repo.lower()):
             continue
-        if "closedByPullRequestsReferences" in content:
-            prs = (content.get("closedByPullRequestsReferences") or {}).get("nodes") or []
-            label = "#%d" % number
-        else:
-            prs = [content]
-            label = "PR #%d" % number
-        merges = [str(pr.get("mergedAt") or "") for pr in prs if isinstance(pr, dict) and pr.get("merged") is True]
+        label, prs = _merges(content, number)
         moved_at = str(status.get("updatedAt") or "")
         # GitHub's timestamps share one ISO format, so they compare as strings.
-        if merges and (not moved_at or max(merges) > moved_at):
-            found.append((label, item["id"], moved_at))
+        merged = [pr for pr in prs if pr.get("merged") is True and (not moved_at or str(pr.get("mergedAt") or "") > moved_at)]
+        if merged:
+            yield label, item["id"], moved_at, _default_branch(content), merged
+
+
+def merged_cards(data: Any, repo: str) -> List[Tuple[str, str, str]]:
+    """[(card label, item ID, when its Status was set)] for this repository's cards not in Done whose
+    PR was merged into the default branch after the card's Status was last set: an issue a merged PR
+    closes, or a merged PR's own card. A card moved after the merge (the Captain reopened it) is left
+    where it is, and so is one whose merged PRs all went into another branch (see stacked_merges)."""
+    return [(label, item_id, moved_at) for label, item_id, moved_at, default, prs in _cards(data, repo)
+            if any(_lands_on_default(pr, default) for pr in prs)]
+
+
+def stacked_merges(data: Any, repo: str) -> List[Tuple[str, str, str]]:
+    """[(card label, Status set at, "PR #N into branch, ...")] for the cards whose merged PRs all went
+    into a branch other than the default one: their work never reached it."""
+    found = []
+    for label, _, moved_at, default, prs in _cards(data, repo):
+        if any(_lands_on_default(pr, default) for pr in prs):
+            continue
+        named = ", ".join("%s merged into %s" % ("PR #%s" % pr["number"] if pr.get("number") else "a PR",
+                                                 pr.get("baseRefName")) for pr in prs)
+        found.append((label, moved_at, "%s, not %s" % (named, default)))
     return found
 
 
@@ -440,11 +477,13 @@ def save_done_state(path: Path, repo: str, now: float, failed: Dict[str, str]) -
 
 
 def read_unfinished(board_id: str, repo: str
-                    ) -> Optional[Tuple[Optional[str], Optional[str], List[Tuple[str, str, str]], bool]]:
-    """(Status field ID, Done option ID, merged cards, whether every card was read) over up to DONE_PAGES
-    pages, or None on no usable answer."""
+                    ) -> Optional[Tuple[Optional[str], Optional[str], List[Tuple[str, str, str]],
+                                        List[Tuple[str, str, str]], bool]]:
+    """(Status field ID, Done option ID, merged cards, stacked merges, whether every card was read) over
+    up to DONE_PAGES pages, or None on no usable answer."""
     field_id = option_id = None
     cards: List[Tuple[str, str, str]] = []
+    stacked: List[Tuple[str, str, str]] = []
     after: Optional[str] = None
     for page in range(DONE_PAGES):
         args = ["gh", "api", "graphql", "-f", "query=" + DONE_QUERY, "-f", "board=" + board_id]
@@ -456,37 +495,45 @@ def read_unfinished(board_id: str, repo: str
             data = None
         node = (data.get("data") or {}).get("node") if isinstance(data, dict) else None
         if not isinstance(node, dict):
-            return None if page == 0 else (field_id, option_id, cards, False)
+            return None if page == 0 else (field_id, option_id, cards, stacked, False)
         if page == 0:
             field_id, option_id = done_option(data)
         cards += merged_cards(data, repo)
+        stacked += stacked_merges(data, repo)
         info = (node.get("items") or {}).get("pageInfo") or {}
         after = info.get("endCursor") if info.get("hasNextPage") else None
         if not isinstance(after, str) or not after:
-            return field_id, option_id, cards, True
-    return field_id, option_id, cards, False
+            return field_id, option_id, cards, stacked, True
+    return field_id, option_id, cards, stacked, False
 
 
 def move_merged_to_done(repo: str, board_id: str, path: Path, now: float,
-                        prompt: bool) -> Tuple[List[str], List[str]]:
-    """([cards moved to Done], [cards with a merged PR the session should move, each reported once]).
+                        prompt: bool) -> Tuple[List[str], List[str], List[str]]:
+    """([cards moved to Done], [cards with a merged PR the session should move, each reported once],
+    [warnings for cards whose PRs merged into a branch other than the default one, each reported once]).
 
     A prompt checks at most every DONE_INTERVAL seconds; a session start always
     checks. Moving is idempotent, so two sessions racing do no harm.
     """
     checked, failed = done_state(path, repo)
     if prompt and 0 <= now - checked < DONE_INTERVAL:
-        return [], []
+        return [], [], []
     # Claim the check before the slow gh calls, so a failed check is throttled too.
     save_done_state(path, repo, now, failed)
     found = read_unfinished(board_id, repo)
     if found is None:
-        return [], []
-    field_id, option_id, cards, complete = found
+        return [], [], []
+    field_id, option_id, cards, stacked, complete = found
     _, failed = done_state(path, repo)  # as it is now: another session may have reported meanwhile
     if complete:  # cards on pages not read keep what was recorded about them
-        pending = {label for label, _, _ in cards}
+        pending = {label for label, _, _ in cards} | {WARNED + label for label, _, _ in stacked}
         failed = {k: v for k, v in failed.items() if k in pending}  # moved since, by anyone: forget it
+    warned: List[str] = []
+    for label, moved_at, what in stacked:  # a warning is printed once per state of the card
+        key = WARNED + label
+        if failed.get(key) != moved_at:
+            failed[key] = moved_at
+            warned.append("%s: %s" % (label, what))
     moved: List[str] = []
     report: List[str] = []
     started = time.monotonic()
@@ -515,10 +562,10 @@ def move_merged_to_done(repo: str, board_id: str, path: Path, now: float,
         report.append(label)
         tries = DONE_MAX_MOVES  # a failed move is likely to fail again: try no more this run
     save_done_state(path, repo, now, failed)
-    return moved, report
+    return moved, report, warned
 
 
-def done_message(moved: List[str], failed: List[str], board: str) -> str:
+def done_message(moved: List[str], failed: List[str], board: str, warned: Optional[List[str]] = None) -> str:
     lines = []
     if moved:
         lines.append('crew: moved %s to Done on "%s": the PR was merged.' % (", ".join(moved), clean_title(board)))
@@ -528,6 +575,12 @@ def done_message(moved: List[str], failed: List[str], board: str) -> str:
             "ticket-management skill (board.py move --status Done), whatever column it is in."
             % (", ".join(failed), clean_title(board))
         )
+    for what in warned or []:
+        lines.append(
+            'crew: warning: %s, so %s is not in Done on "%s": the work never reached the default branch. '
+            "Tell the Captain; do not move the card." % (what.split(": ", 1)[1], what.split(": ", 1)[0],
+                                                       clean_title(board))
+        )
     return "\n".join(lines)
 
 
@@ -536,9 +589,9 @@ def board_checks(repo: str, board_id: str, board: str, now: float, prompt: bool)
     cards = qa_cards_to_report(repo, board_id, qa_path(), now, prompt=prompt)
     if cards:
         print(qa_message(cards, board))
-    moved, failed = move_merged_to_done(repo, board_id, done_path(), now, prompt=prompt)
-    if moved or failed:
-        print(done_message(moved, failed, board))
+    moved, failed, warned = move_merged_to_done(repo, board_id, done_path(), now, prompt=prompt)
+    if moved or failed or warned:
+        print(done_message(moved, failed, board, warned))
 
 
 def cache_path() -> Path:

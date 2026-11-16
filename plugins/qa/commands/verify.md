@@ -10,6 +10,9 @@ Verify: {{ARGS}}
 
 Follow the `acceptance-testing` skill:
 
+0. Run `python {{PLUGIN_ROOT}}/skills/acceptance-testing/scripts/pr_base.py --pr <pr>`. Exit 3
+   ("base is not <default>": the PR does not target the default branch) means no accept and no
+   reject: post no verdict, move no card, say the PR must be retargeted, and stop.
 1. Get the criteria with
    `python {{PLUGIN_ROOT}}/skills/test-planning/scripts/criteria.py --issue <n>`, and the
    change and its commit (`gh pr view`, `git rev-parse --short HEAD`). Without a test plan,

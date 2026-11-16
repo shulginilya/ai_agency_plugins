@@ -39,6 +39,12 @@ when the ticket is labelled `skip_approval`), and an `action`:
 - `up-to-date`: you already gave a verdict on this head. Say so and stop.
 - `closed`: the PR is closed or merged. Say so and stop.
 
+If the PR's base is not the repository's default branch, `pr_scope.py` prints
+`base is not <default>` and exits 3. Do not review, approve or request changes,
+post nothing and leave every card where it is: say that the PR must be
+retargeted to the default branch (a merge into a feature branch never reaches
+it) and stop.
+
 On `review` and `re-review` it also prints `round R of 4; captain @LOGIN`.
 The round is 1 plus the request-changes verdicts since the last **approve**
 or **stop**. Either one ends the fix loop: a review after a QA reject, or

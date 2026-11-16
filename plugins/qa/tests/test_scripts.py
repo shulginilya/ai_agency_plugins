@@ -21,6 +21,7 @@ REVIEW = REPORT.parent / "review_link.py"
 sys.path.insert(0, str(CRITERIA.parent))
 sys.path.insert(0, str(REPORT.parent))
 import criteria  # noqa: E402
+import pr_base  # noqa: E402
 import qa_report  # noqa: E402
 import review_link  # noqa: E402
 
@@ -335,3 +336,32 @@ class ReviewLinkTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class PrBaseTest(unittest.TestCase):
+    """QA never accepts a PR whose base is not the default branch: its merge would land in a dead branch."""
+
+    def run_main(self, base, state="open", *args):
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(pr_base, "current_repo", return_value="acme/app"), \
+                mock.patch.object(pr_base, "default_branch", return_value="main"), \
+                mock.patch.object(pr_base, "pr_info", return_value={"base": base, "state": state}), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = pr_base.main(["--pr", "38", *args])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_a_stacked_pr_is_refused_with_both_branches_named(self):
+        code, out, err = self.run_main("feat/33-code-style")
+        self.assertEqual(code, 3)
+        self.assertIn("base is not main", err)
+        self.assertIn("feat/33-code-style", err)
+        self.assertEqual(out, "", "nothing on stdout reads as a go-ahead")
+
+    def test_a_pr_into_the_default_branch_passes(self):
+        code, out, _ = self.run_main("main")
+        self.assertEqual(code, 0)
+        self.assertIn("targets main", out)
+
+    def test_the_problem_text_is_none_for_the_default(self):
+        self.assertIsNone(pr_base.base_problem("main", "main"))
+        self.assertIn("base is not main", pr_base.base_problem("dev", "main"))

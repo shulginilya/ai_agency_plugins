@@ -12,7 +12,8 @@ With no argument, use the current branch's PR (`gh pr view --json number`).
 
 Follow the `pr-review` skill:
 
-1. Run `python {{PLUGIN_ROOT}}/skills/pr-review/scripts/pr_scope.py --pr <N>`. `up-to-date` or
+1. Run `python {{PLUGIN_ROOT}}/skills/pr-review/scripts/pr_scope.py --pr <N>`. Exit 3 ("base is not <default>": the PR
+   does not target the default branch): say so, post no review and move no card, and stop. `up-to-date` or
    `closed`: say so and stop. `review` or `re-review`: check out the head (`gh pr checkout <N>`) and
    confirm `git rev-parse HEAD` is the head commit it printed. A re-review covers the whole new head.
    Note the `round R of 4; captain @LOGIN` line.

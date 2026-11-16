@@ -27,12 +27,16 @@ Follow the `ship-change` skill:
    file one (Problem, Proposal, Acceptance criteria) and put it on the board in
    one step:
    `python {{PLUGIN_ROOT}}/skills/ticket-management/scripts/tickets.py create --title ... --body-file ... --project B`.
-4. **Branch** with the name from `board.py branch` and check it out. **Commit**
+4. **Branch** with the name from `board.py branch` and check it out, always from an up-to-date
+   default branch, never from another ticket's unmerged branch. Then run
+   `python {{PLUGIN_ROOT}}/skills/ship-change/scripts/ship_check.py --expected-branch <that name>`:
+   when it exits 1 (wrong branch name, or based on an unmerged feature branch), open no PR, say why
+   in its words and stop. **Commit**
    only the change's files, ending the message with `Closes #<issue>`.
    **Push** with `-u`. Never force-push and never push to the default branch.
    If the PR conflicts with its base, report it and offer `/resolve-conflicts`;
    don't resolve it unasked.
-5. **Open the PR** against the default branch: `Closes #<issue>`, then What
+5. **Open the PR** with `--base` the default branch, read from `gh repo view --json defaultBranchRef`, never a feature branch: `Closes #<issue>`, then What
    changed / Why / Checks, with `--assignee @me`. The user is the only
    assignee unless they explicitly asked for someone else on this PR.
 6. **Then** run `board.py move` to put the card in In review. It must run after
