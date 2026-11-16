@@ -365,3 +365,12 @@ class PrBaseTest(unittest.TestCase):
     def test_the_problem_text_is_none_for_the_default(self):
         self.assertIsNone(pr_base.base_problem("main", "main"))
         self.assertIn("base is not main", pr_base.base_problem("dev", "main"))
+
+    def test_verify_and_the_skill_run_pr_base_first_and_stop_on_a_wrong_base(self):
+        command = (PLUGIN / "commands" / "verify.md").read_text(encoding="utf-8")
+        skill = (PLUGIN / "skills" / "acceptance-testing" / "SKILL.md").read_text(encoding="utf-8")
+        for text in (command, skill):
+            self.assertIn("pr_base.py", text)
+            self.assertIn("base is not <default>", text)
+        self.assertLess(command.index("pr_base.py"), command.index("criteria.py"), "before any testing")
+        self.assertIn("move no card", command)

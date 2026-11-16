@@ -214,10 +214,19 @@ class BaseBranchTest(unittest.TestCase):
             code, out, err = self.run_main("feat/33-code-style", *extra)
             self.assertEqual(code, 3)
             self.assertIn("base is not main", err)
-            self.assertNotIn("review", out.split("—")[0] if out else "", "no review action is printed")
             self.assertEqual(out, "", "nothing on stdout that reads as a go-ahead")
 
     def test_main_still_scopes_a_pr_into_the_default_branch(self):
         code, out, _ = self.run_main("main")
         self.assertEqual(code, 0)
         self.assertIn("review", out)
+
+    def test_the_review_command_and_skill_stop_on_exit_3_without_posting_or_moving_a_card(self):
+        command = (PLUGIN / "commands" / "review.md").read_text(encoding="utf-8")
+        skill = (PLUGIN / "skills" / "pr-review" / "SKILL.md").read_text(encoding="utf-8")
+        for text in (command, skill):
+            self.assertIn("base is not <default>", text)
+        self.assertIn("Exit 3", command)
+        self.assertIn("post no review and move no card", command)
+        self.assertIn("exits 3", skill)
+        self.assertIn("leave every card where it is", skill)
