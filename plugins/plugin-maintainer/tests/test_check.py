@@ -301,6 +301,151 @@ class ReportTests(unittest.TestCase):
 
 
 
+CLEAN = {"branch": "main", "default": "main", "head": "abc1234", "behind": 0, "ahead": 0,
+         "fetch_failed": False, "dirty": False}
+
+
+class UpdateTests(unittest.TestCase):
+    """--update: install what is stale, from a safe source, and prove it with a second report."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp())
+        self.fx = Fixture(self.tmp)
+        write(self.fx.skills / "beta" / "skills" / "beta" / "SKILL.md", "old\n")  # beta is stale
+        self.updated = []
+        self.pulled = []
+        self.sync = dict(CLEAN)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(str(self.tmp), ignore_errors=True)
+
+    def fake_update(self, repo, names):
+        for name in names:
+            self.updated.append(name)
+            shutil.rmtree(str(self.fx.skills / name))
+            shutil.copytree(str(self.fx.build / name), str(self.fx.skills / name))
+        return [(name, True, "") for name in names]
+
+    def run_update(self, update=None, pull=None):
+        patches = (mock.patch.object(check, "DEFAULT_SKILLS", self.fx.skills),
+                   mock.patch.object(check, "git_sync", side_effect=lambda *a, **k: dict(self.sync)),
+                   mock.patch.object(check, "update_plugins", update or self.fake_update),
+                   mock.patch.object(check, "pull_ff", pull or (lambda repo, default: self.pulled.append(default))))
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        return self.fx.run("--update")
+
+    def test_stale_plugins_are_updated_then_rechecked(self) -> None:
+        code, out = self.run_update()
+        self.assertEqual(self.updated, ["beta"])
+        self.assertEqual(code, 0, out)
+        self.assertIn("1 of 2 stale: beta.", out)  # the report as it was
+        self.assertIn("Updated: beta", out)
+        self.assertIn("All 2 up to date.", out)  # the proof
+        self.assertIn("/reload-plugins", out)
+
+    def test_everything_up_to_date_updates_nothing(self) -> None:
+        shutil.rmtree(str(self.fx.skills / "beta"))
+        shutil.copytree(str(self.fx.build / "beta"), str(self.fx.skills / "beta"))
+        code, out = self.run_update()
+        self.assertEqual((code, self.updated, self.pulled), (0, [], []))
+        self.assertNotIn("Updated:", out)
+
+    def test_a_default_branch_behind_origin_is_fast_forwarded_first(self) -> None:
+        self.sync["behind"] = 3
+        code, out = self.run_update()
+        self.assertEqual(self.pulled, ["main"])
+        self.assertEqual(self.updated, ["beta"])
+
+    def test_nothing_changes_when_the_source_is_not_safe(self) -> None:
+        cases = {"on branch feat/x, not main": {"branch": "feat/x"},
+                 "uncommitted changes under plugins/": {"dirty": True},
+                 "main is 2 commits ahead of origin": {"ahead": 2}}
+        for why, change in cases.items():
+            with self.subTest(why):
+                self.sync = dict(CLEAN, **change)
+                self.updated.clear()
+                code, out = self.run_update()
+                self.assertEqual((code, self.updated, self.pulled), (1, [], []), out)
+                self.assertIn("Not updating:", out)
+                self.assertIn(why, out)
+
+    def test_a_skills_dir_that_apkit_does_not_install_to_is_refused(self) -> None:
+        with mock.patch.object(check, "DEFAULT_SKILLS", self.tmp / "elsewhere"):
+            self.assertIn("skills dir", check.refuse_reason(CLEAN, self.fx.skills))
+        self.assertIsNone(check.refuse_reason(CLEAN, check.DEFAULT_SKILLS))
+        self.assertIsNone(check.refuse_reason(dict(CLEAN, behind=4), check.DEFAULT_SKILLS))
+        self.assertIsNone(check.refuse_reason(None, check.DEFAULT_SKILLS))
+
+    def test_a_failed_update_is_reported_and_the_others_still_update(self) -> None:
+        write(self.fx.skills / "alpha" / "skills" / "alpha" / "SKILL.md", "old\n")
+
+        def update(repo, names):
+            return [(n, n != "alpha", "install blew up" if n == "alpha" else "") for n in names]
+
+        code, out = self.run_update(update=update)
+        self.assertEqual(code, 1)
+        self.assertIn("Failed: alpha", out)
+        self.assertIn("install blew up", out)
+
+    def test_a_failed_pull_stops_before_any_install(self) -> None:
+        self.sync["behind"] = 1
+
+        def pull(repo, default):
+            return "not possible to fast-forward"
+
+        code, out = self.run_update(pull=pull)
+        self.assertEqual((code, self.updated), (1, []))
+        self.assertIn("Not updating: git pull --ff-only failed: not possible to fast-forward", out)
+
+    def test_without_update_the_check_never_installs(self) -> None:
+        with mock.patch.object(check, "update_plugins") as update, mock.patch.object(check, "pull_ff") as pull:
+            code, _ = self.fx.run()
+        self.assertEqual(code, 1)
+        update.assert_not_called()
+        pull.assert_not_called()
+
+    def test_update_builds_then_installs_each_plugin_with_apkit(self) -> None:
+        calls = []
+
+        def run(cmd, **kwargs):
+            calls.append(cmd[2:])
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        with mock.patch.object(check.subprocess, "run", run):
+            result = check.update_plugins(self.fx.repo, ["beta", "alpha"])
+        self.assertEqual(calls, [
+            ["tools.apkit", "build", "--plugin", "beta", "--target", "claude-code"],
+            ["tools.apkit", "install", "beta", "--target", "claude-code"],
+            ["tools.apkit", "build", "--plugin", "alpha", "--target", "claude-code"],
+            ["tools.apkit", "install", "alpha", "--target", "claude-code"]])
+        self.assertEqual(result, [("beta", True, ""), ("alpha", True, "")])
+
+    def test_a_failing_build_skips_that_plugins_install(self) -> None:
+        calls = []
+
+        def run(cmd, **kwargs):
+            calls.append(cmd[3])
+            return subprocess.CompletedProcess(cmd, 1, "", "no good\n")
+
+        with mock.patch.object(check.subprocess, "run", run):
+            result = check.update_plugins(self.fx.repo, ["beta"])
+        self.assertEqual(calls, ["build"])
+        self.assertEqual(result[0][:2], ("beta", False))
+        self.assertIn("no good", result[0][2])
+
+    def test_the_command_and_skill_pass_and_describe_update(self) -> None:
+        command = (PLUGIN / "commands" / "check.md").read_text(encoding="utf-8")
+        skill = (PLUGIN / "skills" / "plugin-freshness" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("check.py --update", command)
+        self.assertNotIn("Never run them", command)
+        self.assertIn("--update", skill)
+        self.assertIn("Not updating", skill)
+        manifest = (PLUGIN / "plugin.json").read_text(encoding="utf-8")
+        self.assertNotIn("Read-only", manifest)
+
+
 def snapshot(root: Path):
     return sorted((p.relative_to(root).as_posix(), p.read_bytes()) for p in root.rglob("*") if p.is_file())
 
