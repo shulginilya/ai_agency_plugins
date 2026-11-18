@@ -6,11 +6,20 @@ source version and is file-for-file identical to a fresh build of the source.
 The report also says whether the local default branch matches origin, since a
 stale checkout makes every comparison stale too.
 
-Read-only: it fetches remote refs, builds into a temporary directory, and
-never installs, pulls, commits or edits a tracked file.
+Read-only unless --update is given: it fetches remote refs, builds into a
+temporary directory, and never installs, pulls, commits or edits a tracked file.
 
-Exit codes: 0 everything up to date, 1 something stale or out of sync,
-2 the check could not run (not the plugins repo, build failed).
+With --update it then brings the install up to date, but only from a safe
+source: the default branch, no uncommitted changes under plugins/, not ahead of
+origin, and the default skills dir (where `apkit install` writes). Otherwise it
+prints "Not updating: <why>" and changes nothing. When the default branch is
+behind origin it fast-forwards it (`git pull --ff-only`, never a merge), then for
+each stale plugin runs `apkit build --plugin <name>` and `apkit install <name>`
+for Claude Code, and prints the report again as the proof.
+
+Exit codes: 0 everything up to date (after the update, with --update), 1 something
+stale, out of sync, not updated or failed to update, 2 the check could not run
+(not the plugins repo, build failed).
 """
 
 from __future__ import annotations
@@ -30,6 +39,7 @@ MAX_FILES = 8
 TARGET = "claude-code"
 IGNORED_DIRS = {"__pycache__"}
 IGNORED_SUFFIXES = (".pyc",)
+DEFAULT_SKILLS = Path.home() / ".claude" / "skills"  # where `apkit install --target claude-code` writes
 
 
 def _files(root: Path) -> Dict[str, Path]:
@@ -239,6 +249,62 @@ def report(repo: Path, skills: Path, built: Path, sync: Optional[Dict],
     return "\n".join(lines) + "\n", not stale and sync_ok(sync)
 
 
+def stale_names(repo: Path, skills: Path, built: Path) -> List[str]:
+    """Installed plugins from this repo whose version or files differ from the build."""
+    stale = []
+    for name, src_version in source_plugins(repo).items():
+        installed = skills / name
+        if not installed.is_dir() or not (built / name).is_dir():
+            continue
+        inst_version = read_version(installed / ".claude-plugin" / "plugin.json") or "?"
+        if inst_version != src_version or compare_trees(built / name, installed):
+            stale.append(name)
+    return stale
+
+
+def refuse_reason(sync: Optional[Dict], skills: Path) -> Optional[str]:
+    """Why the install must not be changed from this checkout, or None when it is safe to."""
+    if skills.resolve() != DEFAULT_SKILLS.resolve():
+        return "the skills dir %s is not %s, where apkit installs" % (skills, DEFAULT_SKILLS)
+    if sync is None:
+        return None
+    default = sync["default"]
+    if sync["branch"] != default:
+        return "on branch %s, not %s" % (sync["branch"], default)
+    if sync.get("dirty"):
+        return "uncommitted changes under plugins/"
+    if sync["behind"] is None:
+        return "no origin/%s to compare with" % default
+    if sync["ahead"]:
+        return "%s is %d commits ahead of origin/%s" % (default, sync["ahead"], default)
+    return None
+
+
+def pull_ff(repo: Path, default: str) -> Optional[str]:
+    """Fast-forward the default branch from origin; the error text, or None on success."""
+    out = subprocess.run(["git", "pull", "--ff-only", "origin", default], cwd=str(repo), capture_output=True,
+                         text=True, encoding="utf-8", errors="replace")
+    if out.returncode == 0:
+        return None
+    return (out.stderr or out.stdout).strip() or "exit %d" % out.returncode
+
+
+def update_plugins(repo: Path, names: List[str]) -> List[Tuple[str, bool, str]]:
+    """Build then install each plugin for Claude Code: (name, ok, output of the step that failed)."""
+    results = []
+    for name in names:
+        output = ""
+        for step in (["build", "--plugin", name], ["install", name]):
+            cmd = [sys.executable, "-m", "tools.apkit", *step, "--target", TARGET]
+            done = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True,
+                                  encoding="utf-8", errors="replace")
+            if done.returncode != 0:
+                output = ("%s%s" % (done.stdout, done.stderr)).strip() or "exit %d" % done.returncode
+                break
+        results.append((name, not output, output))
+    return results
+
+
 def find_repo(start: Path) -> Path:
     top = _git(start, "rev-parse", "--show-toplevel") if start.is_dir() else None
     return Path(top) if top else start
@@ -247,10 +313,12 @@ def find_repo(start: Path) -> Path:
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     ap.add_argument("--repo", help="plugins repo (default: the git repo holding the current directory)")
-    ap.add_argument("--skills-dir", default=str(Path.home() / ".claude" / "skills"),
+    ap.add_argument("--skills-dir", default=str(DEFAULT_SKILLS),
                     help="where plugins are installed (default: ~/.claude/skills)")
     ap.add_argument("--build-dir", help="compare against these already-built %s bundles instead of building" % TARGET)
     ap.add_argument("--no-fetch", action="store_true", help="do not fetch origin first")
+    ap.add_argument("--update", action="store_true",
+                    help="bring stale plugins up to date (build + install), from a safe source only")
     ap.add_argument("--plugin-list-file", help="saved `claude plugin list` output instead of running it")
     args = ap.parse_args(argv)
 
@@ -259,23 +327,60 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("%s is not the plugins repo (no tools/apkit); run it from the plugins repo." % repo)
         return 2
 
+    skills = Path(args.skills_dir)
     sync = git_sync(repo, fetch=not args.no_fetch)
     listing, listing_note = read_plugin_list(args.plugin_list_file)
-    tmp = None
-    try:
+    tmp = []
+
+    def fresh_build() -> Optional[Path]:
         if args.build_dir:
-            built = Path(args.build_dir)
-        else:
-            tmp = tempfile.mkdtemp(prefix="plugin-check-")
-            built = build(repo, Path(tmp))
+            return Path(args.build_dir)
+        tmp.append(tempfile.mkdtemp(prefix="plugin-check-"))
+        return build(repo, Path(tmp[-1]))
+
+    try:
+        built = fresh_build()
+        if built is None:
+            return 2
+        text, ok = report(repo, skills, built, sync, listing, listing_note)
+        sys.stdout.write(text)
+        if not args.update:
+            return 0 if ok else 1
+        stale = stale_names(repo, skills, built)
+        behind = bool(sync and sync.get("behind"))
+        if not (stale or behind):
+            return 0 if ok else 1
+        why = refuse_reason(sync, skills)
+        if why:
+            print("\nNot updating: %s." % why)
+            return 1
+        if behind:
+            failure = pull_ff(repo, sync["default"])
+            if failure:
+                print("\nNot updating: git pull --ff-only failed: %s." % failure)
+                return 1
+            sync = git_sync(repo, fetch=False)
+            built = fresh_build()
             if built is None:
                 return 2
-        text, ok = report(repo, Path(args.skills_dir), built, sync, listing, listing_note)
+            stale = stale_names(repo, skills, built)
+        results = update_plugins(repo, stale)
+        done = [name for name, good, _ in results if good]
+        failed = [(name, out) for name, good, out in results if not good]
+        print()
+        if done:
+            print("Updated: %s." % ", ".join(done))
+        for name, out in failed:
+            print("Failed: %s\n%s" % (name, "\n".join("    " + line for line in out.splitlines())))
+        text, ok = report(repo, skills, built, sync, listing, listing_note)
+        print("\nAfter the update:\n")
+        sys.stdout.write(text)
+        if done:
+            print("\nRun /reload-plugins to load the updated plugins in this session.")
+        return 0 if ok and not failed else 1
     finally:
-        if tmp:
-            shutil.rmtree(tmp, ignore_errors=True)
-    sys.stdout.write(text)
-    return 0 if ok else 1
+        for path in tmp:
+            shutil.rmtree(path, ignore_errors=True)
 
 
 if __name__ == "__main__":

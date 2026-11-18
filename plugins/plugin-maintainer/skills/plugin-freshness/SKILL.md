@@ -1,10 +1,10 @@
 ---
 name: plugin-freshness
-description: Checks whether every installed plugin is up to date with the plugins repo — the installed version equals the source version, the installed files are identical to a fresh build, and the local default branch matches origin — and reports it as a Markdown table with the differing files and notes on source plugins that are not installed and older same-named copies from other sources. Read-only. Use when asked whether the plugins are up to date, which plugins are stale, whether an install matches the repo, or to check every plugin before a session.
+description: Checks whether every installed plugin is up to date with the plugins repo — the installed version equals the source version, the installed files are identical to a fresh build, and the local default branch matches origin — and reports it as a Markdown table with the differing files and notes on source plugins that are not installed and older same-named copies from other sources. Read-only by default; with --update it also builds and installs the stale ones from a safe source. Use when asked whether the plugins are up to date, which plugins are stale, to update or reinstall them, whether an install matches the repo, or to check every plugin before a session.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Plugin freshness
@@ -15,7 +15,8 @@ report. Run it; do not reconstruct the comparison by hand.
 ```bash
 python scripts/check.py                 # from the plugins repo
 python scripts/check.py --no-fetch      # offline: compare with origin as last fetched
-python scripts/check.py --skills-dir <path>   # another install location
+python scripts/check.py --skills-dir <path>   # another install location (report only)
+python scripts/check.py --update        # report, then update the stale plugins and report again
 ```
 
 ## What "up to date" means
@@ -47,10 +48,34 @@ code is 1 even when every row says up to date.
 Exit codes: `0` all up to date and in sync, `1` something stale or out of
 sync, `2` the check could not run (not the plugins repo, or the build failed).
 
+## Updating
+
+`--update` (the `/plugin-maintainer:check` command always passes it) acts only
+when something is stale or the default branch is behind origin, and only from a
+safe source. It stops with `Not updating: <why>` and changes nothing when:
+
+- the checkout is on a branch other than the default branch;
+- there are uncommitted changes under `plugins/`;
+- the default branch is ahead of origin, or origin cannot be compared with;
+- the skills dir is not the default `~/.claude/skills`, where `apkit install`
+  writes;
+- `git pull --ff-only` fails (a merge is never made).
+
+Otherwise it fast-forwards a default branch that is behind, rebuilds, then for
+each stale plugin runs `python -m tools.apkit build --plugin <name> --target
+claude-code` and `python -m tools.apkit install <name> --target claude-code`.
+A plugin that fails is listed with the step's output under `Failed:` and the
+rest still update. It prints `Updated: ...`, then the report again under
+`After the update:` as the proof, and exits 0 only when that report is clean.
+The new versions load with `/reload-plugins`. Plugins not installed yet, and
+copies from other sources (`@synced`), are never installed or touched.
+
 ## Rules
 
-- **Read-only.** It fetches `origin` and builds into a temporary directory.
-  It never pulls, installs, uninstalls, commits or touches `dist/`. Fixing a
-  stale plugin is the user's call: name the commands, do not run them.
-- **Report what it printed.** Do not soften a stale row or drop a note.
+- **Read-only unless `--update`.** Without it the script fetches `origin` and
+  builds into a temporary directory, and never pulls, installs, uninstalls,
+  commits or touches `dist/`. Updating is the command's job: run the script
+  with `--update`, never the pull, build or install by hand.
+- **Report what it printed.** Do not soften a stale row, a `Not updating:` or
+  a `Failed:`, and do not drop a note.
 - Outside the plugins repo it stops with exit 2 and no table; say so.
