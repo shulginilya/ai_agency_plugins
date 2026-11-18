@@ -152,8 +152,8 @@
         "path": "claude-code/plugin-maintainer",
         "ref": "dist"
       },
-      "description": "Keeps the installed plugins honest against this plugins repo: checks that every installed plugin has the source version and is file-for-file identical to a fresh build, that the local default branch matches origin, and reports it as a table, with notes for source plugins that are not installed and older same-named copies from other sources. Read-only. Use when asked whether the plugins are up to date, stale or out of sync with the repo.",
-      "version": "0.1.0",
+      "description": "Keeps the installed plugins honest against this plugins repo: checks each installed plugin has the source version and files identical to a fresh build, reports it as a table, and updates the stale ones from a safe source only (default branch, clean, in sync). Use when asked whether the plugins are up to date or stale, or to update them.",
+      "version": "0.2.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
