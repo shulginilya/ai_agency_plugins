@@ -24,6 +24,7 @@ python ../ticket-management/scripts/board.py where  --issue I             # exis
 python ../ticket-management/scripts/board.py add    --project N --issue I # existing ticket on no board: put it on the chosen one
 python ../ticket-management/scripts/board.py branch --issue I             # <number>-<type>-<slug>
 python ../ticket-management/scripts/board.py move   --project N --issue I # to "In review", and confirm it held
+python scripts/ship_check.py --expected-branch NAME                          # refuse a stacked or misnamed branch before the PR
 ```
 
 Below, `board.py` and `tickets.py` mean those two scripts.
@@ -94,6 +95,13 @@ issue and puts it on the board in one step.
 - **Branch:** `board.py branch --issue I`. If you are on the default branch, run
   `git checkout -b <name>`. Uncommitted work comes along. If you are already on
   a feature branch for this work, keep it and say so.
+- **Check the branch:** `python scripts/ship_check.py --expected-branch <the
+  name board.py branch gave>`. It refuses (exit 1, reasons on stderr) a branch
+  that is the default branch, is not named as `board.py branch` names it for the
+  ticket, or descends from another branch not merged into the default branch.
+  Then open no PR: say why, in its words, and stop. A ticket that needs a
+  change from another ticket's unmerged PR is not stacked: ship the first,
+  let the Captain merge it, then branch from the up-to-date default branch.
 - **Commit** only the files listed in step 0: `git add <paths>`, never
   `git add -A`. The message follows the repo's convention, explains why in the
   body, and ends with `Closes #I`.
@@ -102,6 +110,9 @@ issue and puts it on the board in one step.
   leased push after a rebase the user asked for.
 
 ## 4. Open the PR
+
+Read the default branch with `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`
+and pass it as `--base`. Never a feature branch, whatever branch you are on.
 
 `gh pr create --base <default branch> --title <issue title> --body-file ... --assignee @me`,
 with this body:

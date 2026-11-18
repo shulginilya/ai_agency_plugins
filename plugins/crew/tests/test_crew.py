@@ -621,10 +621,11 @@ class CrewContextHookTest(unittest.TestCase):
         self.assertEqual([p.name for p in self.data.iterdir() if p.suffix == ".tmp"], [])
 
     @staticmethod
-    def _done(*cards, done_option=True, next_page=None):
+    def _done(*cards, done_option=True, next_page=None, default=None, bases=None):
         """The board's cards not in Done: (label, column, merged) or (label, column, merged, merged at,
         Status set at), where label is "#N" for an issue and "PR #N" for a PR. A merge is newer than
-        the card's last move unless said otherwise."""
+        the card's last move unless said otherwise. `default` is the repository's default branch and
+        `bases` maps a label to the branch its merged PR targeted (the default branch when absent)."""
         nodes = []
         for card in cards:
             label, column, merged = card[:3]
@@ -632,6 +633,9 @@ class CrewContextHookTest(unittest.TestCase):
             number = int(label.split("#")[1])
             content = {"number": number, "repository": {"nameWithOwner": "acme/shop"}}
             pr = {"merged": merged, "mergedAt": merged_at if merged else None}
+            if default:
+                content["repository"]["defaultBranchRef"] = {"name": default}
+                pr["baseRefName"] = (bases or {}).get(label, default)
             if label.startswith("PR"):
                 content.update(pr)
             else:
@@ -684,6 +688,40 @@ class CrewContextHookTest(unittest.TestCase):
         self.done_reply = reply
         self.assertEqual(self._session_start().splitlines()[1:], [])
         self.assertEqual(self.moves, [])
+
+    def test_a_ticket_whose_pr_merged_into_another_branch_stays_and_the_pr_and_branch_are_named(self):
+        self._crew_board()
+        self.done_reply = self._done(("#5", "QA", True), ("#6", "QA", True), ("PR #38", "QA", True),
+                                     default="main", bases={"#5": "feat/33-code-style", "PR #38": "feat/2-ci"})
+        out = self._session_start()
+        self.assertEqual(self._moved(), ["ITEM_6"], "only the PR that landed on main moves its ticket")
+        self.assertIn("crew: moved #6 to Done", out)
+        self.assertIn("#5", out.split("crew: moved #6 to Done")[-1])
+        self.assertIn("feat/33-code-style", out)
+        self.assertIn("feat/2-ci", out)
+        self.assertIn("not main", out)
+        self.assertIn("warning", out.lower())
+
+    def test_the_warning_for_a_stacked_merge_is_printed_once_until_the_card_changes(self):
+        self._crew_board()
+        self.done_reply = self._done(("#5", "QA", True), default="main", bases={"#5": "feat/33-code-style"})
+        self.assertIn("feat/33-code-style", self._session_start())
+        self.assertEqual(self._prompt(step=crew_context.DONE_INTERVAL), "", "not repeated")
+        self.assertEqual(self.moves, [])
+
+    def test_a_ticket_with_one_stacked_and_one_default_merge_still_moves(self):
+        self._crew_board()
+        reply = self._done(("#5", "QA", True), default="main")
+        nodes = reply["data"]["node"]["items"]["nodes"][0]["content"]["closedByPullRequestsReferences"]["nodes"]
+        nodes.append({"merged": True, "mergedAt": "2026-01-02T00:00:00Z", "baseRefName": "feat/x", "number": 1})
+        self.done_reply = reply
+        out = self._session_start()
+        self.assertEqual(self._moved(), ["ITEM_5"])
+        self.assertNotIn("feat/x", out)
+
+    def test_the_done_query_asks_for_each_prs_base_and_the_default_branch(self):
+        self.assertIn("baseRefName", crew_context.DONE_QUERY)
+        self.assertIn("defaultBranchRef", crew_context.DONE_QUERY)
 
     def test_the_done_query_leaves_done_cards_out_on_githubs_side(self):
         self.assertIn('query:"-status:Done"', crew_context.DONE_QUERY)
@@ -821,6 +859,8 @@ class CrewContextHookTest(unittest.TestCase):
                      "Never ask from In Definition to In approval", "Never skip a column",
                      "A card the Captain moves to QA starts QA", "crew: the Captain moved #N to QA"):
             self.assertIn(rule, text)
+        self.assertIn("Never stack", text)  # a ticket that needs another's unmerged PR waits, never stacks
+        self.assertIn("up-to-date default branch", text)
         self.assertIn("/developer:ship #N board <crew board>", text)  # reuse the ticket, on its board
         self.assertIn("Definition to Backlog, then Ready, then In progress", text)  # one column at a time
         self.assertIn("crew: the Captain moved", crew_context.qa_message([1], "b"))  # what the skill waits for

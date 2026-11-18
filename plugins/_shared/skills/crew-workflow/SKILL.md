@@ -59,6 +59,15 @@ Without either line, this skill does not apply.
    that is truly the Captain's, such as a missing priority or a conflict
    between the ticket and the code. Do not guess on anything irreversible.
 
+9. **Never stack PRs.** Every PR targets the default branch, and every ticket
+   branches from an up-to-date default branch, never from another ticket's
+   branch. When a ticket needs a change from another ticket's PR that is not
+   merged yet, do not build on it: finish and ship the first, tell the Captain
+   it must be merged, and move on to another ticket. Only when the first is
+   merged into the default branch, pull it and start the dependent one. A PR
+   whose base is not the default branch is never shipped, reviewed, accepted or
+   counted as done: its merge would land in a dead branch.
+
 When you stop, report the ticket link, the PR link, the column the card is in,
 and what the Captain decides next.
 

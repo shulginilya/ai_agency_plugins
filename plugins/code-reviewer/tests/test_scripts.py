@@ -182,3 +182,51 @@ class ScopeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BaseBranchTest(unittest.TestCase):
+    """A PR that does not target the default branch is never reviewed (a merge would land in a dead branch)."""
+
+    def test_a_base_that_is_not_the_default_is_a_problem_naming_both(self):
+        problem = pr_scope.base_problem("feat/33-code-style", "main")
+        self.assertIn("base is not main", problem)
+        self.assertIn("feat/33-code-style", problem)
+
+    def test_the_default_base_is_fine(self):
+        self.assertIsNone(pr_scope.base_problem("main", "main"))
+
+    def run_main(self, base, *args):
+        import contextlib
+        import io
+        from unittest import mock
+        pr = {"url": "u", "title": "t", "state": "open", "head": "abc1234", "head_ref": "134-x", "base": base,
+              "files": [], "reviews": [], "tickets": [], "captain": "me"}
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(pr_scope, "current_repo", return_value="acme/app"), \
+                mock.patch.object(pr_scope, "default_branch", return_value="main"), \
+                mock.patch.object(pr_scope, "fetch", return_value=pr), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = pr_scope.main(["--pr", "38", *args])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_main_exits_non_zero_and_prints_no_action_for_a_stacked_pr(self):
+        for extra in ([], ["--json"]):
+            code, out, err = self.run_main("feat/33-code-style", *extra)
+            self.assertEqual(code, 3)
+            self.assertIn("base is not main", err)
+            self.assertEqual(out, "", "nothing on stdout that reads as a go-ahead")
+
+    def test_main_still_scopes_a_pr_into_the_default_branch(self):
+        code, out, _ = self.run_main("main")
+        self.assertEqual(code, 0)
+        self.assertIn("review", out)
+
+    def test_the_review_command_and_skill_stop_on_exit_3_without_posting_or_moving_a_card(self):
+        command = (PLUGIN / "commands" / "review.md").read_text(encoding="utf-8")
+        skill = (PLUGIN / "skills" / "pr-review" / "SKILL.md").read_text(encoding="utf-8")
+        for text in (command, skill):
+            self.assertIn("base is not <default>", text)
+        self.assertIn("Exit 3", command)
+        self.assertIn("post no review and move no card", command)
+        self.assertIn("exits 3", skill)
+        self.assertIn("leave every card where it is", skill)

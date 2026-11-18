@@ -17,6 +17,7 @@ VERIFY = PLUGIN / "skills" / "feature-implementation" / "scripts" / "verify.py"
 CALLERS = PLUGIN / "skills" / "safe-refactoring" / "scripts" / "callers.py"
 DEV_CONTEXT = PLUGIN / "scripts" / "dev_context.py"
 MCP_SERVER = PLUGIN / "mcp" / "server.py"
+SHIP_CHECK = PLUGIN / "skills" / "ship-change" / "scripts" / "ship_check.py"
 
 
 def run(args, **kwargs):
@@ -169,6 +170,94 @@ class ShipExistingTicketTest(unittest.TestCase):
         for text in (command, skill):  # the ticket's own board, not the most used one
             self.assertIn("board.py where --issue", text)
         self.assertIn("gh issue view", skill)
+
+
+class ShipCheckTest(unittest.TestCase):
+    """/developer:ship refuses a branch off an unmerged feature branch, or one not named for the ticket."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        root = Path(self._tmp.name)
+        self.origin = root / "origin.git"
+        self.repo = root / "work"
+        self.repo.mkdir()
+        run(["git", "init", "-q", "--bare", "-b", "main", str(self.origin)])
+        run(["git", "init", "-q", "-b", "main"], cwd=self.repo)
+        for key, value in (("user.email", "t@example.com"), ("user.name", "Test")):
+            run(["git", "config", key, value], cwd=self.repo)
+        run(["git", "remote", "add", "origin", str(self.origin)], cwd=self.repo)
+        self.commit("base")
+        run(["git", "push", "-q", "-u", "origin", "main"], cwd=self.repo)
+
+    def git(self, *args):
+        done = run(["git", *args], cwd=self.repo)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return done.stdout
+
+    def commit(self, name):
+        (self.repo / name).write_text(name, encoding="utf-8")
+        self.git("add", name)
+        self.git("commit", "-q", "-m", name)
+
+    def check(self, *args):
+        return run([sys.executable, str(SHIP_CHECK), "--default", "main", *args], cwd=self.repo)
+
+    def test_a_branch_off_the_default_branch_passes(self):
+        self.git("checkout", "-q", "-b", "134-fix-x")
+        self.commit("work")
+        done = self.check("--expected-branch", "134-fix-x")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("--base main", done.stdout)
+
+    def test_a_branch_off_an_unmerged_feature_branch_is_refused_naming_it(self):
+        self.git("checkout", "-q", "-b", "33-code-style")
+        self.commit("style")
+        self.git("push", "-q", "-u", "origin", "33-code-style")
+        self.git("checkout", "-q", "-b", "2-ci")
+        self.commit("ci")
+        done = self.check("--expected-branch", "2-ci")
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("33-code-style", done.stderr)
+        self.assertIn("unmerged", done.stderr)
+        self.assertEqual(done.stdout, "", "nothing reads as a go-ahead")
+
+    def test_a_local_only_feature_branch_underneath_is_refused_too(self):
+        self.git("checkout", "-q", "-b", "33-code-style")
+        self.commit("style")
+        self.git("checkout", "-q", "-b", "2-ci")
+        self.commit("ci")
+        self.assertEqual(self.check().returncode, 1)
+
+    def test_once_the_other_branch_is_merged_into_the_default_branch_it_passes(self):
+        self.git("checkout", "-q", "-b", "33-code-style")
+        self.commit("style")
+        self.git("checkout", "-q", "-b", "2-ci")
+        self.commit("ci")
+        self.git("checkout", "-q", "main")
+        self.git("merge", "-q", "--ff-only", "33-code-style")
+        self.git("push", "-q", "origin", "main")
+        self.git("checkout", "-q", "2-ci")
+        self.assertEqual(self.check().returncode, 0)
+
+    def test_a_branch_not_named_for_the_ticket_is_refused_with_the_expected_name(self):
+        self.git("checkout", "-q", "-b", "feat/2-ci")
+        self.commit("ci")
+        done = self.check("--expected-branch", "2-ci-setup")
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("2-ci-setup", done.stderr)
+        self.assertIn("feat/2-ci", done.stderr)
+
+    def test_the_default_branch_itself_is_refused(self):
+        done = self.check()
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("default branch", done.stderr)
+
+    def test_the_ship_skill_and_command_run_the_check_and_pin_the_base(self):
+        for text in ((PLUGIN / "commands" / "ship.md").read_text(encoding="utf-8"),
+                     (PLUGIN / "skills" / "ship-change" / "SKILL.md").read_text(encoding="utf-8")):
+            self.assertIn("ship_check.py", text)
+            self.assertIn("defaultBranchRef", text)
 
 
 class McpServerTest(unittest.TestCase):

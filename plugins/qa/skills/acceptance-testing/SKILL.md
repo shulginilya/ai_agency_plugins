@@ -29,6 +29,12 @@ from code review when the ticket is labelled `skip_approval`.
 waiting for code review, and in In approval for the Captain's review. Say
 where it is and stop: verifying it early tests code nobody has approved yet.
 
+**Accept only a PR into the default branch.** Run `pr_base.py --pr PR` first.
+A PR whose base is another branch (a stacked PR) would merge into a dead
+branch and never reach the default one. Exit 3 (`base is not <default>`)
+means no accept and no reject: post no verdict, leave the card where it is,
+say the PR must be retargeted to the default branch, and stop.
+
 ## 1. Know what you're testing
 
 - **The ticket:** run `criteria.py`. If there's no test plan yet, write one

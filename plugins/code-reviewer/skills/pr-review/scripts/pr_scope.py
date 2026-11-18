@@ -17,6 +17,11 @@ prints. Then it says what to do:
 
 A PR that is closed or merged is reported as such, with action `closed`.
 
+An open PR whose base is not the repository's default branch is never scoped:
+a merge would land in a dead branch, not in the default one. It prints
+"base is not <default>" on stderr, nothing on stdout and exits 3, so no review
+is posted and no card moves.
+
 It also prints the review `round` this one would be: 1 plus the request-changes
 verdicts given since the last approve or stop. An approve ends a fix loop (a
 QA reject after it starts a new one at round 1), and so does a stop
@@ -24,7 +29,8 @@ QA reject after it starts a new one at round 1), and so does a stop
 `captain` to @mention on a stop: the PR's first assignee, else the repository
 owner.
 
-Standard library plus the gh CLI. Exit status: 0 done, 1 gh failed, 2 bad input.
+Standard library plus the gh CLI. Exit status: 0 done, 1 gh failed, 2 bad input,
+3 the PR's base is not the default branch.
 """
 
 from __future__ import annotations
@@ -69,6 +75,14 @@ def round_of(verdicts: List[Dict[str, Any]]) -> int:
 def captain_of(assignees: List[str], repo: str) -> str:
     """Who a stop @mentions: the PR's first assignee, else the repository owner."""
     return assignees[0] if assignees else repo.split("/")[0]
+
+
+def base_problem(base: str, default: str) -> Optional[str]:
+    """Why a PR into `base` cannot be reviewed, or None when it targets the default branch."""
+    if base == default:
+        return None
+    return ("base is not %s: the PR targets %s, so a merge would not reach %s. Leave the card where it is, "
+            "post no review, and tell the Captain to retarget the PR to %s." % (default, base, default, default))
 
 
 def decide(head: str, reviews: List[Dict[str, Any]], state: str = "open") -> Dict[str, Any]:
@@ -130,6 +144,10 @@ def current_repo(named: Optional[str]) -> str:
     return gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner").strip()
 
 
+def default_branch(repo: str) -> str:
+    return gh("api", "repos/%s" % repo, "-q", ".default_branch").strip()
+
+
 def closing_tickets(repo: str, number: int) -> List[Dict[str, Any]]:
     owner, name = repo.split("/")
     data = json.loads(gh("api", "graphql", "-f", "query=query($o:String!,$n:String!,$i:Int!){repository(owner:$o,name:$n)"
@@ -171,9 +189,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         repo = current_repo(args.repo)
         pr = fetch(repo, args.pr)
+        problem = base_problem(pr["base"], default_branch(repo)) if pr["state"] == "open" else None
     except ScopeError as exc:
         print("pr_scope: %s" % exc, file=sys.stderr)
         return exc.exit_code
+    if problem:
+        print("pr_scope: %s#%d: %s" % (repo, args.pr, problem), file=sys.stderr)
+        return 3
     decided = decide(pr["head"], pr["reviews"], pr["state"])
     result = dict(decided, pr="%s#%d" % (repo, args.pr), url=pr["url"], title=pr["title"], head=pr["head"],
                   head_ref=pr["head_ref"], base=pr["base"], files=pr["files"], tickets=pr["tickets"],
