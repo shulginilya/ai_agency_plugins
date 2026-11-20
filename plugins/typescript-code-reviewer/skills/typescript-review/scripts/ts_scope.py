@@ -533,7 +533,9 @@ def scope(repo: Path, base: Optional[str] = None) -> Dict[str, Any]:
         entry["language"] = "config" if is_config else "ts" if path.lower().endswith(TS_EXT) else "js"
         entry["tags"] = tags_of(path, text) + (["symlink"] if link else [])
         if link:
-            entry["target"] = os.readlink(str(repo / path))
+            target = os.readlink(str(repo / path))
+            # Windows returns an absolute target as an extended-length path: \\?\C:\...
+            entry["target"] = target[4:] if target.startswith("\\\\?\\") else target
         files.append(entry)
     code = [f for f in files if f["language"] != "config" and f["status"] != "D" and "symlink" not in f["tags"]]
     hatches: List[Dict[str, Any]] = []
