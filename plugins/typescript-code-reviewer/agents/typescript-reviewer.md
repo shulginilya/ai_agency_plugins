@@ -18,7 +18,9 @@ findings. You don't fix anything, edit files, commit, or touch GitHub.
 - **The tsconfig strictness** and the **escape hatches** the diff adds, as
   `ts_scope.py` printed them.
 
-Read every changed file in full. Read the code around the change, not just
+Read every changed file in full, except one tagged `symlink`: never read
+through a symlink, because its target can be outside the repository. Report
+the link and its target instead. Read the code around the change, not just
 the changed lines: the caller, the component that renders this one, the route
 that calls this service, the type's other users, the test. For types, react
 or node, read the plugin's `skills/typescript-review/references/<pass>.md`

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -65,6 +66,7 @@ class Repo:
         write(self.root, "src/util.ts", "export const x = 1;\n")
         write(self.root, "README.md", "app\n")
         commit(self.root, "base")
+        self.base_commit = git(self.root, "rev-parse", "HEAD")
         git(self.root, "checkout", "-q", "-b", "feature")
         write(self.root, "src/server.ts", "import express from 'express';\nexport const app = express();\n"
                                           "// @ts-ignore\nconst body = req.body as any;\n")
@@ -73,7 +75,14 @@ class Repo:
         write(self.root, "src/util.test.ts", "import { x } from './util';\n// @ts-expect-error\n"
                                              "const y: string = x;\n")
         write(self.root, "README.md", "app, changed\n")
+        write(self.root, "src/my file.ts", "const a = x as any;\n")
+        write(self.root, "dist/index.js", "const b = y as any;\n")
         commit(self.root, "feature")
+        # main moves on after the branch is cut: none of this belongs to the change
+        git(self.root, "checkout", "-q", "main")
+        write(self.root, "src/later.ts", "const later = z as any;\n")
+        commit(self.root, "later on main")
+        git(self.root, "checkout", "-q", "feature")
         write(self.root, "src/util.ts", "export const x = 1;\nexport const z: Record<string, any> = {};\n")
         write(self.root, "src/new.ts", "const v = foo as unknown as Bar; // eslint-disable-line\n")
 
@@ -96,7 +105,9 @@ class ScopeTest(unittest.TestCase):
 
     def test_lists_committed_uncommitted_and_untracked_code_only(self):
         files = self.files()
-        self.assertEqual(set(files), {"src/App.tsx", "src/new.ts", "src/server.ts", "src/util.test.ts", "src/util.ts"})
+        self.assertEqual(set(files), {"src/App.tsx", "src/new.ts", "src/server.ts", "src/util.test.ts", "src/util.ts",
+                                      "src/my file.ts"}, "no dist/ output, nothing main added after the branch")
+        self.assertTrue(self.repo.base_commit.startswith(self.result["merge_base"]))
         self.assertEqual(files["src/App.tsx"]["status"], "A")
         self.assertEqual(files["src/server.ts"]["status"], "M")
         self.assertEqual(files["src/util.ts"]["status"], "M", "an uncommitted change counts")
@@ -140,6 +151,7 @@ class ScopeTest(unittest.TestCase):
             ("src/util.ts", 2, "any"),
             ("src/new.ts", 1, "as unknown as"),
             ("src/new.ts", 1, "eslint-disable"),
+            ("src/my file.ts", 1, "any"),
         })
 
     def test_cli_text_and_json(self):
@@ -160,6 +172,43 @@ class ScopeTest(unittest.TestCase):
                               capture_output=True, text=True, check=False)
         self.assertEqual(done.returncode, 2)
         self.assertIn("no-such-ref", done.stderr)
+
+
+def can_symlink() -> bool:
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            os.symlink(os.path.join(tmp, "target"), os.path.join(tmp, "link"))
+        except (OSError, NotImplementedError):
+            return False
+    return True
+
+
+class SymlinkTest(unittest.TestCase):
+    @unittest.skipUnless(can_symlink(), "this platform cannot create symlinks")
+    def test_a_symlinked_file_is_tagged_and_never_read(self):
+        with tempfile.TemporaryDirectory() as outside, tempfile.TemporaryDirectory() as tmp:
+            secret = Path(outside) / "secret.ts"
+            secret.write_text("import express from 'express';\nconst token = leaked as any;\n", encoding="utf-8")
+            root = Path(tmp)
+            git(root, "init", "-q")
+            write(root, "src/a.ts", "export const a = 1;\n")
+            commit(root, "base")
+            git(root, "checkout", "-q", "-b", "link")
+            os.symlink(str(secret), str(root / "src" / "env.ts"))
+            os.symlink(str(secret), str(root / "src" / "loose.ts"))
+            commit(root, "add a tracked symlink")
+            os.remove(str(root / "src" / "loose.ts"))
+            os.symlink(str(secret), str(root / "src" / "untracked.ts"))
+            result = ts_scope.scope(root, "main")
+            files = {f["path"]: f for f in result["files"]}
+            for path in ("src/env.ts", "src/untracked.ts"):
+                self.assertEqual(files[path]["tags"], ["symlink"], "the target's imports were read: %s" % path)
+                self.assertEqual(files[path]["target"], str(secret))
+            self.assertIsNone(files["src/untracked.ts"]["added"], "the target's lines were counted")
+            self.assertEqual(result["hatches"], [], "nothing is read through a symlink")
+            text = ts_scope.render(result)
+            self.assertIn("src/env.ts -> %s" % secret, text)
+            self.assertIn("symlinks: never read them", text)
 
 
 class NothingToReviewTest(unittest.TestCase):
@@ -221,6 +270,50 @@ class TsconfigTest(unittest.TestCase):
         self.assertEqual(report["gaps"], [])
         self.assertEqual(report["unresolved"], ["@missing/config"])
 
+    def test_an_explicit_family_flag_overrides_strict(self):
+        write(self.root, "tsconfig.json", '{"compilerOptions": {"strict": true, "strictNullChecks": false}}')
+        report = ts_scope.strictness(self.root / "tsconfig.json", self.root)
+        self.assertIs(report["flags"]["strict"], True)
+        self.assertIs(report["flags"]["strictNullChecks"], False)
+        self.assertIs(report["flags"]["noImplicitAny"], True)
+        self.assertIn(ts_scope.GAPS["strictNullChecks"], report["gaps"])
+
+    def test_own_options_override_extends_and_later_bases_override_earlier(self):
+        write(self.root, "tsconfig.base.json", '{"compilerOptions": {"strict": true}}')
+        write(self.root, "tsconfig.json", '{"extends": "./tsconfig.base.json", "compilerOptions": {"strict": false}}')
+        report = ts_scope.strictness(self.root / "tsconfig.json", self.root)
+        self.assertIs(report["flags"]["strict"], False)
+        self.assertIs(report["flags"]["strictNullChecks"], False)
+        write(self.root, "loose.json", '{"compilerOptions": {"noUncheckedIndexedAccess": false}}')
+        write(self.root, "tight.json", '{"compilerOptions": {"noUncheckedIndexedAccess": true}}')
+        write(self.root, "both.json", '{"extends": ["./loose.json", "./tight.json"]}')
+        self.assertIs(ts_scope.strictness(self.root / "both.json", self.root)["flags"]["noUncheckedIndexedAccess"],
+                      True)
+        write(self.root, "reverse.json", '{"extends": ["./tight.json", "./loose.json"]}')
+        self.assertIs(ts_scope.strictness(self.root / "reverse.json", self.root)["flags"]["noUncheckedIndexedAccess"],
+                      False)
+
+    def test_an_extends_cycle_ends(self):
+        write(self.root, "a.json", '{"extends": "./b.json", "compilerOptions": {"strict": true}}')
+        write(self.root, "b.json", '{"extends": "./a.json"}')
+        report = ts_scope.strictness(self.root / "a.json", self.root)
+        self.assertIs(report["flags"]["strict"], True)
+        self.assertEqual(report["unresolved"], [])
+
+    def test_a_byte_order_mark_is_read(self):
+        bom = "\ufeff"
+        write(self.root, "package.json", bom + json.dumps({
+            "scripts": {"typecheck": "tsc --noEmit", "lint": "eslint ."}, "devDependencies": {"typescript": "5.4.0"}}))
+        write(self.root, "tsconfig.json", bom + '{"compilerOptions": {"strict": true}}')
+        write(self.root, "node_modules/typescript/package.json", bom + '{"version": "5.4.0"}')
+        report = ts_scope.package_report(self.root, self.root)
+        self.assertEqual(report["checks"]["typecheck"], "npm run typecheck")
+        self.assertEqual(report["checks"]["lint"], "npm run lint")
+        self.assertIs(report["tsconfigs"][0]["flags"]["strict"], True)
+        self.assertEqual(report["notes"], [])
+        write(self.root, "tsconfig.json", "{}")
+        self.assertIs(ts_scope.strictness(self.root / "tsconfig.json", self.root)["flags"]["strict"], False, "TS 5")
+
     def test_unset_strict_follows_the_installed_typescript(self):
         write(self.root, "tsconfig.json", "{}")
         report = ts_scope.strictness(self.root / "tsconfig.json", self.root)
@@ -239,7 +332,7 @@ class TsconfigTest(unittest.TestCase):
         write(self.root, "tsconfig.app.json", '{"compilerOptions": {"strict": true}}')
         report = ts_scope.package_report(self.root, self.root)
         self.assertEqual(report["manager"], "npm")
-        self.assertEqual(report["checks"]["typecheck"], "npx --no tsc -b")
+        self.assertEqual(report["checks"]["typecheck"], "npx --no tsc -b tsconfig.json")
         self.assertEqual([c["config"] for c in report["tsconfigs"]], ["tsconfig.json", "tsconfig.app.json"])
         self.assertTrue(report["tsconfigs"][0]["solution"])
         self.assertIs(report["tsconfigs"][1]["flags"]["strict"], True)
@@ -248,6 +341,23 @@ class TsconfigTest(unittest.TestCase):
 
 
 class PackageTest(unittest.TestCase):
+    def test_tsc_b_from_a_package_below_the_solution_names_the_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(root, "tsconfig.json", '{"files": [], "references": [{"path": "./packages/foo/tsconfig.build.json"}]}')
+            write(root, "packages/foo/tsconfig.build.json", '{"compilerOptions": {"strict": true}}')
+            write(root, "packages/foo/package.json", json.dumps({"name": "foo"}))
+            report = ts_scope.package_report(root / "packages" / "foo", root)
+            self.assertEqual(report["checks"]["typecheck"], "npx --no tsc -b ../../tsconfig.json")
+
+    def test_package_manager_field_wins_over_a_stray_lockfile(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write(root, "package.json", json.dumps({"packageManager": "pnpm@9.0.0", "scripts": {"lint": "eslint ."}}))
+            write(root, "package-lock.json", "{}")
+            report = ts_scope.package_report(root, root)
+            self.assertEqual((report["manager"], report["checks"]["lint"]), ("pnpm", "pnpm run lint"))
+
     def test_npm_placeholder_test_and_tsc_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -273,6 +383,21 @@ class PackageTest(unittest.TestCase):
             self.assertEqual((report["dir"], report["manager"]), ("packages/api", "yarn"))
             self.assertEqual(report["checks"]["lint"], "yarn run lint")
             self.assertEqual(report["install"], {"dir": ".", "command": "yarn install --immutable"})
+
+
+class HatchLimitTest(unittest.TestCase):
+    def test_caps_the_list_and_counts_the_rest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            git(root, "init", "-q")
+            write(root, "README.md", "x\n")
+            commit(root, "base")
+            write(root, "src/many.ts", "const a = x as any;\n" * 60)
+            result = ts_scope.scope(root, "main")
+            self.assertEqual((len(result["hatches"]), result["hatches_more"]), (50, 10))
+            text = ts_scope.render(result)
+            self.assertIn("escape hatches added (60)", text)
+            self.assertIn("... and 10 more", text)
 
 
 class ClassifyTest(unittest.TestCase):
@@ -340,6 +465,11 @@ class ReportTest(unittest.TestCase):
             (findings(finding("minor", **{"pass": "css"})), "unknown pass"),
             (findings(checks=[{"name": "typecheck", "result": "fail"}]), "red check is a blocker"),
             (findings(checks=[{"name": "lint", "result": "green"}]), "result must be one of"),
+            (findings(finding("major"), checks=[{"name": "typecheck", "result": "fail"}]), "red check is a blocker"),
+            (findings(finding("critical")), "severity must be one of"),
+            (findings(finding("minor", file="")), "needs a 'file'"),
+            (findings(finding("minor", claim=" ")), "needs a 'file' and a 'claim'"),
+            (findings(checks=[{"result": "pass"}]), "needs a 'name'"),
         ]
         for data, message in bad:
             with self.assertRaises(review_report.ReportError) as caught:
@@ -366,6 +496,9 @@ class ReportTest(unittest.TestCase):
         refused = run_report(findings(finding("minor", failure="  ")))
         self.assertEqual(refused.returncode, 2)
         self.assertIn("prove it or drop it", refused.stderr)
+        unknown = run_report(findings(finding("critical")))
+        self.assertEqual(unknown.returncode, 2, "bad input, never read as request changes")
+        self.assertIn("severity must be one of", unknown.stderr)
 
 
 if __name__ == "__main__":

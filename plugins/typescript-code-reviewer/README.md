@@ -8,7 +8,9 @@ carries a concrete failure scenario, and the verdict follows fixed rules.
 
 It is a Captain plugin, not a crew role: the crew's `code-reviewer` stays the
 reviewer in the ticket flow. It never edits code, pushes, files tickets or
-moves board cards.
+moves board cards. Installing dependencies and running a repo's checks run
+the change's code, so for a pull request from a fork or from another author
+it asks first.
 
 ## What it does
 
@@ -41,7 +43,8 @@ Two scripts, both standard-library Python:
 - `skills/typescript-review/scripts/ts_scope.py` compares the working tree
   with the merge base of a ref (default: the remote's default branch) and
   prints the changed TypeScript, JavaScript and config files with their tags
-  (react, node, test, declaration, config), the passes to run, each package's
+  (react, node, test, declaration, config, symlink — a symlink is never read
+  through, only its target printed), the passes to run, each package's
   package manager, install, typecheck, lint and test commands, each
   tsconfig's effective strictness (following `extends`, and TypeScript 6's
   strict default) with what tsc will not catch under it, and the escape

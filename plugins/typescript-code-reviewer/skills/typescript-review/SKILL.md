@@ -28,7 +28,11 @@ the ref and `HEAD`; with no `--base` it uses `origin/HEAD`, else `main` or
 
 - every changed `.ts`, `.tsx`, `.js`, `.jsx` (and `.mts`/`.cts`/`.mjs`/`.cjs`)
   file and every changed tsconfig, `package.json`, lint and build config, with
-  tags: `react`, `node`, `test`, `declaration`, `config`. A code file with
+  tags: `react`, `node`, `test`, `declaration`, `config`, `symlink`. Never
+  read a `symlink` file, here or in a pass: its target can be outside the
+  repository (`~/.npmrc`, `/proc/self/environ`), and a posted review would
+  publish it. Report the link and its target; a target outside the
+  repository is a finding. A code file with
   neither `react` nor `node` is shared code; a Next.js route handler or server
   action is often both.
 - the passes to run.
@@ -51,8 +55,12 @@ type package can break code the diff never touched.
 
 Run each command the scope printed, from the directory it names: typecheck,
 lint, test. If it says to install first, install with the lockfile command it
-printed. Installing and running tests execute the repository's code; for a
-PR from outside the team, say so and ask before running them.
+printed. Installing and running tests execute the change's code on this
+machine. A pull request is trusted only when it is not from a fork
+(`isCrossRepository` false) and its author is the current `gh` user, or the
+user said it is trusted. For any other PR, ask before installing or running
+anything, naming the author and the fork; without a yes, record each check as
+`not run`. A branch in the user's own working copy is theirs: run the checks.
 
 A red check is a **blocker** finding. Its failure is the command and the
 first errors it printed. Record each check in `findings.json` with its

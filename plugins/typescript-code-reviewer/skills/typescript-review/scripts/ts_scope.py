@@ -9,8 +9,8 @@ the merge base of REF and HEAD. REF defaults to the remote's default branch
 
 - every changed TypeScript or JavaScript file and config file (tsconfig,
   package.json, lint and build config), with its status, line counts and tags:
-  react, node, test, declaration, config. A code file with neither react nor
-  node is shared;
+  react, node, test, declaration, config, symlink. A code file with neither
+  react nor node is shared. A symlink is never read: its target is printed;
 - the passes to run: types, correctness and tests whenever anything changed,
   react when a React file changed, node when a Node.js file changed;
 - per package (the nearest package.json): the package manager, the install
@@ -93,6 +93,8 @@ HATCHES: Tuple[Tuple[str, "re.Pattern[str]", bool], ...] = (
 HATCH_LIMIT = 50
 STRING_RE = re.compile(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"|`(?:\\.|[^`\\])*`")
 DIFF = ("-c", "core.quotePath=false", "diff", "--no-renames", "--no-color", "--no-ext-diff")
+# A fixed pathspec, never one argument per changed file: Windows caps a command line at 32,767 characters.
+CODE_PATHSPECS = tuple(":(icase)*" + ext for ext in CODE_EXT)
 
 
 class ScopeError(Exception):
@@ -160,24 +162,26 @@ def changed(repo: Path, merge_base: str) -> List[Dict[str, Any]]:
               "deleted": counts.get(p, (None, None))[1]} for p, s in sorted(status.items())]
     for path in git(repo, "ls-files", "--others", "--exclude-standard", "-z").split("\0"):
         if path and path not in status:
-            text = read_text(repo / path)
+            text = None if os.path.islink(repo / path) else read_text(repo / path)
             files.append({"path": path, "status": "?", "added": len(text.splitlines()) if text is not None else None,
                           "deleted": 0})
     return files
 
 
 def added_lines(repo: Path, merge_base: str, paths: List[str]) -> Dict[str, List[Tuple[int, str]]]:
-    """The lines the diff adds to each tracked path, numbered as they are in the working tree."""
+    """The lines the diff adds to each of the given tracked paths, numbered as they are in the working tree."""
     result: Dict[str, List[Tuple[int, str]]] = {}
-    if not paths:
+    wanted = set(paths)
+    if not wanted:
         return result
-    diff = git(repo, *DIFF, "-U0", "--src-prefix=a/", "--dst-prefix=b/", merge_base, "--", *paths)
+    diff = git(repo, *DIFF, "-U0", "--src-prefix=a/", "--dst-prefix=b/", merge_base, "--", *CODE_PATHSPECS)
     current: Optional[str] = None
     number = 0
     for line in diff.splitlines():
         if line.startswith("+++ "):
-            target = line[4:]
-            current = target[2:] if target.startswith("b/") else None
+            # git ends the header with a tab when the path contains a space
+            target = line[4:].rstrip("\t")
+            current = target[2:] if target.startswith("b/") and target[2:] in wanted else None
         elif line.startswith("@@"):
             m = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
             number = int(m.group(1)) if m else 0
@@ -329,7 +333,7 @@ def resolve_extends(spec: str, config_dir: Path, stop: Path) -> Optional[Path]:
 
 
 def read_config(config: Path) -> Dict[str, Any]:
-    raw = parse_jsonc(config.read_text(encoding="utf-8"))
+    raw = parse_jsonc(config.read_text(encoding="utf-8-sig"))
     return raw if isinstance(raw, dict) else {}
 
 
@@ -365,7 +369,7 @@ def typescript_major(start: Path, stop: Path) -> Optional[int]:
     if manifest is None:
         return None
     try:
-        return int(str(json.loads(manifest.read_text(encoding="utf-8")).get("version", "")).split(".")[0])
+        return int(str(json.loads(manifest.read_text(encoding="utf-8-sig")).get("version", "")).split(".")[0])
     except (OSError, ValueError):
         return None
 
@@ -430,7 +434,7 @@ def package_dir_of(path: str, repo: Path) -> Path:
 
 def read_manifest(directory: Path) -> Dict[str, Any]:
     try:
-        data = json.loads((directory / "package.json").read_text(encoding="utf-8"))
+        data = json.loads((directory / "package.json").read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
@@ -492,7 +496,8 @@ def package_report(package_dir: Path, repo: Path) -> Dict[str, Any]:
     notes: List[str] = []
     if checks["typecheck"] is None and configs:
         if reports[0]["solution"]:
-            checks["typecheck"] = "%s tsc -b" % LOCAL_BIN[manager]
+            checks["typecheck"] = "%s tsc -b %s" % (
+                LOCAL_BIN[manager], Path(os.path.relpath(configs[0], package_dir)).as_posix())
             notes.append("no typecheck script; %s only references projects, so tsc -b checks them "
                          "(it may write build output: check git status after)" % reports[0]["config"])
         else:
@@ -522,11 +527,15 @@ def scope(repo: Path, base: Optional[str] = None) -> Dict[str, Any]:
         is_config = bool(CONFIG_RE.search(path))
         if SKIP_RE.search(path) or not (is_config or path.lower().endswith(CODE_EXT)):
             continue
-        text = read_text(repo / path) if entry["status"] != "D" else None
+        link = entry["status"] != "D" and os.path.islink(repo / path)
+        # Never read through a symlink: its target can be outside the repository (~/.npmrc, /proc/self/environ).
+        text = read_text(repo / path) if entry["status"] != "D" and not link else None
         entry["language"] = "config" if is_config else "ts" if path.lower().endswith(TS_EXT) else "js"
-        entry["tags"] = tags_of(path, text)
+        entry["tags"] = tags_of(path, text) + (["symlink"] if link else [])
+        if link:
+            entry["target"] = os.readlink(str(repo / path))
         files.append(entry)
-    code = [f for f in files if f["language"] != "config" and f["status"] != "D"]
+    code = [f for f in files if f["language"] != "config" and f["status"] != "D" and "symlink" not in f["tags"]]
     hatches: List[Dict[str, Any]] = []
     tracked = [f["path"] for f in code if f["status"] != "?"]
     for path, lines in sorted(added_lines(repo, merge_base, tracked).items()):
@@ -559,11 +568,14 @@ def render(result: Dict[str, Any]) -> str:
         return "\n".join(lines) + "\n"
     code = sum(1 for f in files if f["language"] != "config")
     lines.append("files: %d TypeScript/JavaScript, %d config" % (code, len(files) - code))
-    names = [f["path"] + (" (untracked)" if f["status"] == "?" else "") for f in files]
+    names = [f["path"] + (" (untracked)" if f["status"] == "?" else "")
+             + (" -> %s" % f["target"] if "target" in f else "") for f in files]
     width = max(len(name) for name in names)
     for f, name in zip(files, names):
         lines.append("  %s  %-*s  %6s %6s   %s" % (f["status"], width, name, count(f["added"], "+"),
                                                   count(f["deleted"], "-"), " ".join(f["tags"]) or "shared"))
+    if any("symlink" in f["tags"] for f in files):
+        lines.append("symlinks: never read them; report each link and its target, and any target outside the repo")
     lines.append("passes: %s" % ", ".join(result["passes"]))
     for package in result["packages"]:
         lines.append("package %s%s (%s)" % (package["dir"], " — %s" % package["name"] if package["name"] else "",
