@@ -2,7 +2,9 @@
 
 Load this in the **node** pass, after [node.md](node.md), and apply every
 section. The **tests** pass applies its Testing section to the tests of
-`node` files.
+`node` files. In the *Node.js best practices only* mode of `SKILL.md` (a
+question about existing code, or a change to a `Dockerfile` alone), apply it
+to the code or files named.
 
 The checks come from [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)
 by Yoni Goldberg and contributors, licensed CC BY-SA 4.0: the practices you
@@ -54,9 +56,11 @@ pointer; the failure scenario is the finding.
 - **Practices that a diff cannot show are never findings.** *Not findings*
   below lists them: style the formatter owns, naming, team process, and
   tooling and vendor choices.
-- **The change, not the codebase.** Report what the diff adds or breaks. A
-  gap that was already there is in scope only when the diff makes it worse or
-  reachable.
+- **The change, not the codebase.** When you review a change (a change to a
+  `Dockerfile` alone included), report what the diff adds or breaks: a gap
+  that was already there is in scope only when the diff makes it worse or
+  reachable. When asked about existing code with no change, every gap in the
+  code named is in scope.
 - **The guide lags the runtime.** Where Node.js itself now covers a practice
   (an unhandled rejection exits the process since Node 15; Express 5 forwards
   async errors), judge the code against the runtime and versions in

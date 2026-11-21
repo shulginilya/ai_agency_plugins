@@ -65,14 +65,24 @@ class CleanupTests(unittest.TestCase):
         self.assertEqual(sorted(p.name for p in (PLUGIN / "skills").iterdir() if p.is_dir()), ["typescript-review"])
 
     def test_nothing_points_at_the_old_skill(self):
+        scanned = set()
         for path in PLUGIN.rglob("*"):
-            if not path.is_file() or path.suffix not in (".md", ".json") or "tests" in path.parts:
+            rel = path.relative_to(PLUGIN)  # only the plugin's own tests/ is skipped, wherever the repo lives
+            if not path.is_file() or path.suffix not in (".md", ".json") or rel.parts[0] == "tests":
                 continue
-            with self.subTest(path=str(path.relative_to(PLUGIN))):
+            scanned.add(rel.as_posix())
+            with self.subTest(path=rel.as_posix()):
                 text = read(path)
                 self.assertNotIn("skills/node-best-practices", text)
                 self.assertNotIn("references/checklist.md", text)
-                self.assertNotRegex(text, r"`node-best-practices` skill")
+                self.assertNotIn("`node-best-practices`", text)  # the skill's name; the reference is node-best-practices.md
+        self.assertTrue({"README.md", "plugin.json", "agents/typescript-reviewer.md", "commands/review.md",
+                         "skills/typescript-review/SKILL.md"} <= scanned, scanned)
+
+    def test_the_readme_lists_one_skill(self):
+        rows = [line for line in read(README).splitlines() if line.startswith("| Skill |")]
+        self.assertEqual(len(rows), 1, rows)
+        self.assertIn("`typescript-review`", rows[0])
 
 
 class ReferenceTests(unittest.TestCase):
@@ -84,6 +94,16 @@ class ReferenceTests(unittest.TestCase):
         self.assertIn(SOURCE, intro)
         self.assertIn("Yoni Goldberg", intro)
         self.assertIn("CC BY-SA 4.0", intro)
+
+    def test_only_the_check_sections_cite_practices(self):
+        # a check written in the preamble or the rules section would escape every check test
+        self.assertFalse(CITE.search(self.text.split("\n## ", 1)[0]))
+        self.assertFalse(CITE.search(sections(self.text)[RULES]))
+
+    def test_the_change_rule_puts_all_of_existing_code_in_scope_when_there_is_no_change(self):
+        rule = next(b for b in sections(self.text)[RULES].split("\n- ") if "The change, not the codebase" in b)
+        self.assertIn("every gap in the code named is in scope", " ".join(rule.split()))  # line wraps aside
+        self.assertIn("Node.js best practices only", self.text.split("\n## ", 1)[0])
 
     def test_the_rules_that_turn_a_practice_into_a_finding_came_along(self):
         rules = sections(self.text)[RULES]
@@ -149,6 +169,21 @@ class WiringTests(unittest.TestCase):
         self.assertLessEqual(len(description), 1024)
         self.assertIn("Node.js best practices", description)
         self.assertIn("Node.js best practices only", read(SKILL))
+
+    def test_a_dockerfile_only_change_is_reviewed_not_dropped(self):
+        skill = read(SKILL)
+        nothing = skill[skill.index('"nothing to review" means'):].split("\n\n", 1)[0]
+        self.assertIn("Dockerfile", nothing)
+        self.assertIn("Node.js best practices only", nothing)
+        command = read(COMMAND)
+        step2 = command[command.index("\n2. "):command.index("\n3. ")]
+        self.assertIn("Dockerfile", step2)
+        self.assertIn("best practices only", step2)
+
+    def test_the_best_practices_mode_does_not_go_through_review_report(self):
+        mode = read(SKILL).split("**Node.js best practices only.**", 1)[1].split("\n\n", 1)[0]
+        self.assertIn("review_report.py", mode)
+        self.assertIn("verdict", mode)
 
     def test_the_node_checklist_points_at_it(self):
         self.assertIn("(node-best-practices.md)", read(NODE))

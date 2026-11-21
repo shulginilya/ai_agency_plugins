@@ -44,8 +44,12 @@ the ref and `HEAD`; with no `--base` it uses `origin/HEAD`, else `main` or
   leads: each one is a place where the author overrode the checker. Find out
   whether it can be wrong; it is a finding only with a failure scenario.
 
-"nothing to review" means no TypeScript, JavaScript or config file changed:
-say so and stop.
+"nothing to review" means no TypeScript, JavaScript or config file changed.
+Before you stop, list all changed paths (`git diff --name-only $(git merge-base
+<base> HEAD)` plus `git ls-files --others --exclude-standard`): when they
+include a `Dockerfile`, compose file or `.dockerignore` of a Node app, review
+those files in the *Node.js best practices only* mode (section 4) instead.
+Otherwise say so and stop.
 
 A changed tsconfig or `package.json` is part of the change: a flag turned off,
 a `skipLibCheck` added, a major upgrade of React, TypeScript, Express or a
@@ -93,13 +97,16 @@ scope never lists (lockfiles, `Dockerfile`, compose files, `.dockerignore`,
 `git diff --name-only $(git merge-base <base> HEAD)` plus untracked files
 (`git ls-files --others --exclude-standard`).
 
-**Node.js best practices only.** When asked whether Node.js code, or the
-`Dockerfile` of a Node app, follows Node.js best practices rather than to
-review a change, skip the scope and the checks: read the code or `Dockerfile`
-named, apply `references/node.md` and `references/node-best-practices.md`
-(the Docker section to the `Dockerfile`), and report the findings in the same
-shape, ranked most severe first. A change to a `Dockerfile` alone scopes to
-"nothing to review"; review it this way instead.
+**Node.js best practices only.** Two cases use this mode: a question about
+whether existing Node.js code, or the `Dockerfile` of a Node app, follows
+Node.js best practices (no change to review), and a change whose only
+Node-relevant files are a `Dockerfile`, compose file or `.dockerignore`
+(section 1 sends it here). Skip the repo's checks. Read the code or files
+named, or the changed ones, and apply `references/node.md` and
+`references/node-best-practices.md` (its Docker section to those files). Give
+the findings in the same shape, ranked most severe first, with the verdict by
+the same rules (section 5). Write the report yourself: `review_report.py`
+refuses a review without the types, correctness and tests passes.
 
 Give each pass to a separate `typescript-reviewer` subagent run, with the
 pass name, the changed files and their tags, the tsconfig strictness and the
