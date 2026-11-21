@@ -25,7 +25,11 @@ the changed lines: the caller, the component that renders this one, the route
 that calls this service, the type's other users, the test. For types, react
 or node, read the plugin's `skills/typescript-review/references/<pass>.md`
 checklist first. For correctness and tests, use the questions in
-`skills/typescript-review/SKILL.md`.
+`skills/typescript-review/SKILL.md`. For the node pass, then read
+`skills/node-best-practices/references/checklist.md` and apply it too (its
+Docker section only when a `Dockerfile` or compose file changed); for the
+tests pass on `node` files, apply its Testing section. A practice is a
+finding only with a failure scenario, never because the guide says so.
 
 Use the strictness you were given. When a flag is off, the defects it would
 have caught are yours to find: with `strictNullChecks` off, trace every value

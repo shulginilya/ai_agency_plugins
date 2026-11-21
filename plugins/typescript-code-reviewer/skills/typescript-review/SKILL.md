@@ -4,7 +4,7 @@ description: Reviews a TypeScript change — a React frontend, a Node.js backend
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # TypeScript review
@@ -83,7 +83,12 @@ React client and the Node.js server.
 | Correctness | always | below |
 | Tests | always | below |
 | React | a `react` file changed | [references/react.md](references/react.md) |
-| Node | a `node` file changed | [references/node.md](references/node.md) |
+| Node | a `node` file changed | [references/node.md](references/node.md), then the `node-best-practices` skill's checklist |
+
+The `node-best-practices` skill turns the Node.js Best Practices guide into
+checks: the node pass applies all of it (its Docker section when a
+`Dockerfile` or compose file changed too), and the tests pass applies its
+Testing section to the tests of `node` files.
 
 Give each pass to a separate `typescript-reviewer` subagent run, with the
 pass name, the changed files and their tags, the tsconfig strictness and the
