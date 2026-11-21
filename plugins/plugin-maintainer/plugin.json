@@ -1,8 +1,8 @@
 {
   "name": "plugin-maintainer",
   "displayName": "Plugin Maintainer",
-  "version": "0.2.0",
-  "description": "Keeps the installed plugins honest against this plugins repo: checks each installed plugin has the source version and files identical to a fresh build, reports it as a table, and updates the stale ones from a safe source only (default branch, clean, in sync). Use when asked whether the plugins are up to date or stale, or to update them.",
+  "version": "0.3.0",
+  "description": "Keeps the installed plugins honest against this plugins repo: checks each installed plugin has the source version and files identical to a fresh build, reports it as a table, updates the stale ones and installs new ones, from a safe source only (default branch, clean, in sync). Use when asked whether the plugins are up to date or stale, or to update them.",
   "author": {
     "name": "Ilya Shulgin",
     "email": "ishulgin8@gmail.com"

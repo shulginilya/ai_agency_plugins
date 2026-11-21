@@ -1,10 +1,10 @@
 ---
 name: plugin-freshness
-description: Checks whether every installed plugin is up to date with the plugins repo — the installed version equals the source version, the installed files are identical to a fresh build, and the local default branch matches origin — and reports it as a Markdown table with the differing files and notes on source plugins that are not installed and older same-named copies from other sources. Read-only by default; with --update it also builds and installs the stale ones from a safe source. Use when asked whether the plugins are up to date, which plugins are stale, to update or reinstall them, whether an install matches the repo, or to check every plugin before a session.
+description: Checks whether every installed plugin is up to date with the plugins repo — the installed version equals the source version, the installed files are identical to a fresh build, and the local default branch matches origin — and reports it as a Markdown table with the differing files and notes on source plugins that are not installed and older same-named copies from other sources. Read-only by default; with --update it also builds and installs the stale ones, and the source plugins not installed yet, from a safe source. Use when asked whether the plugins are up to date, which plugins are stale, to update or reinstall them, to install new plugins, whether an install matches the repo, or to check every plugin before a session.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Plugin freshness
@@ -16,7 +16,7 @@ report. Run it; do not reconstruct the comparison by hand.
 python scripts/check.py                 # from the plugins repo
 python scripts/check.py --no-fetch      # offline: compare with origin as last fetched
 python scripts/check.py --skills-dir <path>   # another install location (report only)
-python scripts/check.py --update        # report, then update the stale plugins and report again
+python scripts/check.py --update        # report, update the stale plugins, install new ones, report again
 ```
 
 ## What "up to date" means
@@ -51,8 +51,8 @@ sync, `2` the check could not run (not the plugins repo, or the build failed).
 ## Updating
 
 `--update` (the `/plugin-maintainer:check` command always passes it) acts only
-when something is stale or the default branch is behind origin, and only from a
-safe source. It stops with `Not updating: <why>` and changes nothing when:
+when something is stale, a source plugin is not installed yet, or the default
+branch is behind origin, and only from a safe source. It stops with `Not updating: <why>` and changes nothing when:
 
 - the checkout is on a branch other than the default branch;
 - there are uncommitted changes under `plugins/`;
@@ -62,13 +62,15 @@ safe source. It stops with `Not updating: <why>` and changes nothing when:
 - `git pull --ff-only` fails (a merge is never made).
 
 Otherwise it fast-forwards a default branch that is behind, rebuilds, then for
-each stale plugin runs `python -m tools.apkit build --plugin <name> --target
+each stale plugin, and each plugin in the source that is not installed yet, runs `python -m tools.apkit build --plugin <name> --target
 claude-code` and `python -m tools.apkit install <name> --target claude-code`.
 A plugin that fails is listed with the step's output under `Failed:` and the
-rest still update. It prints `Updated: ...`, then the report again under
+rest still update. It prints `Updated: ...` for the stale ones and `Installed: ...` for the new
+ones, then the report again under
 `After the update:` as the proof, and exits 0 only when that report is clean.
-The new versions load with `/reload-plugins`. Plugins not installed yet, and
-copies from other sources (`@synced`), are never installed or touched.
+The new versions and plugins load with `/reload-plugins`. Copies from other
+sources (`@synced`) are never installed or touched, and a plugin removed from
+the source is never uninstalled.
 
 ## Rules
 

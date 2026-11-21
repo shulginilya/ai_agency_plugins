@@ -14,8 +14,9 @@ source: the default branch, no uncommitted changes under plugins/, not ahead of
 origin, and the default skills dir (where `apkit install` writes). Otherwise it
 prints "Not updating: <why>" and changes nothing. When the default branch is
 behind origin it fast-forwards it (`git pull --ff-only`, never a merge), then for
-each stale plugin runs `apkit build --plugin <name>` and `apkit install <name>`
-for Claude Code, and prints the report again as the proof.
+each stale plugin, and each source plugin that is not installed yet, runs
+`apkit build --plugin <name>` and `apkit install <name>` for Claude Code, and
+prints the report again as the proof.
 
 Exit codes: 0 everything up to date (after the update, with --update), 1 something
 stale, out of sync, not updated or failed to update, 2 the check could not run
@@ -262,6 +263,11 @@ def stale_names(repo: Path, skills: Path, built: Path) -> List[str]:
     return stale
 
 
+def new_names(repo: Path, skills: Path, built: Path) -> List[str]:
+    """Plugins in the source, built for Claude Code, that are not installed yet."""
+    return [name for name in source_plugins(repo) if not (skills / name).is_dir() and (built / name).is_dir()]
+
+
 def refuse_reason(sync: Optional[Dict], skills: Path) -> Optional[str]:
     """Why the install must not be changed from this checkout, or None when it is safe to."""
     if skills.resolve() != DEFAULT_SKILLS.resolve():
@@ -318,7 +324,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--build-dir", help="compare against these already-built %s bundles instead of building" % TARGET)
     ap.add_argument("--no-fetch", action="store_true", help="do not fetch origin first")
     ap.add_argument("--update", action="store_true",
-                    help="bring stale plugins up to date (build + install), from a safe source only")
+                    help="bring stale plugins up to date and install new ones (build + install), from a safe source only")
     ap.add_argument("--plugin-list-file", help="saved `claude plugin list` output instead of running it")
     args = ap.parse_args(argv)
 
@@ -347,8 +353,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not args.update:
             return 0 if ok else 1
         stale = stale_names(repo, skills, built)
+        new = new_names(repo, skills, built)
         behind = bool(sync and sync.get("behind"))
-        if not (stale or behind):
+        if not (stale or new or behind):
             return 0 if ok else 1
         why = refuse_reason(sync, skills)
         if why:
@@ -364,19 +371,25 @@ def main(argv: Optional[List[str]] = None) -> int:
             if built is None:
                 return 2
             stale = stale_names(repo, skills, built)
-        results = update_plugins(repo, stale)
+            new = new_names(repo, skills, built)
+        results = update_plugins(repo, stale + new)
         done = [name for name, good, _ in results if good]
         failed = [(name, out) for name, good, out in results if not good]
         print()
-        if done:
-            print("Updated: %s." % ", ".join(done))
+        updated = [name for name in done if name not in new]
+        installed = [name for name in done if name in new]
+        if updated:
+            print("Updated: %s." % ", ".join(updated))
+        if installed:
+            print("Installed: %s." % ", ".join(installed))
         for name, out in failed:
             print("Failed: %s\n%s" % (name, "\n".join("    " + line for line in out.splitlines())))
         text, ok = report(repo, skills, built, sync, listing, listing_note)
         print("\nAfter the update:\n")
         sys.stdout.write(text)
         if done:
-            print("\nRun /reload-plugins to load the updated plugins in this session.")
+            print("\nRun /reload-plugins to load the %s plugins in this session."
+                  % " and ".join(w for w, names in (("updated", updated), ("new", installed)) if names))
         return 0 if ok and not failed else 1
     finally:
         for path in tmp:
