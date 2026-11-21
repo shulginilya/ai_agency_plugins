@@ -158,6 +158,18 @@ def render_sync(sync: Optional[Dict]) -> str:
     return "Source: %s @ %s; %s." % (sync["branch"], sync["head"], "; ".join(parts))
 
 
+ROSTER = Path("integrations") / "crew" / "team.json"  # the crew: the keys of "crew", each with its "role"
+
+
+def crew_roster(repo: Path) -> Optional[Dict[str, str]]:
+    """{plugin: role} for every crew member, or None when the roster cannot be read."""
+    try:
+        crew = json.loads((repo / ROSTER).read_text(encoding="utf-8"))["crew"]
+        return {str(name): str((info or {}).get("role") or name) for name, info in crew.items()}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
 def source_plugins(repo: Path) -> Dict[str, str]:
     out = {}
     for d in sorted((repo / "plugins").iterdir()):
@@ -202,7 +214,9 @@ def read_plugin_list(path: Optional[str]) -> Tuple[List[Tuple[str, str, str]], O
 def report(repo: Path, skills: Path, built: Path, sync: Optional[Dict],
            listing: List[Tuple[str, str, str]], listing_note: Optional[str]) -> Tuple[str, bool]:
     sources = source_plugins(repo)
+    roster = crew_roster(repo)
     rows, stale, diffs, notes = [], [], {}, []
+    crew, not_crew = [], []
     for name, src_version in sources.items():
         installed = skills / name
         if not installed.is_dir():
@@ -214,8 +228,16 @@ def report(repo: Path, skills: Path, built: Path, sync: Optional[Dict],
         inst_version = read_version(installed / ".claude-plugin" / "plugin.json") or "?"
         changed = compare_trees(built / name, installed)
         ok = not changed and inst_version == src_version
-        rows.append("| %s | %s | %s | %s | %s |" % (
-            name, inst_version, src_version, "identical" if not changed else "differs",
+        if roster is None:
+            membership = "?"
+        elif name in roster:
+            membership = "yes: %s" % roster[name]
+            crew.append(name)
+        else:
+            membership = "no"
+            not_crew.append(name)
+        rows.append("| %s | %s | %s | %s | %s | %s |" % (
+            name, membership, inst_version, src_version, "identical" if not changed else "differs",
             "up to date" if ok else "stale"))
         if not ok:
             stale.append(name)
@@ -227,16 +249,23 @@ def report(repo: Path, skills: Path, built: Path, sync: Optional[Dict],
         order = compare_versions(version, sources[name])
         relation = {-1: "is older than", 1: "is newer than"}.get(order, "differs from")
         notes.append("%s@%s %s %s the source (%s)." % (name, source, version, relation, sources[name]))
+    if roster is None:
+        notes.append("Could not read the crew roster (%s), so the Crew column is unknown." % ROSTER.as_posix())
     if listing_note:
         notes.append(listing_note[0].upper() + listing_note[1:] + ".")
 
     lines = [render_sync(sync), ""]
     if rows:
-        lines += ["| Plugin | Installed | Source | Files | Status |", "| --- | --- | --- | --- | --- |"] + rows + [""]
+        lines += ["| Plugin | Crew | Installed | Source | Files | Status |",
+                  "| --- | --- | --- | --- | --- | --- |"] + rows + [""]
         if stale:
             lines.append("%d of %d stale: %s." % (len(stale), len(rows), ", ".join(stale)))
         else:
             lines.append("All %d up to date." % len(rows))
+        if roster is not None:
+            def group(names: List[str]) -> str:
+                return "%d (%s)" % (len(names), ", ".join(names)) if names else "0"
+            lines.append("Crew: %s; not crew: %s." % (group(crew), group(not_crew)))
     else:
         lines.append("No plugin from this repo is installed in %s." % skills)
     if diffs:
