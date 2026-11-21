@@ -1,19 +1,66 @@
-# Node.js best practices: review checklist
+# Node.js best practices
 
-Checks derived from [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)
-by Yoni Goldberg and contributors, licensed CC BY-SA 4.0. They are written here
-in our own words, as review checks. Each one cites the practice it comes from;
-follow the link for the guide's reasoning and examples.
+Load this in the **node** pass, after [node.md](node.md), and apply every
+section. The **tests** pass applies its Testing section to the tests of
+`node` files.
 
-Each check says what to look for in the diff and the failure it causes. A
-check is a finding only with a failure scenario in the code under review (see
-`SKILL.md`). Section 1 (architecture and project layout) is design choice,
-not defect, so it is under *Not findings*, except configuration (1.4),
-which is under Going to production.
+The checks come from [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)
+by Yoni Goldberg and contributors, licensed CC BY-SA 4.0: the practices you
+can see in code, written here in our own words as review checks. Each one
+cites the practice it comes from; follow the link for the guide's reasoning
+and examples. Section 1 (architecture and project layout) is design choice,
+not defect, so it is under *Not findings*, except configuration (1.4), which
+is under Going to production.
 
-**All changed paths** means `git diff --name-only $(git merge-base <base> HEAD)` plus `git ls-files --others --exclude-standard`: every file the change touches since
-the merge base, untracked files included, not only the code and config files
-the TypeScript scope lists.
+**All changed paths** means `git diff --name-only $(git merge-base <base> HEAD)`
+plus `git ls-files --others --exclude-standard`: every file the change touches
+since the merge base, untracked files included. That is the set `ts_scope.py`
+compares, but the scope lists only code and config files, and the lockfile
+check (5.4) and the Docker section depend on files it never lists. So the
+node pass gets the base ref and all changed paths.
+
+## How a practice becomes a finding
+
+A practice is a lead, not a rule. Breaking one is a finding only when you can
+write its **failure scenario**: concrete inputs or state, and the crash, hang,
+wrong result, data loss or exposure they produce in this code. Each check
+names the failure to look for; find it here, or drop the check.
+
+- "No `unhandledRejection` handler" is a finding when you can name the
+  rejection that goes unhandled and what the process does next. It is not a
+  finding as a missing line.
+- "Use a mature logger" is not a finding. "This `console.log(req.body)` writes
+  the password field to the log" is one, and it is the security check, not the
+  logging one.
+- A practice the code already meets another way (a validation library other
+  than the one the guide names, a reverse proxy that limits body size) is met.
+  Check the config, middleware and infrastructure files before you claim a gap.
+
+Severity follows the review's scale:
+
+- **blocker**: a security exposure reachable from untrusted input; a crash
+  or hang of the whole process on a normal path; data loss.
+- **major**: wrong behaviour on a plausible path, such as a request that hangs,
+  an error the client cannot act on, a deploy that drops in-flight requests,
+  or a test that passes while the behaviour it names is broken.
+- **minor**: a real defect on an unlikely path.
+
+Put the practice number in the finding's `why`: `Why: an error from the
+stream is never handled (Node.js best practice 2.13)`. The number is the
+pointer; the failure scenario is the finding.
+
+- **The failure, not the practice.** A finding that only says "this breaks
+  practice 6.6" is a hunch. Drop it.
+- **Practices that a diff cannot show are never findings.** *Not findings*
+  below lists them: style the formatter owns, naming, team process, and
+  tooling and vendor choices.
+- **The change, not the codebase.** Report what the diff adds or breaks. A
+  gap that was already there is in scope only when the diff makes it worse or
+  reachable.
+- **The guide lags the runtime.** Where Node.js itself now covers a practice
+  (an unhandled rejection exits the process since Node 15; Express 5 forwards
+  async errors), judge the code against the runtime and versions in
+  `package.json` and `engines`, not against the guide's wording.
 
 ## Error handling
 

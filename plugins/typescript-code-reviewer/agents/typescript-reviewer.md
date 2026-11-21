@@ -31,7 +31,7 @@ that calls this service, the type's other users, the test. For types, react
 or node, read the plugin's `skills/typescript-review/references/<pass>.md`
 checklist first. For correctness and tests, use the questions in
 `skills/typescript-review/SKILL.md`. For the node pass, then read
-`skills/node-best-practices/references/checklist.md` and apply it too (its
+`skills/typescript-review/references/node-best-practices.md` and apply it too (its
 Docker section only when all changed paths take in a `Dockerfile`, compose
 file or `.dockerignore`); for the
 tests pass on `node` files, apply its Testing section. A practice is a

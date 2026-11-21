@@ -1,7 +1,7 @@
 {
   "name": "typescript-code-reviewer",
   "displayName": "TypeScript Code Reviewer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A code reviewer for TypeScript, React and Node.js: finds what tsc lets through (types that lie at run time, hook and render bugs, async, input and injection bugs on the server, the Node.js Best Practices guide as checks, tests that can't fail), runs the repo's typecheck, lint and tests, and reports findings that each carry a failure scenario, with a verdict by fixed rules. Use when asked to review TypeScript, React or Node.js code, a branch or a PR.",
   "author": {
     "name": "Ilya Shulgin",
