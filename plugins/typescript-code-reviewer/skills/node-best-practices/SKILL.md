@@ -23,9 +23,11 @@ before the pass.
 - **In a TypeScript review** (`typescript-review`): the **node** pass applies
   the checklist on top of `references/node.md` whenever `ts_scope.py` tags a
   changed file `node`. The **tests** pass applies its Testing section to tests
-  of node files. When the change touches a `Dockerfile` or compose file
-  (`git diff --name-only <base>`), the node pass also applies the Docker
-  section.
+  of node files. The scope lists only code and config files, so the node
+  pass works from all changed paths (`git diff --name-only <base>`, given to
+  it with the base ref): the lockfile check (5.4) and the Docker section
+  depend on files the scope never lists. A change to a `Dockerfile` alone
+  gets no TypeScript review; apply the Docker section on its own.
 - **On its own**, when asked whether Node.js code follows best practices:
   read the code, apply every section, and report in the same finding shape.
 

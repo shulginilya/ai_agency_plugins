@@ -30,7 +30,9 @@ Follow the `typescript-review` skill:
    correctness and tests passes always, react and node when the scope lists them. Never read a file the
    scope tags `symlink`: report the link and its target instead. Give each pass to a
    `typescript-reviewer` subagent run with the pass name, the changed files and tags, the strictness
-   and the escape hatches. Never fix what you find.
+   and the escape hatches; give the node pass the base ref and all changed paths too
+   (`git diff --name-only $(git merge-base <base> HEAD)` and untracked files), since its
+   `node-best-practices` checks read lockfiles and Dockerfiles the scope leaves out. Never fix what you find.
 5. Write `findings.json` in a temporary directory, outside the repository, and run
    `python {{PLUGIN_ROOT}}/skills/typescript-review/scripts/review_report.py <findings.json> --commit <sha> > <review.md>`.
 6. With a PR number and `--post`: `gh pr review <N> --comment --body-file <review.md>`. Otherwise post nothing.
