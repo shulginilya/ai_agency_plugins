@@ -16,6 +16,7 @@ CITE = re.compile(r"\[(\d+)\.(\d+)\]\((" + re.escape(SOURCE) + r"[^)]*)\)")
 SECTION_DIRS = {"1": "projectstructre", "2": "errorhandling", "3": "codestylepractices", "4": "testingandquality",
                 "5": "production", "6": "security", "7": "performance", "8": "docker"}
 BULLET = re.compile(r"^\s*([-*+]|\d+\.)\s")
+CHANGED_PATHS = "git ls-files --others --exclude-standard"  # untracked files count, as in ts_scope.py
 TESTS_ROUTING = re.compile(r"tests pass[^.]*Testing section", re.S)
 
 
@@ -91,6 +92,20 @@ class ChecklistTests(unittest.TestCase):
             with self.subTest(practice=practice):
                 self.assertIn("all changed paths", line)
 
+    def test_all_changed_paths_means_since_the_merge_base_plus_untracked_files(self):
+        for path in (CHECKLIST, SKILL, PLUGIN / "skills" / "typescript-review" / "SKILL.md",
+                     PLUGIN / "commands" / "review.md"):
+            with self.subTest(path=path.name):
+                text = read(path)
+                self.assertNotIn("git diff --name-only <base>", text)
+                self.assertIn("git merge-base", text)
+                self.assertIn(CHANGED_PATHS, text)
+
+    def test_the_shell_form_check_does_not_clear_debian_images(self):
+        line = next(l for l in checks(self.text) if "[8.2]" in l)
+        self.assertIn("Alpine", line)
+        self.assertRegex(line, r"Debian[^.]*(dash|PID 1)")
+
     def test_every_section_of_the_guide_that_shows_in_code_is_covered(self):
         sections = {m.group(1) for line in checks(self.text) for m in CITE.finditer(line)}
         self.assertTrue({"2", "3", "4", "5", "6", "7", "8"} <= sections, sections)
@@ -119,7 +134,8 @@ class WiringTests(unittest.TestCase):
         text = read(PLUGIN / "agents" / "typescript-reviewer.md")
         self.assertIn("skills/node-best-practices/references/checklist.md", text)
         self.assertRegex(text, TESTS_ROUTING)
-        self.assertIn("all changed paths", text)
+        self.assertRegex(text, r"For the node pass:\*\* the base ref and all changed paths")
+        self.assertIn(CHANGED_PATHS, text)
 
     def test_the_command_hands_the_node_pass_every_changed_path(self):
         self.assertIn("all changed paths", read(PLUGIN / "commands" / "review.md"))

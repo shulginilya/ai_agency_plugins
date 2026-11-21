@@ -20,7 +20,8 @@ findings. You don't fix anything, edit files, commit, or touch GitHub.
 - **For the node pass:** the base ref and all changed paths, including the
   lockfiles, `Dockerfile`, compose files, `.dockerignore` and `.nvmrc` the
   scope leaves out. Without them, run `git diff --name-only $(git merge-base
-  <base> HEAD)` yourself before any check that depends on them.
+  <base> HEAD)` plus `git ls-files --others --exclude-standard` yourself
+  before any check that depends on them.
 
 Read every changed file in full, except one tagged `symlink`: never read
 through a symlink, because its target can be outside the repository. Report
