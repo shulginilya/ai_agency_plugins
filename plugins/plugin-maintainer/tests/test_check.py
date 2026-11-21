@@ -322,7 +322,7 @@ class UpdateTests(unittest.TestCase):
     def fake_update(self, repo, names):
         for name in names:
             self.updated.append(name)
-            shutil.rmtree(str(self.fx.skills / name))
+            shutil.rmtree(str(self.fx.skills / name), ignore_errors=True)
             shutil.copytree(str(self.fx.build / name), str(self.fx.skills / name))
         return [(name, True, "") for name in names]
 
@@ -399,10 +399,89 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual((code, self.updated), (1, []))
         self.assertIn("Not updating: git pull --ff-only failed: not possible to fast-forward", out)
 
+    def add_new_plugin(self, name="gamma") -> None:
+        """A plugin in the source and its build, but not in the skills dir."""
+        write(self.fx.repo / "plugins" / name / "plugin.json", json.dumps({"name": name, "version": "0.1.0"}))
+        write(self.fx.build / name / ".claude-plugin" / "plugin.json", json.dumps({"name": name, "version": "0.1.0"}))
+        write(self.fx.build / name / "skills" / name / "SKILL.md", "# %s\n" % name)
+
+    def test_a_new_plugin_is_installed_with_the_stale_ones(self) -> None:
+        self.add_new_plugin()
+        code, out = self.run_update()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.updated, ["beta", "gamma"])
+        self.assertIn("gamma: in the source (0.1.0) but not installed.", out)  # the report as it was
+        self.assertIn("Updated: beta.", out)
+        self.assertIn("Installed: gamma.", out)
+        after = out.split("After the update:", 1)[1]
+        self.assertIn("| gamma | 0.1.0 | 0.1.0 | identical | up to date |", after)
+        self.assertIn("All 3 up to date.", after)
+        self.assertNotIn("not installed", after)
+        self.assertIn("load the updated and new plugins", out)
+
+    def test_a_new_plugin_alone_is_a_reason_to_act(self) -> None:
+        shutil.rmtree(str(self.fx.skills / "beta"))
+        shutil.copytree(str(self.fx.build / "beta"), str(self.fx.skills / "beta"))
+        self.add_new_plugin()
+        code, out = self.run_update()
+        self.assertEqual((code, self.updated, self.pulled), (0, ["gamma"], []), out)
+        self.assertNotIn("Updated:", out)
+        self.assertIn("Installed: gamma.", out)
+        self.assertIn("load the new plugins", out)
+
+    def test_a_new_plugin_is_not_installed_from_an_unsafe_source(self) -> None:
+        self.add_new_plugin()
+        self.sync = dict(CLEAN, branch="feat/x")
+        code, out = self.run_update()
+        self.assertEqual((code, self.updated), (1, []), out)
+        self.assertIn("Not updating: on branch feat/x, not main.", out)
+        with mock.patch.object(check, "DEFAULT_SKILLS", self.tmp / "elsewhere"):
+            self.sync = dict(CLEAN)
+            code, out = self.fx.run("--update")
+        self.assertEqual((code, self.updated), (1, []), out)
+        self.assertIn("Not updating: the skills dir", out)
+
+    def test_a_plugin_the_pull_brings_in_is_installed(self) -> None:
+        self.sync["behind"] = 1
+
+        def pull(repo, default):
+            self.pulled.append(default)
+            self.sync["behind"] = 0
+            self.add_new_plugin("delta")
+
+        code, out = self.run_update(pull=pull)
+        self.assertEqual((code, self.pulled), (0, ["main"]), out)
+        self.assertEqual(self.updated, ["beta", "delta"])
+        self.assertIn("Installed: delta.", out)
+
+    def test_a_new_plugin_that_fails_is_reported_and_the_others_still_go_on(self) -> None:
+        self.add_new_plugin()
+
+        def update(repo, names):
+            done = self.fake_update(repo, [n for n in names if n != "gamma"])
+            return done + [("gamma", False, "install blew up")]
+
+        code, out = self.run_update(update=update)
+        self.assertEqual(code, 1, out)
+        self.assertEqual(self.updated, ["beta"])
+        self.assertIn("Updated: beta.", out)
+        self.assertNotIn("Installed:", out)
+        self.assertIn("Failed: gamma", out)
+        self.assertIn("install blew up", out)
+        self.assertIn("gamma: in the source (0.1.0) but not installed.", out.split("After the update:", 1)[1])
+
+    def test_a_plugin_not_built_for_claude_code_is_not_new(self) -> None:
+        write(self.fx.repo / "plugins" / "codex-only" / "plugin.json", json.dumps({"name": "codex-only", "version": "1.0.0"}))
+        self.add_new_plugin()
+        self.assertEqual(check.new_names(self.fx.repo, self.fx.skills, self.fx.build), ["gamma"])
+
     def test_without_update_the_check_never_installs(self) -> None:
+        self.add_new_plugin()
         with mock.patch.object(check, "update_plugins") as update, mock.patch.object(check, "pull_ff") as pull:
-            code, _ = self.fx.run()
+            code, out = self.fx.run()
         self.assertEqual(code, 1)
+        self.assertIn("gamma: in the source (0.1.0) but not installed.", out)
+        self.assertFalse((self.fx.skills / "gamma").exists())
         update.assert_not_called()
         pull.assert_not_called()
 
@@ -442,6 +521,8 @@ class UpdateTests(unittest.TestCase):
         self.assertNotIn("Never run them", command)
         self.assertIn("--update", skill)
         self.assertIn("Not updating", skill)
+        self.assertIn("not installed yet", skill)
+        self.assertIn("install new ones", command)
         manifest = (PLUGIN / "plugin.json").read_text(encoding="utf-8")
         self.assertNotIn("Read-only", manifest)
 
