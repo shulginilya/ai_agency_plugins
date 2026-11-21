@@ -65,6 +65,8 @@ class Fixture:
         self.skills = root / "skills"
         (self.repo / "tools" / "apkit").mkdir(parents=True)
         write(self.repo / "plugins" / "_template" / "plugin.json", json.dumps({"name": "_template", "version": "0.0.1"}))
+        write(self.repo / "integrations" / "crew" / "team.json",
+              json.dumps({"crew": {"alpha": {"role": "Alpha Role"}, "gamma": {"role": "Gamma Role"}}}))
         for name in names:
             write(self.repo / "plugins" / name / "plugin.json", json.dumps({"name": name, "version": "1.0.0"}))
             built = self.build / name
@@ -214,9 +216,9 @@ class ReportTests(unittest.TestCase):
     def test_all_up_to_date_gives_a_table_and_verdict(self) -> None:
         code, out = self.fx.run()
         self.assertEqual(code, 0, out)
-        self.assertIn("| Plugin | Installed | Source | Files | Status |", out)
-        self.assertIn("| alpha | 1.0.0 | 1.0.0 | identical | up to date |", out)
-        self.assertIn("| beta | 1.0.0 | 1.0.0 | identical | up to date |", out)
+        self.assertIn("| Plugin | Crew | Installed | Source | Files | Status |", out)
+        self.assertIn("| alpha | yes: Alpha Role | 1.0.0 | 1.0.0 | identical | up to date |", out)
+        self.assertIn("| beta | no | 1.0.0 | 1.0.0 | identical | up to date |", out)
         self.assertIn("All 2 up to date.", out)
         self.assertNotIn("_template", out)
 
@@ -231,7 +233,7 @@ class ReportTests(unittest.TestCase):
         write(self.fx.skills / "beta" / "skills" / "beta" / "SKILL.md", "edited\n")
         code, out = self.fx.run()
         self.assertEqual(code, 1, out)
-        self.assertIn("| beta | 1.0.0 | 1.0.0 | differs | stale |", out)
+        self.assertIn("| beta | no | 1.0.0 | 1.0.0 | differs | stale |", out)
         self.assertIn("1 of 2 stale: beta.", out)
         self.assertIn("skills/beta/SKILL.md", out)
 
@@ -247,13 +249,13 @@ class ReportTests(unittest.TestCase):
         write(self.fx.skills / "alpha" / ".claude-plugin" / "plugin.json", json.dumps({"name": "alpha", "version": "0.9.0"}))
         code, out = self.fx.run()
         self.assertEqual(code, 1, out)
-        self.assertIn("| alpha | 0.9.0 | 1.0.0 | differs | stale |", out)
+        self.assertIn("| alpha | yes: Alpha Role | 0.9.0 | 1.0.0 | differs | stale |", out)
 
     def test_missing_installed_manifest_shows_unknown_version(self) -> None:
         os.remove(str(self.fx.skills / "alpha" / ".claude-plugin" / "plugin.json"))
         code, out = self.fx.run()
         self.assertEqual(code, 1, out)
-        self.assertIn("| alpha | ? | 1.0.0 | differs | stale |", out)
+        self.assertIn("| alpha | yes: Alpha Role | ? | 1.0.0 | differs | stale |", out)
 
     def test_not_installed_and_other_source_copies_go_under_notes(self) -> None:
         shutil.rmtree(str(self.fx.skills / "beta"))
@@ -298,6 +300,41 @@ class ReportTests(unittest.TestCase):
         sync = {"branch": "main", "default": "main", "behind": 0, "ahead": 0, "head": "abc1234", "dirty": True}
         self.assertIn("uncommitted changes under plugins/", check.render_sync(sync))
         self.assertFalse(check.sync_ok(sync))
+
+    def test_the_crew_column_names_each_members_role_and_says_no_for_the_rest(self) -> None:
+        _, out = self.fx.run()
+        self.assertIn("| alpha | yes: Alpha Role | 1.0.0 |", out)
+        self.assertIn("| beta | no | 1.0.0 |", out)
+
+    def test_a_summary_line_counts_the_installed_crew_and_the_rest(self) -> None:
+        _, out = self.fx.run()
+        self.assertIn("Crew: 1 (alpha); not crew: 1 (beta).", out)
+        self.assertLess(out.index("All 2 up to date."), out.index("Crew: 1"))
+
+    def test_a_crew_member_that_is_not_installed_is_not_counted(self) -> None:
+        shutil.rmtree(str(self.fx.skills / "alpha"))
+        _, out = self.fx.run()
+        self.assertIn("Crew: 0; not crew: 1 (beta).", out)
+
+    def test_without_a_roster_the_column_is_unknown_and_a_note_says_why(self) -> None:
+        os.remove(str(self.fx.repo / "integrations" / "crew" / "team.json"))
+        code, out = self.fx.run()
+        self.assertEqual(code, 0, out)
+        self.assertIn("| alpha | ? | 1.0.0 | 1.0.0 | identical | up to date |", out)
+        self.assertNotIn("Crew: ", out)
+        self.assertIn("the crew roster", out.split("Notes:", 1)[1])
+
+    def test_an_unreadable_roster_is_a_note_not_a_crash(self) -> None:
+        write(self.fx.repo / "integrations" / "crew" / "team.json", "{not json")
+        code, out = self.fx.run()
+        self.assertEqual(code, 0, out)
+        self.assertIn("| beta | ? |", out)
+
+    def test_the_real_roster_is_read_from_this_repo(self) -> None:
+        roster = check.crew_roster(PLUGIN.parent.parent)
+        self.assertEqual(roster.get("developer"), "Developer")
+        self.assertEqual(roster.get("crew"), "Crew workflow")
+        self.assertNotIn("notes", roster)
 
 
 
@@ -414,7 +451,7 @@ class UpdateTests(unittest.TestCase):
         self.assertIn("Updated: beta.", out)
         self.assertIn("Installed: gamma.", out)
         after = out.split("After the update:", 1)[1]
-        self.assertIn("| gamma | 0.1.0 | 0.1.0 | identical | up to date |", after)
+        self.assertIn("| gamma | yes: Gamma Role | 0.1.0 | 0.1.0 | identical | up to date |", after)
         self.assertIn("All 3 up to date.", after)
         self.assertNotIn("not installed", after)
         self.assertIn("load the updated and new plugins", out)
@@ -558,7 +595,7 @@ class RealBuildTests(unittest.TestCase):
     def test_fresh_build_matches_its_own_install(self) -> None:
         version = json.loads((PLUGIN / "plugin.json").read_text(encoding="utf-8"))["version"]
         _, out = self.run_main()
-        self.assertIn("| plugin-maintainer | %s | %s | identical | up to date |" % (version, version), out)
+        self.assertIn("| plugin-maintainer | no | %s | %s | identical | up to date |" % (version, version), out)
 
     def test_read_only(self) -> None:
         status = lambda: git(self.REPO, "status", "--porcelain")  # noqa: E731

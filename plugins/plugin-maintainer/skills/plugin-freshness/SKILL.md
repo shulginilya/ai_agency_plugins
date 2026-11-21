@@ -1,10 +1,10 @@
 ---
 name: plugin-freshness
-description: Checks whether every installed plugin is up to date with the plugins repo — the installed version equals the source version, the installed files are identical to a fresh build, and the local default branch matches origin — and reports it as a Markdown table with the differing files and notes on source plugins that are not installed and older same-named copies from other sources. Read-only by default; with --update it also builds and installs the stale ones, and the source plugins not installed yet, from a safe source. Use when asked whether the plugins are up to date, which plugins are stale, to update or reinstall them, to install new plugins, whether an install matches the repo, or to check every plugin before a session.
+description: Checks whether every installed plugin is up to date with the plugins repo — the installed version equals the source version, the installed files are identical to a fresh build, and the local default branch matches origin — and reports it as a Markdown table, marking which plugins are crew members, with the differing files and notes on source plugins that are not installed and older same-named copies from other sources. Read-only by default; with --update it also builds and installs the stale ones, and the source plugins not installed yet, from a safe source. Use when asked whether the plugins are up to date, which plugins are stale, to update or reinstall them, to install new plugins, whether an install matches the repo, or to check every plugin before a session.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Plugin freshness
@@ -36,9 +36,15 @@ code is 1 even when every row says up to date.
 
 ## Reading the report
 
-- **Table:** one row per installed plugin from this repo: plugin, installed
+- **Table:** one row per installed plugin from this repo: plugin, crew
+  (`yes: <role>` for a crew member, `no` for any other plugin), installed
   version, source version, files (`identical` / `differs`), status
-  (`up to date` / `stale`). Then `All N up to date.` or `K of N stale: …`.
+  (`up to date` / `stale`). Then `All N up to date.` or `K of N stale: …`,
+  and `Crew: <n> (<names>); not crew: <m> (<names>).` for the installed rows.
+- **Crew:** read from the crew roster, `integrations/crew/team.json` (the
+  keys of `crew`, each with its `role`). When it cannot be read the column is
+  `?`, the crew line is left out and a note says so; the freshness verdict
+  and exit code do not depend on it.
 - **Differing files:** for each stale plugin, up to 8 paths that differ, exist
   only in the build, or exist only in the install.
 - **Notes:** source plugins that are not installed, and same-named plugins
