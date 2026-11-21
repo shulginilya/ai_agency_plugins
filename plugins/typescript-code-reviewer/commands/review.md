@@ -22,8 +22,8 @@ Follow the `typescript-review` skill:
    `--post` only applies to a PR number; without one, say it was ignored.
 2. Run `python {{PLUGIN_ROOT}}/skills/typescript-review/scripts/ts_scope.py --base <base>`. "nothing to review":
    list all changed paths (`git diff --name-only $(git merge-base <base> HEAD)` plus
-   `git ls-files --others --exclude-standard`). If they include a `Dockerfile`, compose file or `.dockerignore`,
-   review those in the skill's *Node.js best practices only* mode, write that report to `<review.md>` yourself
+   `git ls-files --others --exclude-standard`). If they include a `Dockerfile`, compose file or `.dockerignore`
+   of a Node app, review those in the skill's *Node.js best practices only* mode, write that report to `<review.md>` yourself
    (`review_report.py` needs the full passes), and continue at step 6. Otherwise say so and stop (after
    returning to your branch).
 3. Run the checks it printed (install first if it says so). For a PR that is not trusted, ask before

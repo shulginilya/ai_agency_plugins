@@ -55,6 +55,17 @@ def checks(text: str) -> list:
             for line in body.splitlines() if BULLET.match(line)]
 
 
+def flat(text: str) -> str:
+    """The text with its line wraps and indents collapsed to single spaces."""
+    return " ".join(text.split())
+
+
+def command_step(n: int) -> str:
+    """Step n of the review command, flattened."""
+    text = read(COMMAND)
+    return flat(text[text.index("\n%d. " % n):text.index("\n%d. " % (n + 1))])
+
+
 def cited(text: str) -> set:
     return {"%s.%s" % m.group(1, 2) for m in CITE.finditer(text)}
 
@@ -170,20 +181,25 @@ class WiringTests(unittest.TestCase):
         self.assertIn("Node.js best practices", description)
         self.assertIn("Node.js best practices only", read(SKILL))
 
-    def test_a_dockerfile_only_change_is_reviewed_not_dropped(self):
+    def test_a_dockerfile_only_change_of_a_node_app_is_reviewed_not_dropped(self):
         skill = read(SKILL)
-        nothing = skill[skill.index('"nothing to review" means'):].split("\n\n", 1)[0]
+        nothing = flat(skill[skill.index('"nothing to review" means'):].split("\n\n", 1)[0])
         self.assertIn("Dockerfile", nothing)
+        self.assertIn("of a Node app", nothing)  # a Go service's Dockerfile is not ours to review
         self.assertIn("Node.js best practices only", nothing)
-        command = read(COMMAND)
-        step2 = command[command.index("\n2. "):command.index("\n3. ")]
+        step2 = command_step(2)
         self.assertIn("Dockerfile", step2)
+        self.assertIn("of a Node app", step2)
         self.assertIn("best practices only", step2)
 
-    def test_the_best_practices_mode_does_not_go_through_review_report(self):
-        mode = read(SKILL).split("**Node.js best practices only.**", 1)[1].split("\n\n", 1)[0]
-        self.assertIn("review_report.py", mode)
+    def test_the_best_practices_mode_writes_its_own_report_and_skips_review_report(self):
+        mode = flat(read(SKILL).split("**Node.js best practices only.**", 1)[1].split("\n\n", 1)[0])
+        self.assertIn("Write the report yourself: `review_report.py` refuses", mode)
         self.assertIn("verdict", mode)
+        step2 = command_step(2)
+        self.assertIn("yourself", step2)
+        self.assertIn("continue at step 6", step2)  # past step 5, where review_report.py would refuse it
+        self.assertIn("review_report.py", command_step(5))
 
     def test_the_node_checklist_points_at_it(self):
         self.assertIn("(node-best-practices.md)", read(NODE))
