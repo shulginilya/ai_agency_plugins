@@ -29,7 +29,14 @@ changed; node when a Node.js file changed. Each has a checklist in
   `isolatedModules`, ESM/CJS, changed exported types.
 - `react.md`: rules of hooks, effect dependencies and cleanup, async races,
   state mutation, keys, hydration mismatches, server code in the client
-  bundle, XSS through `dangerouslySetInnerHTML` and `href`.
+  bundle, XSS through `dangerouslySetInnerHTML` and `href`; and the React and
+  Next.js performance rules of Vercel's
+  [react-best-practices](https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices)
+  (Vercel Engineering, MIT) as checks, each citing its rule: request
+  waterfalls, bundle size, server actions without auth, request data in module
+  state, whole records sent to client components, re-renders. Performance
+  findings need an order-of-magnitude estimate, and the guide's
+  micro-optimizations are listed as never findings.
 - `node.md`: floating promises, Express 4 async handlers, timeouts, the event
   loop, input typed but not validated, injection, path traversal, SSRF, auth
   gaps, resource cleanup.

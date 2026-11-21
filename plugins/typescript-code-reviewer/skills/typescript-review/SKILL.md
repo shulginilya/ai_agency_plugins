@@ -1,10 +1,10 @@
 ---
 name: typescript-review
-description: Reviews a TypeScript change — a React frontend, a Node.js backend or both — for the defects tsc lets through, types that lie at run time, hook and render bugs, async, input and injection bugs on the server, and missing tests, and reports findings that each carry a concrete failure scenario with an approve or request-changes verdict by fixed rules. Scopes the change first (files tagged react or node, tsconfig strictness, escape hatches added, the repo's own typecheck, lint and test commands) and runs those checks. Use when asked to review TypeScript, React, Next.js, Node.js, Express or NestJS code, a .ts or .tsx diff, a branch or a pull request, to check type safety before merging, or to check Node.js code or a Node app's Dockerfile against Node.js best practices.
+description: Reviews a TypeScript change — a React frontend, a Node.js backend or both — for the defects tsc lets through, types that lie at run time, hook and render bugs, React and Next.js performance (waterfalls, bundle size, re-renders), async, input and injection bugs on the server, and missing tests, and reports findings that each carry a concrete failure scenario with an approve or request-changes verdict by fixed rules. Scopes the change first (files tagged react or node, tsconfig strictness, escape hatches added, the repo's own typecheck, lint and test commands) and runs those checks. Use when asked to review TypeScript, React, Next.js, Node.js, Express or NestJS code, a .ts or .tsx diff, a branch or a pull request, to check type safety before merging, or to check Node.js code or a Node app's Dockerfile against Node.js best practices.
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # TypeScript review
