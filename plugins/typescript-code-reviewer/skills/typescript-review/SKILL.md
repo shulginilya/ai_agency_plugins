@@ -4,7 +4,7 @@ description: Reviews a TypeScript change — a React frontend, a Node.js backend
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # TypeScript review
@@ -83,11 +83,20 @@ React client and the Node.js server.
 | Correctness | always | below |
 | Tests | always | below |
 | React | a `react` file changed | [references/react.md](references/react.md) |
-| Node | a `node` file changed | [references/node.md](references/node.md) |
+| Node | a `node` file changed | [references/node.md](references/node.md), then the `node-best-practices` skill's checklist |
+
+The `node-best-practices` skill turns the Node.js Best Practices guide into
+checks: the node pass applies all of it, and the tests pass applies its
+Testing section to the tests of `node` files. Some of its checks need files the
+scope never lists (lockfiles, `Dockerfile`, compose files, `.dockerignore`,
+`.nvmrc`), so give the node pass the base ref and all changed paths:
+`git diff --name-only $(git merge-base <base> HEAD)` plus untracked files
+(`git ls-files --others --exclude-standard`).
 
 Give each pass to a separate `typescript-reviewer` subagent run, with the
 pass name, the changed files and their tags, the tsconfig strictness and the
-escape hatches the scope printed, so each reads in a fresh context. On a
+escape hatches the scope printed (and, for the node pass, the base ref and all
+changed paths), so each reads in a fresh context. On a
 small change (a few files, under about 200 changed lines) run the passes
 yourself, one after another. Merge the results and remove duplicates: the
 same defect found by two passes is one finding.

@@ -6,6 +6,10 @@ database client, or it is a Next.js route handler, middleware or server
 action. Server code is where a type mistake turns into a crash for every user,
 or into a hole.
 
+After this list, apply the `node-best-practices` skill's checklist
+(`skills/node-best-practices/references/checklist.md`): the Node.js Best
+Practices guide as review checks, each with the practice it comes from.
+
 ## Async and errors
 
 - **Floating promises.** An async call with no `await`, `.catch` or `void`

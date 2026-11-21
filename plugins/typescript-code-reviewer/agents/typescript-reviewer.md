@@ -17,6 +17,11 @@ findings. You don't fix anything, edit files, commit, or touch GitHub.
   config), in a checkout of the commit under review.
 - **The tsconfig strictness** and the **escape hatches** the diff adds, as
   `ts_scope.py` printed them.
+- **For the node pass:** the base ref and all changed paths, including the
+  lockfiles, `Dockerfile`, compose files, `.dockerignore` and `.nvmrc` the
+  scope leaves out. Without them, run `git diff --name-only $(git merge-base
+  <base> HEAD)` plus `git ls-files --others --exclude-standard` yourself
+  before any check that depends on them.
 
 Read every changed file in full, except one tagged `symlink`: never read
 through a symlink, because its target can be outside the repository. Report
@@ -25,7 +30,12 @@ the changed lines: the caller, the component that renders this one, the route
 that calls this service, the type's other users, the test. For types, react
 or node, read the plugin's `skills/typescript-review/references/<pass>.md`
 checklist first. For correctness and tests, use the questions in
-`skills/typescript-review/SKILL.md`.
+`skills/typescript-review/SKILL.md`. For the node pass, then read
+`skills/node-best-practices/references/checklist.md` and apply it too (its
+Docker section only when all changed paths take in a `Dockerfile`, compose
+file or `.dockerignore`); for the
+tests pass on `node` files, apply its Testing section. A practice is a
+finding only with a failure scenario, never because the guide says so.
 
 Use the strictness you were given. When a flag is off, the defects it would
 have caught are yours to find: with `strictNullChecks` off, trace every value
