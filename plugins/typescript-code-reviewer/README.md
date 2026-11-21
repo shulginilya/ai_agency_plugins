@@ -17,7 +17,6 @@ it asks first.
 | Component | Name | Purpose |
 | --- | --- | --- |
 | Agent | `typescript-reviewer` | The TypeScript Code Reviewer: one pass (types, correctness, tests, react or node) in a fresh context, returning only findings that carry a failure scenario |
-| Skill | `node-best-practices` | The Node.js Best Practices guide ([goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices), CC BY-SA 4.0) as review checks for the node and tests passes, each citing its practice and naming the failure to look for; practices a diff can't show are listed as never findings |
 | Skill | `typescript-review` | Scope the change, run the repo's checks, read whole files and the users of changed contracts, run the passes, record findings, give the verdict |
 | Command | `/typescript-code-reviewer:review` | Review the current branch, a base ref or a PR; `--post` posts the report on the PR |
 
@@ -33,9 +32,16 @@ changed; node when a Node.js file changed. Each has a checklist in
   bundle, XSS through `dangerouslySetInnerHTML` and `href`.
 - `node.md`: floating promises, Express 4 async handlers, timeouts, the event
   loop, input typed but not validated, injection, path traversal, SSRF, auth
-  gaps, resource cleanup. The node pass then applies the
-  `node-best-practices` checklist (`skills/node-best-practices/references/checklist.md`),
-  and the tests pass applies its Testing section to tests of node files.
+  gaps, resource cleanup.
+- `node-best-practices.md`: the Node.js Best Practices guide
+  ([goldbergyoni/nodebestpractices](https://github.com/goldbergyoni/nodebestpractices),
+  Yoni Goldberg and contributors, CC BY-SA 4.0) as review checks, each citing
+  its practice and naming the failure to look for, with the practices a diff
+  can't show listed as never findings. The node pass applies it after
+  `node.md`, and the tests pass applies its Testing section to tests of node
+  files. Asked only whether Node.js code or a Node app's `Dockerfile` follows
+  Node.js best practices, the review applies `node.md` and this list without
+  scoping a change.
 
 **Verdicts.** **approve** when there is no blocker and no major finding;
 **request changes** otherwise. A red typecheck, lint or test run is a

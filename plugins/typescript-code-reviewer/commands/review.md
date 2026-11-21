@@ -21,7 +21,11 @@ Follow the `typescript-review` skill:
      is `headRefOid`, and use `origin/<baseRefName>` as the base.
    `--post` only applies to a PR number; without one, say it was ignored.
 2. Run `python {{PLUGIN_ROOT}}/skills/typescript-review/scripts/ts_scope.py --base <base>`. "nothing to review":
-   say so and stop (after returning to your branch).
+   list all changed paths (`git diff --name-only $(git merge-base <base> HEAD)` plus
+   `git ls-files --others --exclude-standard`). If they include a `Dockerfile`, compose file or `.dockerignore`
+   of a Node app, review those in the skill's *Node.js best practices only* mode, write that report to `<review.md>` yourself
+   (`review_report.py` needs the full passes), and continue at step 6. Otherwise say so and stop (after
+   returning to your branch).
 3. Run the checks it printed (install first if it says so). For a PR that is not trusted, ask before
    installing or running anything, naming the author and whether it comes from a fork: install and the
    repo's scripts run the PR's code on this machine. Without a yes, record each check as `not run`.
@@ -31,8 +35,8 @@ Follow the `typescript-review` skill:
    scope tags `symlink`: report the link and its target instead. Give each pass to a
    `typescript-reviewer` subagent run with the pass name, the changed files and tags, the strictness
    and the escape hatches; give the node pass the base ref and all changed paths too
-   (`git diff --name-only $(git merge-base <base> HEAD)` plus `git ls-files --others --exclude-standard`), since its
-   `node-best-practices` checks read lockfiles and Dockerfiles the scope leaves out. Never fix what you find.
+   (`git diff --name-only $(git merge-base <base> HEAD)` plus `git ls-files --others --exclude-standard`), since
+   `references/node-best-practices.md` reads lockfiles and Dockerfiles the scope leaves out. Never fix what you find.
 5. Write `findings.json` in a temporary directory, outside the repository, and run
    `python {{PLUGIN_ROOT}}/skills/typescript-review/scripts/review_report.py <findings.json> --commit <sha> > <review.md>`.
 6. With a PR number and `--post`: `gh pr review <N> --comment --body-file <review.md>`. Otherwise post nothing.
