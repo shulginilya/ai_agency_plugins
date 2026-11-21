@@ -14,16 +14,22 @@ Keeps the installed plugins honest against this repo.
 ```text
 Source: main @ b52090f; main is in sync with origin/main.
 
-| Plugin | Installed | Source | Files | Status |
-| --- | --- | --- | --- | --- |
-| code-reviewer | 0.4.0 | 0.4.0 | identical | up to date |
-| crew | 0.5.0 | 0.5.0 | identical | up to date |
+| Plugin | Crew | Installed | Source | Files | Status |
+| --- | --- | --- | --- | --- | --- |
+| code-reviewer | yes: Code Reviewer | 0.4.0 | 0.4.0 | identical | up to date |
+| crew | yes: Crew workflow | 0.5.0 | 0.5.0 | identical | up to date |
+| notes | no | 0.4.4 | 0.4.4 | identical | up to date |
 
-All 2 up to date.
+All 3 up to date.
+Crew: 2 (code-reviewer, crew); not crew: 1 (notes).
 
 Notes:
 - developer@synced 0.1.1 is older than the source (0.7.1).
 ```
+
+The Crew column comes from the crew roster, `integrations/crew/team.json`
+(the keys of `crew`): `yes: <role>` for a crew member, `no` for any other
+plugin, `?` with a note when the roster cannot be read.
 
 `check.py` alone is read-only: it builds into a temporary directory and never
 installs, pulls or commits. The command passes `--update`, which then
