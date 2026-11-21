@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "scrum-master": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "exec \"$(command -v python3 || command -v python)\" \"$@\"",
+        "sh",
+        "/home/runner/work/ai_agency_plugins/ai_agency_plugins/plugins/scrum-master/mcp/server.py"
+      ],
+      "env": {}
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "crew",
+  "displayName": "Crew",
+  "version": "0.5.1",
+  "description": "The crew's workflow, owned by no role: in a GitHub repository with a crew board it points every session at the crew-workflow skill (each step through its crew command, no asking until In approval, stops at In approval, starts QA when the Captain moves a card to QA, stops at Ready for Merge, moves merged tickets to Done); in one without, the session offers to create the board. Also creates crew boards. Use when asked to do, work or ship a ticket, pick up the next issue, or create a project board.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "homepage": "https://github.com/shulginilya/ai_agency_plugins",
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "license": "MIT",
+  "keywords": [
+    "crew",
+    "workflow",
+    "kanban",
+    "github-projects",
+    "board"
+  ],
+  "hooks": "./hooks/hooks.json"
+}

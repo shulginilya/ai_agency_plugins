@@ -1,0 +1,14 @@
+# /status
+
+Training status — streaks, what is due, coverage per area and the weakest topics.
+
+Training status. $ARGUMENTS
+
+1. Run `python "/home/runner/work/ai_agency_plugins/ai_agency_plugins/plugins/skill-trainer/skills/training-plan/scripts/trainer.py" status`. Exit 1 only means something is due. If nothing is set up,
+   offer `/skill-trainer:plan`.
+2. Summarize in at most six lines: the active cadence and streaks, whether
+   today's (or this week's) training is done, what is due, the coverage per area,
+   and the weakest area.
+3. If an interview date is set, add the days left and, under three weeks, the
+   interview readiness from `python "/home/runner/work/ai_agency_plugins/ai_agency_plugins/plugins/skill-trainer/skills/training-plan/scripts/trainer.py" interview`.
+4. Offer `/skill-trainer:today` when something is due or today is not done.
