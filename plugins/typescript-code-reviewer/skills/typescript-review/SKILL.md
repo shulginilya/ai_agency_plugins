@@ -4,7 +4,7 @@ description: Reviews a TypeScript change — a React frontend, a Node.js backend
 license: MIT
 metadata:
   author: ilya-shulgin
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # TypeScript review
@@ -134,8 +134,9 @@ tests". Read the existing tests before you claim a gap. In TypeScript also
 look for tests that cannot fail: a mock cast `as any` that no longer matches
 the real module, a test file excluded from the tsconfig so its type errors
 never surface, an `expect` inside a callback that never runs, a snapshot as
-the only assertion. Don't ask for tests on pure refactors, generated files or
-config.
+the only assertion. For mocks that replace what a test claims to exercise, see
+`references/types.md`, *Mocks and tests that prove nothing*. Don't ask for tests
+on pure refactors, generated files or config.
 
 ## 5. Record findings and get the verdict
 
