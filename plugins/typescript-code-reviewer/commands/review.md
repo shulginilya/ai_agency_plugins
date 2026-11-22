@@ -43,6 +43,7 @@ Follow the `typescript-review` skill:
    `references/node-best-practices.md` reads lockfiles and Dockerfiles the scope leaves out. Never fix what you find.
 5. Write `findings.json` in a temporary directory, outside the repository, and run
    `python {{PLUGIN_ROOT}}/skills/typescript-review/scripts/review_report.py <findings.json> --commit <sha> > <review.md>`.
+   On request changes the script also saves the verdict and findings to `~/Documents/code_reviews/` (its stderr names the file).
 6. With a PR number or link and `--post`: `gh pr review <N> --comment --body-file <review.md>`. Otherwise post nothing.
    Never edit, commit or push code, never create or edit a ticket, and never move a board card.
 7. After a PR checkout, return to the branch you started on (`git checkout <branch>`).

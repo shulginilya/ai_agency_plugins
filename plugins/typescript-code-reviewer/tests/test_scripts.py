@@ -438,8 +438,9 @@ def run_report(data, *args):
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "findings.json"
         path.write_text(json.dumps(data), encoding="utf-8")
+        env = dict(os.environ, TS_REVIEW_SAVE_DIR=str(Path(tmp) / "saved"))  # never the real ~/Documents
         return subprocess.run([sys.executable, str(REPORT), str(path), *args], capture_output=True, text=True,
-                              check=False)
+                              check=False, env=env)
 
 
 class ReportTest(unittest.TestCase):

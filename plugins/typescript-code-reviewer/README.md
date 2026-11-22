@@ -12,6 +12,9 @@ moves board cards. Installing dependencies and running a repo's checks run
 the change's code, so for a pull request from a fork or from another author
 it asks first.
 
+A request-changes review is also saved as JSON, the verdict with every finding, in
+`~/Documents/code_reviews/` (`TS_REVIEW_SAVE_DIR` picks another folder). An approve saves nothing.
+
 ## What it does
 
 | Component | Name | Purpose |

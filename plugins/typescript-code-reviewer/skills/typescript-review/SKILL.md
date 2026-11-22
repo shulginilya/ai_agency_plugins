@@ -163,6 +163,11 @@ hunch, not a finding. Drop it.
 | **approve** | no blocker and no major finding |
 | **request changes** | at least one blocker or major |
 
+A request-changes review is also saved: `review_report.py` writes the verdict and
+every finding as JSON to `~/Documents/code_reviews/<target>-<commit>.json`
+(`TS_REVIEW_SAVE_DIR` picks another folder) and prints the path on stderr.
+Name that path in the report. An approve saves nothing.
+
 ## 6. Report
 
 Give the verdict, the commit reviewed, the passes that ran, the checks and

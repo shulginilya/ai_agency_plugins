@@ -28,6 +28,11 @@ The printed text is the report, also the PR comment body when it is posted. It
 ends with a `<!-- typescript-review:verdict ... -->` marker naming the verdict
 and the reviewed commit.
 
+A request-changes verdict is also saved: the verdict, counts and every finding go to
+`<target>-<commit>.json` in ~/Documents/code_reviews (the folder is created; set
+TS_REVIEW_SAVE_DIR to use another). The path is printed on stderr. A save that fails prints
+"not saved" there and changes neither the report nor the exit status. An approve saves nothing.
+
 Standard library only. Exit status: 0 approve, 1 request changes, 2 bad input.
 """
 
@@ -35,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from typing import Any, Dict, List, Optional
@@ -113,6 +119,23 @@ def judge(data: Dict[str, Any]) -> Dict[str, Any]:
             "checks": list(data.get("checks", [])), "verdict": verdict, "counts": counts, "findings": findings}
 
 
+def save_dir() -> str:
+    return os.environ.get("TS_REVIEW_SAVE_DIR") or os.path.join(os.path.expanduser("~"), "Documents", "code_reviews")
+
+
+def save(result: Dict[str, Any]) -> str:
+    """Write a request-changes result as JSON and return its path; the name is the target and the commit."""
+    plain = lambda s: re.sub(r"[^A-Za-z0-9._-]+", "-", str(s or "")).strip("-.")  # noqa: E731
+    name = "%s-%s.json" % (plain(result.get("target")) or "review", plain(str(result.get("commit") or "")[:7]) or "unknown")
+    folder = save_dir()
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, name)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(result, handle, indent=2, ensure_ascii=False)
+        handle.write("\n")
+    return path
+
+
 def where(f: Dict[str, Any]) -> str:
     return "%s:%s" % (f["file"], f["line"]) if f.get("line") else f["file"]
 
@@ -163,6 +186,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("review_report: %s" % exc, file=sys.stderr)
         return 2
     result = judge(data)
+    if result["verdict"] == "request-changes":
+        try:
+            print("review_report: saved %s" % save(result), file=sys.stderr)
+        except OSError as exc:
+            print("review_report: not saved (%s)" % exc, file=sys.stderr)
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
