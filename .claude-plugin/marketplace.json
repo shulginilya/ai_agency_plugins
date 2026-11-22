@@ -244,7 +244,7 @@
         "ref": "dist"
       },
       "description": "A code reviewer for TypeScript, React and Node.js: finds what tsc lets through (types that lie at run time, hook and render bugs, React and Next.js performance, async, input and injection bugs on the server, the Node.js Best Practices guide as checks, tests that can't fail), runs the repo's typecheck, lint and tests, and reports findings that each carry a failure scenario, with a verdict by fixed rules. Use when asked to review TypeScript, React or Node.js code, a branch or a PR.",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "author": {
         "name": "Ilya Shulgin",
         "email": "ishulgin8@gmail.com"
