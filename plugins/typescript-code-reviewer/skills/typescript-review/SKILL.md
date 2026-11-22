@@ -163,6 +163,11 @@ hunch, not a finding. Drop it.
 | **approve** | no blocker and no major finding |
 | **request changes** | at least one blocker or major |
 
+A request-changes review is also saved: `review_report.py` writes the verdict and
+every finding as JSON to `~/Documents/code_reviews/<target>-<commit>.json`
+(`TS_REVIEW_SAVE_DIR` picks another folder) and prints the path on stderr.
+Name that path in the report. An approve saves nothing.
+
 ## 6. Report
 
 Give the verdict, the commit reviewed, the passes that ran, the checks and
@@ -170,7 +175,7 @@ their results, and the findings ranked most severe first. On request changes,
 name exactly what would turn it into an approve. An empty review is a valid
 result: "nothing I can prove would break" is worth more than five nits.
 
-Post the report to a pull request only when asked to:
+Review a pull request given as a PR link or number the same way; post the report to it only when asked to:
 `gh pr review <N> --comment --body-file review.md`. Always `--comment`: GitHub
 won't let a PR's author approve or request changes on their own PR, and the
 verdict is in the body.
