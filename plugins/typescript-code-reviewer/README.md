@@ -26,7 +26,15 @@ changed; node when a Node.js file changed. Each has a checklist in
 
 - `types.md`: unvalidated boundaries (`res.json() as T`), casts, `!`, `any`
   leaks, lying type guards, exhaustiveness, optionals and records, enums,
-  `isolatedModules`, ESM/CJS, changed exported types.
+  `isolatedModules`, ESM/CJS, changed exported types; and the modelling rules
+  of Cursor's [TypeScript best practices](https://github.com/cursor/plugins/tree/main/pstack/skills/typescript-best-practices)
+  (`pstack`, by Lauren Tan, MIT) as checks, each citing its rule: optional-field
+  state bags, forged brands, invariants kept in comments, a schema and an
+  interface that drift apart, `as Config` hiding a missing field, persisted
+  JSON parsed unversioned, hand-copied generated types, mocks that replace
+  the unit under test. Design preferences (brands, object arguments, the
+  order of narrowing) are never findings by themselves; the bug they would
+  prevent is.
 - `react.md`: rules of hooks, effect dependencies and cleanup, async races,
   state mutation, keys, hydration mismatches, server code in the client
   bundle, XSS through `dangerouslySetInnerHTML` and `href`; and the React and
