@@ -14,7 +14,7 @@ Follow the `typescript-review` skill:
    - nothing: the current branch against the default branch, uncommitted and untracked changes included.
    - a base ref (`origin/develop`, a commit): the current branch against that ref.
    - a PR link (`https://github.com/<owner>/<repo>/pull/<N>`, a trailing `/files` or `#...` allowed) or a PR number.
-     Take the number from the link. If its `<owner>/<repo>` differs from `gh repo view --json nameWithOwner`,
+     Take the number from the link. If its host or `<owner>/<repo>` differs from `gh repo view --json url` (compared ignoring case),
      say the PR is in another repository than this checkout and stop: nothing is checked out. Treat any other URL
      (an issue, a commit, a branch page) as not a base ref: say so and stop.
      Then `gh pr view <N> --json number,url,state,headRefOid,baseRefName,isCrossRepository,author`.

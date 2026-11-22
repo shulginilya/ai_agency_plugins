@@ -44,9 +44,14 @@ class PrLinkTests(unittest.TestCase):
         self.assertIn("a PR link", one)
         self.assertIn("number", one)
 
+    def test_a_trailing_files_or_fragment_is_allowed(self):
+        self.assertIn("a trailing `/files` or `#...` allowed", step(1))
+
     def test_a_link_to_another_repository_stops_before_any_checkout(self):
         one = step(1)
-        self.assertIn("gh repo view --json nameWithOwner", one)
+        self.assertIn("gh repo view --json url", one)
+        self.assertIn("host or `<owner>/<repo>`", one)
+        self.assertIn("ignoring case", one)
         self.assertIn("another repository", one)
         self.assertLess(one.index("another repository"), one.index("gh pr checkout"))
 
