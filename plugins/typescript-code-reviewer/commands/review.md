@@ -1,6 +1,6 @@
 ---
-description: Review a TypeScript change (React, Node.js or both) — the current branch, a base ref or a pull request — with the TypeScript Code Reviewer, and report findings with an approve or request-changes verdict; --post also posts it on the PR.
-argument_hint: "[PR number | base ref; nothing for the current branch] [--post]"
+description: Review a TypeScript change (React, Node.js or both) — the current branch, a base ref or a pull request (PR link or number) — with the TypeScript Code Reviewer, and report findings with an approve or request-changes verdict; --post also posts it on the PR.
+argument_hint: "[PR link | PR number | base ref; nothing for the current branch] [--post]"
 model: claude-opus-5-5
 effort: high
 allowed_tools: Bash(gh:*) Bash(git:*) Bash(python:*) Bash Read Grep Glob Write
@@ -13,13 +13,17 @@ Follow the `typescript-review` skill:
 1. Pick the target:
    - nothing: the current branch against the default branch, uncommitted and untracked changes included.
    - a base ref (`origin/develop`, a commit): the current branch against that ref.
-   - a PR number: `gh pr view <N> --json number,url,state,headRefOid,baseRefName,isCrossRepository,author`.
+   - a PR link (`https://github.com/<owner>/<repo>/pull/<N>`, a trailing `/files` or `#...` allowed) or a PR number.
+     Take the number from the link. If its `<owner>/<repo>` differs from `gh repo view --json nameWithOwner`,
+     say the PR is in another repository than this checkout and stop: nothing is checked out. Treat any other URL
+     (an issue, a commit, a branch page) as not a base ref: say so and stop.
+     Then `gh pr view <N> --json number,url,state,headRefOid,baseRefName,isCrossRepository,author`.
      Closed or merged: say so and stop. The PR is **trusted** only when `isCrossRepository` is false and
      `author.login` is the current user (`gh api user --jq .login`), or the user said it is trusted. Note the branch you are on (`git branch --show-current`, else `git rev-parse HEAD`).
      If `git status --porcelain` shows changes, stop and say so: never check out over uncommitted
      work. Otherwise `git fetch origin <baseRefName>`, `gh pr checkout <N>`, confirm `git rev-parse HEAD`
      is `headRefOid`, and use `origin/<baseRefName>` as the base.
-   `--post` only applies to a PR number; without one, say it was ignored.
+   `--post` only applies to a PR number or link; without one, say it was ignored.
 2. Run `python {{PLUGIN_ROOT}}/skills/typescript-review/scripts/ts_scope.py --base <base>`. "nothing to review":
    list all changed paths (`git diff --name-only $(git merge-base <base> HEAD)` plus
    `git ls-files --others --exclude-standard`). If they include a `Dockerfile`, compose file or `.dockerignore`
@@ -39,7 +43,7 @@ Follow the `typescript-review` skill:
    `references/node-best-practices.md` reads lockfiles and Dockerfiles the scope leaves out. Never fix what you find.
 5. Write `findings.json` in a temporary directory, outside the repository, and run
    `python {{PLUGIN_ROOT}}/skills/typescript-review/scripts/review_report.py <findings.json> --commit <sha> > <review.md>`.
-6. With a PR number and `--post`: `gh pr review <N> --comment --body-file <review.md>`. Otherwise post nothing.
+6. With a PR number or link and `--post`: `gh pr review <N> --comment --body-file <review.md>`. Otherwise post nothing.
    Never edit, commit or push code, never create or edit a ticket, and never move a board card.
 7. After a PR checkout, return to the branch you started on (`git checkout <branch>`).
 8. Report the verdict, the target and commit reviewed, the passes run, each check and its result, the

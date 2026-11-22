@@ -18,7 +18,7 @@ it asks first.
 | --- | --- | --- |
 | Agent | `typescript-reviewer` | The TypeScript Code Reviewer: one pass (types, correctness, tests, react or node) in a fresh context, returning only findings that carry a failure scenario |
 | Skill | `typescript-review` | Scope the change, run the repo's checks, read whole files and the users of changed contracts, run the passes, record findings, give the verdict |
-| Command | `/typescript-code-reviewer:review` | Review the current branch, a base ref or a PR; `--post` posts the report on the PR |
+| Command | `/typescript-code-reviewer:review` | Review the current branch, a base ref or a PR given as a PR link or number; `--post` posts the report on the PR |
 
 **The passes.** Types, correctness and tests always; react when a React file
 changed; node when a Node.js file changed. Each has a checklist in
