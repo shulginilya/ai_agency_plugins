@@ -9,6 +9,7 @@ AI_AGENCY_MEMORY_TEST_REQUIRED set, as in the CI database job, a skip is a failu
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 import json
 import os
 import secrets
@@ -90,6 +91,9 @@ class MongoTests(unittest.TestCase):
     def test_the_newest_and_the_pinned_come_first(self):
         first = self.mine.remember(title="first", body="x")
         second = self.mine.remember(title="second", body="x")
+        # two saves can land in the same millisecond, MongoDB's precision, so the older one is dated back
+        self.store.database["memories"].update_one(
+            {"_id": first["_id"]}, {"$set": {"confirmedAt": second["confirmedAt"] - dt.timedelta(minutes=1)}})
         self.assertEqual([d["_id"] for d in self.mine.recall("")], [second["_id"], first["_id"]])
         self.store.database["memories"].update_one({"_id": first["_id"]}, {"$set": {"pinned": True}})
         self.assertEqual(self.mine.recall("")[0]["_id"], first["_id"])
