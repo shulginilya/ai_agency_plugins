@@ -32,7 +32,7 @@ _VALUE = (r"((?:<[^<>\n]*>|\$?\{\{[^{}\n]*\}\}|\$\([^()\n]*\)|\[[^\[\]\n]*\])"
 # so a real password that merely starts with a symbol, holds a bracket or ends in dots is still refused.
 _PLACEHOLDER = "|".join((
     r"<[^<>]*>",  # <your password>
-    r"\$?\{\{[^{}]*\}\}|\{\w*\}",  # {{ value }}, ${{ secrets.X }}, {password}
+    r"\$?\{\{[^{}]*\}\}|\{(?:[a-z_]*|\d{1,2})\}",  # {{ value }}, ${{ secrets.X }}, {password}, {0}
     r"\[[^\[\]]*\]",  # [redacted]
     r"\$\{[^{}]*\}|\$\([^()]*\)",  # ${VAR}, $(command)
     # $VAR, $var or $camelCase; digits among mixed case is how a password that starts with $ looks
@@ -40,7 +40,11 @@ _PLACEHOLDER = "|".join((
     r"%[a-z_]\w*%|%s",
     r"\*+|x{3,}|\.{3,}|\u2026",
     r"none|null|nil|true|false|undefined",
-    r"[a-z_][\w.]*\((?:[\w.]*\))?",  # a call: getToken(), env(
+    # A call: getToken(), env(. A name with digits must be dotted, or start lowercase and close its list,
+    # since "Summer2024(" is how a password looks.
+    r"[a-z_][a-z_.]*\((?:[\w.]*\))?",
+    r"[a-z_]\w*(?:\.[a-z_]\w*)+\((?:[\w.]*\))?",  # base64.b64decode(raw)
+    r"(?-i:[a-z_]\w*)\([\w.]*\)",  # uuid4(), sha256(raw)
     r"(?:process\.env|os\.environ|os\.getenv|env\.|env\[).*",
 ))
 _KEYS = r"(password|passwd|token|secret|api_?key)"

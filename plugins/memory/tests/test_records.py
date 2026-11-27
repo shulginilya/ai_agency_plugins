@@ -57,6 +57,12 @@ SECRETS = {
     "full-width letters": "\uff50assword=" + "Zx81kqPw9",
     "capitalised dollar": "password=" + "$Zxkqpw",
     "token with a no-break space": "token =\u00a0" + "Zx81kqPw9abc",
+    "password ending in a bracket": "password=" + "Summer2024(",
+    "password with a bracketed word": "DB_PASSWORD=" + "Tr0ub4dor(x)",
+    "connection password ending in a bracket": "postgres://app:" + "Summer2024(@db/app",
+    "camel case password ending in a bracket": "password=" + "summerTime2024(",
+    "password in braces": "password=" + "{Summer2024}",
+    "lowercase dollar with digits": "password=" + "$zx81KqPw9",
 }
 
 HARMLESS = [
@@ -104,6 +110,14 @@ HARMLESS = [
     "(token=${{ secrets.T }}).",
     "$password = $dbPassword;",
     'password="$dbPassword"',
+    "token=getOAuth2Token()",
+    "token=uuid4()",
+    "token=sha256(raw)",
+    "token=base64.b64decode(raw)",
+    'token = boto3.session.token("ci")',
+    'password=env("DB_PASSWORD")',
+    "password={0}",
+    "password={}",
 ]
 
 
