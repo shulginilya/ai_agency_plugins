@@ -49,6 +49,13 @@ def _refuse_secrets(values: Iterable) -> None:
                                   "Say where the value is kept instead of quoting it." % (field, kind))
 
 
+def _refuse_oversize(values: Iterable) -> None:
+    """Nothing longer than the largest field is ever scanned. The message never quotes the text."""
+    for field, value in values:
+        if isinstance(value, str) and len(value) > BODY_MAX:
+            raise RecordError("the %s is %d characters; no field may exceed %d" % (field, len(value), BODY_MAX))
+
+
 def _line(field: str, value: Any, limit: int) -> str:
     if not isinstance(value, str) or not clean_line(value):
         raise RecordError("the %s must be non-empty text" % field)
@@ -63,16 +70,17 @@ def build(project: str, title: Any, body: Any, type: Any = "fact", tags: Any = N
     """A new document, with every field the later phases need already present."""
     given = [("title", title), ("body", body), ("type", type), ("owner", owner)]
     if isinstance(tags, list):
+        if len(tags) > TAGS_MAX:
+            raise RecordError("tags must be a list of at most %d" % TAGS_MAX)
         given += [("tags", tag) for tag in tags]
     if isinstance(source, dict):
         given += [("source", value) for value in source.values()]
-    _refuse_secrets(given)  # first, so no later message is about text that holds a secret
+    _refuse_oversize(given)
+    _refuse_secrets(given)  # before the other checks, so no later message is about text that holds a secret
 
     title = _line("title", title, TITLE_MAX)
     if not isinstance(body, str) or not body.strip():
         raise RecordError("the body must be non-empty text")
-    if len(body) > BODY_MAX:
-        raise RecordError("the body is %d characters; the limit is %d" % (len(body), BODY_MAX))
     if type not in TYPES:
         raise RecordError("the type must be one of %s" % ", ".join(TYPES))
     if tags is None:

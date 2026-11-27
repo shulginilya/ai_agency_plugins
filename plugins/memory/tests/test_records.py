@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import json
+import time
 import unittest
+from unittest import mock
 
 import helpers  # noqa: F401
 import records
@@ -48,6 +50,12 @@ SECRETS = {
     "zero-width space": "password\u200b=" + "Zx81kqPw9",
     "closed form with more after it": "password=" + "<a>Zx81kqPw9",
     "bracket form with more after it": "password=" + "[a]Zx81kqPw9",
+    "zero-width inside the key": "pass\u200bword=" + "Zx81kqPw9",
+    "full-width equals": "password\uff1d" + "Zx81kqPw9",
+    "zero-width inside a token": "sk-" + "ant-api03-abc123\u200bdefghijklmnopqrstu",
+    "zero-width inside a github token": "ghp_" + "a1B2a1B2\u2060" + "a1B2" * 7,
+    "full-width letters": "\uff50assword=" + "Zx81kqPw9",
+    "capitalised dollar": "password=" + "$Zxkqpw",
     "token with a no-break space": "token =\u00a0" + "Zx81kqPw9abc",
 }
 
@@ -86,6 +94,16 @@ HARMLESS = [
     "postgres://app:{password}@db/app",
     "Run it (with password=<pw>).",
     "Use `password=<pw>`.",
+    "**password=<your password>**",
+    "_token=<token>_",
+    "password=<pw>!",
+    "Is it token=<pw>?",
+    "| password=<pw>|",
+    "password={{ vault_password }}!",
+    "run it (token=$(cat t)).",
+    "(token=${{ secrets.T }}).",
+    "$password = $dbPassword;",
+    'password="$dbPassword"',
 ]
 
 
@@ -146,7 +164,7 @@ class SecretTests(unittest.TestCase):
             "title": {"title": secret}, "body": {"body": "key " + secret}, "tags": {"tags": ["ok", secret]},
             "owner": {"owner": secret}, "agent": {"source": {"agent": secret}},
             "session": {"source": {"session": secret}}, "commit": {"source": {"commit": secret}},
-            "type": {"type": secret}, "long body": {"body": secret + "x" * 30000},
+            "type": {"type": secret},
         }
         for name, changes in places.items():
             with self.subTest(field=name):
@@ -154,6 +172,33 @@ class SecretTests(unittest.TestCase):
                     make(**changes)
                 self.assertNotIn(secret, str(caught.exception))
                 self.assertIn("nothing was saved", str(caught.exception))
+
+
+class LongInputTests(unittest.TestCase):
+    def test_the_scan_stays_fast_on_input_made_to_backtrack(self):
+        n = 200000
+        hostile = {
+            "closers": "password=a" + ")" * n + "x", "closers after a form": "password=<a>" + "}" * n + "x",
+            "opens": "password=<" * (n // 10), "brackets": "password=[" * (n // 10), "urls": "://a:" * (n // 5),
+            "quotes": '"' + "a" * n, "assignments": "password=" * (n // 9), "keys": "-----BEGIN " * (n // 11),
+        }
+        for name, text in hostile.items():
+            with self.subTest(shape=name):
+                started = time.monotonic()
+                secretscan.find(text)
+                self.assertLess(time.monotonic() - started, 2.0)
+
+    def test_an_over_long_field_is_refused_before_it_is_scanned_and_never_echoed(self):
+        secret = SECRETS["github classic"]
+        long = secret + "x" * 30000
+        for name, changes in (("body", {"body": long}), ("title", {"title": long}), ("tags", {"tags": [long]}),
+                              ("owner", {"owner": long}), ("source", {"source": {"agent": long}}),
+                              ("type", {"type": long}), ("too many tags", {"tags": [secret] * 11})):
+            with self.subTest(field=name), mock.patch.object(secretscan, "find") as scan:
+                with self.assertRaises(records.RecordError) as caught:
+                    make(**changes)
+                self.assertNotIn(secret, str(caught.exception))
+                scan.assert_not_called()
 
 
 class CleanedTextTests(unittest.TestCase):

@@ -19,10 +19,13 @@ _TOKENS = (
     ("an OpenAI or Anthropic API key", r"(?<![A-Za-z0-9_-])sk-(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{20,}"),
 )
 
+# Punctuation a sentence or Markdown can put right after a placeholder: "(password=<pw>)." or "**token=<t>**".
+_TRAILING = ".:)]}`*_!?|"
+
 # A value runs to the next space or separator, except that a closed placeholder form is taken whole, spaces
 # and all, when nothing but punctuation follows it.
 _VALUE = (r"((?:<[^<>\n]*>|\$?\{\{[^{}\n]*\}\}|\$\([^()\n]*\)|\[[^\[\]\n]*\])"
-          r"(?=[.:)\]}`]*(?:[\s\"';&,]|$))"
+          r"(?=[" + re.escape(_TRAILING) + r"]*(?:[\s\"';&,]|$))"
           r"|[^\s\"';&,]+)")
 
 # A value that stands for a secret without being one. Each form must match the whole value and be closed,
@@ -32,8 +35,8 @@ _PLACEHOLDER = "|".join((
     r"\$?\{\{[^{}]*\}\}|\{\w*\}",  # {{ value }}, ${{ secrets.X }}, {password}
     r"\[[^\[\]]*\]",  # [redacted]
     r"\$\{[^{}]*\}|\$\([^()]*\)",  # ${VAR}, $(command)
-    # $VAR or $var, but not mixed case, which is how a password that starts with $ looks
-    r"(?-i:\$(?:[A-Z_][A-Z0-9_]*|[a-z_][a-z0-9_]*)(?:\.\w+)*)|\$env:\w+",
+    # $VAR, $var or $camelCase; digits among mixed case is how a password that starts with $ looks
+    r"(?-i:\$(?:[A-Z_][A-Z0-9_]*|[a-z_][a-z0-9_]*|[a-z][a-zA-Z_]*)(?:\.\w+)*)|\$env:\w+",
     r"%[a-z_]\w*%|%s",
     r"\*+|x{3,}|\.{3,}|\u2026",
     r"none|null|nil|true|false|undefined",
@@ -56,19 +59,28 @@ def _plain_spaces(text: str) -> str:
     return "".join(" " if c != "\n" and unicodedata.category(c)[0] in "CZ" else c for c in text)
 
 
+def _folded(text: str) -> str:
+    """Invisible format characters removed and look-alikes such as a full-width "=" made ordinary."""
+    return unicodedata.normalize("NFKC", "".join(c for c in text if unicodedata.category(c) != "Cf"))
+
+
 def _placeholder(match: "re.Match[str]") -> bool:
     value = match.group(match.lastindex)
     # a short number after "token" is a count (max_token=4000); after password or secret it is the secret
     if match.lastindex > 1 and match.group(1).lower() == "token" and re.fullmatch(r"\d{1,5}", value):
         return True
-    # the sentence's own punctuation is not part of a closed form: "(password=<pw>)."
-    bare = re.sub(r"(?<=[>})\]])[.:)\]}`]+$", "", value)
-    return any(re.fullmatch(_PLACEHOLDER, form, re.IGNORECASE) for form in (value, bare))
+    # The sentence's own punctuation is not part of a closed form. A form may itself end in up to three of
+    # those characters (${{ x }}), so try each of those cuts: a fixed number, so this stays linear.
+    core = len(value.rstrip(_TRAILING))
+    forms = [value] + [value[:end] for end in range(core, min(core + 4, len(value)))
+                       if end and value[end - 1] in ">})]"]
+    return any(re.fullmatch(_PLACEHOLDER, form, re.IGNORECASE) for form in forms)
 
 
 def find(text: str) -> Optional[str]:
     """The kind of credential the text seems to hold, or None."""
-    for candidate in (text, _plain_spaces(text)):
+    # as written, as it looks (odd spaces), and as it reads (invisible characters gone)
+    for candidate in (text, _plain_spaces(text), _folded(text)):
         for kind, pattern in _TOKENS:
             if re.search(pattern, candidate):
                 return kind

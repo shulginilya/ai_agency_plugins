@@ -117,13 +117,23 @@ class CommandLineProjectTests(unittest.TestCase):
                 self.assertEqual(done.returncode, 2, done.stderr)
                 self.assertIn("--dir", done.stderr)
 
-    def test_a_named_project_is_used_wherever_it_runs_from(self):
-        for args, extra in ((("--dir", str(SCRIPTS), "status"), {}),
+    def test_naming_the_skill_itself_as_the_project_is_refused_too(self):
+        # the documented command passes --dir "$PWD", which is the skill's directory after a cd into it
+        for args, extra in ((("--dir", str(SCRIPTS.parent), "status"), {}), (("--dir", ".", "status"), {}),
                             (("status",), {"CLAUDE_PROJECT_DIR": str(SCRIPTS)})):
             with self.subTest(args=args):
                 done = self.run_cli(SCRIPTS.parent, *args, **extra)
-                self.assertEqual(done.returncode, 1, done.stderr)  # reaches "setup has not run"
-                self.assertIn("/memory:setup", done.stderr)
+                self.assertEqual(done.returncode, 2, done.stderr)
+                self.assertIn("--dir", done.stderr)
+
+    def test_a_named_project_is_used_wherever_it_runs_from(self):
+        with tempfile.TemporaryDirectory() as project:
+            for args, extra in ((("--dir", project, "status"), {}),
+                                (("status",), {"CLAUDE_PROJECT_DIR": project})):
+                with self.subTest(args=args):
+                    done = self.run_cli(SCRIPTS.parent, *args, **extra)
+                    self.assertEqual(done.returncode, 1, done.stderr)  # reaches "setup has not run"
+                    self.assertIn("/memory:setup", done.stderr)
 
 
 class OpenTests(unittest.TestCase):

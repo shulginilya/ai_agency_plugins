@@ -124,12 +124,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     remember.add_argument("--tag", action="append")
     remember.add_argument("--agent")
     args = parser.parse_args(argv)
-    if not args.dir:
-        args.dir = os.getcwd()
-        if SKILL_DIR in (Path(args.dir).resolve(), *Path(args.dir).resolve().parents):
-            print("memory: you are inside the memory skill, which is not your project: run from the project "
-                  "and pass --dir", file=sys.stderr)
-            return 2
+    args.dir = args.dir or os.getcwd()
+    # checked however it was chosen: the documented --dir "$PWD" is the skill's own directory after a cd into it
+    chosen = Path(args.dir).resolve()
+    if SKILL_DIR in (chosen, *chosen.parents):
+        print("memory: that directory is inside the memory skill, which is not your project: run from the "
+              "project and pass its directory with --dir", file=sys.stderr)
+        return 2
     try:
         service = open_memory(Path(args.dir))
         if args.command == "status":
