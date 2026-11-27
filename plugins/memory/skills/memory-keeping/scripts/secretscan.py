@@ -7,6 +7,7 @@ tells the agent never to save one.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Optional
 
 _TOKENS = (
@@ -18,35 +19,61 @@ _TOKENS = (
     ("an OpenAI or Anthropic API key", r"(?<![A-Za-z0-9_-])sk-(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{20,}"),
 )
 
-# Each captures the value, which is then checked for being a placeholder.
-_VALUES = (
-    ("a password in a connection string", r"://[^\s/:@]*:([^\s/]+)@"),
-    ("a password, token or secret assignment",
-     r"(?i)(?:password|passwd|token|secret|api_?key)[ \t]*=(?!=)[ \t]*[\"']?([^\s\"';&,]+)"),
-    ("a password, token or secret value",
-     r"(?i)[\"'][\w-]*(?:password|passwd|token|secret|api_?key)[\"'][ \t]*:[ \t]*[\"']([^\"'\s]+)[\"']"),
-)
+# A value runs to the next space or separator, except that a closed placeholder form is taken whole, spaces
+# and all, when nothing but punctuation follows it.
+_VALUE = (r"((?:<[^<>\n]*>|\$?\{\{[^{}\n]*\}\}|\$\([^()\n]*\)|\[[^\[\]\n]*\])"
+          r"(?=[.:)\]}`]*(?:[\s\"';&,]|$))"
+          r"|[^\s\"';&,]+)")
 
-# A value that stands for a secret without being one. Each form must match the whole value, so a real
-# password that merely starts with a symbol or holds a bracket is still refused.
-_PLACEHOLDER = re.compile("(?i)(?:%s)" % "|".join((
-    r"\$\{[^}]*\}?|\$\(.*|\$[a-z_]\w*(?:\.\w+)*",  # ${VAR}, $(command), $VAR
+# A value that stands for a secret without being one. Each form must match the whole value and be closed,
+# so a real password that merely starts with a symbol, holds a bracket or ends in dots is still refused.
+_PLACEHOLDER = "|".join((
+    r"<[^<>]*>",  # <your password>
+    r"\$?\{\{[^{}]*\}\}|\{\w*\}",  # {{ value }}, ${{ secrets.X }}, {password}
+    r"\[[^\[\]]*\]",  # [redacted]
+    r"\$\{[^{}]*\}|\$\([^()]*\)",  # ${VAR}, $(command)
+    # $VAR or $var, but not mixed case, which is how a password that starts with $ looks
+    r"(?-i:\$(?:[A-Z_][A-Z0-9_]*|[a-z_][a-z0-9_]*)(?:\.\w+)*)|\$env:\w+",
     r"%[a-z_]\w*%|%s",
-    r"<.*|\{.*|\[.*\]",  # <your password>, {{ value }}, [redacted]
-    r"\*+|x{3,}|.*\.\.\.",
-    r"\d{1,5}|none|null|nil|true|false|undefined",  # max_token=4000, token=null
+    r"\*+|x{3,}|\.{3,}|\u2026",
+    r"none|null|nil|true|false|undefined",
     r"[a-z_][\w.]*\((?:[\w.]*\))?",  # a call: getToken(), env(
     r"(?:process\.env|os\.environ|os\.getenv|env\.|env\[).*",
-)))
+))
+_KEYS = r"(password|passwd|token|secret|api_?key)"
+
+# (kind, pattern): the last group is the value, checked for being a placeholder.
+_VALUES = (
+    ("a password in a connection string", r"://[^\s/:@]*:([^\s/]+)@"),
+    ("a password, token or secret assignment", r"(?i)" + _KEYS + r"[ \t]*=(?!=)[ \t]*[\"']?" + _VALUE),
+    ("a password, token or secret value",
+     r"(?i)[\"'][\w-]*" + _KEYS + r"[\"'][ \t]*:[ \t]*[\"']([^\"'\s]+)[\"']"),
+)
+
+
+def _plain_spaces(text: str) -> str:
+    """No-break, zero-width and other odd characters read as a space, as they look; line breaks stay."""
+    return "".join(" " if c != "\n" and unicodedata.category(c)[0] in "CZ" else c for c in text)
+
+
+def _placeholder(match: "re.Match[str]") -> bool:
+    value = match.group(match.lastindex)
+    # a short number after "token" is a count (max_token=4000); after password or secret it is the secret
+    if match.lastindex > 1 and match.group(1).lower() == "token" and re.fullmatch(r"\d{1,5}", value):
+        return True
+    # the sentence's own punctuation is not part of a closed form: "(password=<pw>)."
+    bare = re.sub(r"(?<=[>})\]])[.:)\]}`]+$", "", value)
+    return any(re.fullmatch(_PLACEHOLDER, form, re.IGNORECASE) for form in (value, bare))
 
 
 def find(text: str) -> Optional[str]:
     """The kind of credential the text seems to hold, or None."""
-    for kind, pattern in _TOKENS:
-        if re.search(pattern, text):
-            return kind
-    for kind, pattern in _VALUES:
-        for match in re.finditer(pattern, text):
-            if not _PLACEHOLDER.fullmatch(match.group(1)):
+    for candidate in (text, _plain_spaces(text)):
+        for kind, pattern in _TOKENS:
+            if re.search(pattern, candidate):
                 return kind
+        for kind, pattern in _VALUES:
+            for match in re.finditer(pattern, candidate):
+                if not _placeholder(match):
+                    return kind
     return None

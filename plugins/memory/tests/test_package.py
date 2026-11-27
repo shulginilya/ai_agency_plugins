@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -27,6 +30,15 @@ class SkillTests(unittest.TestCase):
     def test_a_harness_without_hooks_is_told_to_recall_first(self):
         self.assertIn("this harness has no session-start hooks), call the `recall` tool with no query before",
                       flat(SKILL))
+
+    def test_the_command_fallback_names_the_project_and_stays_in_it(self):
+        text = SKILL.read_text(encoding="utf-8")
+        self.assertNotIn("from this skill's directory", " ".join(text.split()))
+        runs = [line for line in text.splitlines() if "scripts/memory.py" in line]
+        self.assertGreaterEqual(len(runs), 5)
+        for line in runs:
+            with self.subTest(line=line):
+                self.assertIn('<skill-dir>/scripts/memory.py --dir "$PWD" ', line)
 
     def test_recalled_text_is_data_and_secrets_are_never_saved(self):
         text = flat(SKILL)
@@ -56,6 +68,31 @@ class CiTests(unittest.TestCase):
                        "plugins/memory/tests/test_setup_docker.py", "AI_AGENCY_MEMORY_TEST_DOCKER"):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, job)
+
+    @unittest.skipUnless(WORKFLOW.is_file(), "not inside the plugins repository")
+    def test_the_job_cannot_pass_by_testing_nothing(self):
+        job = self.job()
+        self.assertNotIn("continue-on-error", job)
+        self.assertNotIn("||", job)
+        self.assertEqual(job.count('AI_AGENCY_MEMORY_TEST_REQUIRED: "1"'), 2)  # both test steps
+        self.assertIn('AI_AGENCY_MEMORY_TEST_DOCKER: "1"', job)
+
+    @unittest.skipUnless(WORKFLOW.is_file(), "not inside the plugins repository")
+    def test_the_driver_is_installed_for_the_database_tests_only(self):
+        # the setup tests must run on a Python without pymongo, so they prove the private environment is used
+        job = self.job()
+        installs = [line.strip() for line in job.splitlines() if "pip install" in line]
+        self.assertEqual(len(installs), 1)
+        self.assertIn('--target "$RUNNER_TEMP/driver"', installs[0])
+        database, setup = job.split("test_mongo.py", 1)[1].split("test_setup_docker.py", 1)
+        self.assertIn("PYTHONPATH: ${{ runner.temp }}/driver", database)
+        self.assertNotIn("PYTHONPATH", setup)
+
+    def test_the_docker_test_fails_rather_than_skips_where_required(self):
+        env = dict(os.environ, AI_AGENCY_MEMORY_TEST_REQUIRED="1", AI_AGENCY_MEMORY_TEST_DOCKER="")
+        done = subprocess.run([sys.executable, str(PLUGIN / "tests" / "test_setup_docker.py")], env=env,
+                              capture_output=True, text=True, timeout=120)
+        self.assertNotEqual(done.returncode, 0, done.stderr)
 
     @unittest.skipUnless(WORKFLOW.is_file(), "not inside the plugins repository")
     def test_nothing_is_published_when_the_database_job_fails(self):

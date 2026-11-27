@@ -32,6 +32,7 @@ import records  # noqa: E402
 import store as store_module  # noqa: E402
 
 ID_RE = re.compile(r"^[0-9a-f]{16}$")
+SKILL_DIR = Path(__file__).resolve().parent.parent
 INDEX_FETCH = 200
 RECALL_MAX = 50
 
@@ -107,7 +108,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--dir", default=os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+    parser.add_argument("--dir", default=os.environ.get("CLAUDE_PROJECT_DIR"))
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("status")
     commands.add_parser("index")
@@ -123,6 +124,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     remember.add_argument("--tag", action="append")
     remember.add_argument("--agent")
     args = parser.parse_args(argv)
+    if not args.dir:
+        args.dir = os.getcwd()
+        if SKILL_DIR in (Path(args.dir).resolve(), *Path(args.dir).resolve().parents):
+            print("memory: you are inside the memory skill, which is not your project: run from the project "
+                  "and pass --dir", file=sys.stderr)
+            return 2
     try:
         service = open_memory(Path(args.dir))
         if args.command == "status":

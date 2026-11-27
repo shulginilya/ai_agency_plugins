@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -24,6 +25,7 @@ class Machine:
         self.containers = {}  # name -> {"running", "port", "label"}
         self.volumes = set()
         self.users = {}  # volume -> password: the database's users live in the volume
+        self.temporary = set()  # volumes where the temporary setup user is still there
         self.taken = set()  # ports someone else listens on
         self.driver = None
         self.can_venv = True
@@ -69,6 +71,11 @@ class Machine:
             del self.containers[cmd[-1]]
             return 0, cmd[-1]
         if verb == "exec":
+            if "-i" in cmd and cmd[-1] == setup_db.REMOVE_SETUP_USER:
+                if VOLUME in self.temporary and self.users.get(VOLUME) == input.strip():
+                    self.temporary.discard(VOLUME)
+                    return 0, setup_db.REMOVED
+                return 0, ""
             if "-i" in cmd:
                 if VOLUME in self.users:
                     return 1, "MongoServerError: command createUser requires authentication"
@@ -206,6 +213,14 @@ class FreshAndRepeatTests(SetupCase):
         self.assertTrue(self.setup())
         self.assertEqual(self.machine.users[VOLUME], self.password())
 
+    def test_a_temporary_user_left_by_an_interrupted_run_is_removed(self):
+        self.setup()
+        self.machine.temporary.add(VOLUME)  # stopped after the memory user was made, before the removal
+        self.assertTrue(self.setup())
+        self.assertEqual(self.machine.temporary, set())
+        self.assertIn("Removed the temporary setup user", "\n".join(self.lines))
+        self.assertFalse(self.setup())
+
     def test_with_the_environment_variable_docker_is_left_alone(self):
         env = dict(self.env, AI_AGENCY_MEMORY_URI="mongodb://u:" + "pw-1@elsewhere:27017/db")
         self.machine.docker = "missing"
@@ -290,6 +305,21 @@ class StopTests(SetupCase):
         self.machine.can_venv = False
         self.fails("python3-venv")
         self.assertFalse(self.docker_runs())
+
+
+class RunCommandTests(unittest.TestCase):
+    def run_python(self, status):
+        code = "import sys; sys.stderr.write('WARNING: bad config\\n'); print('true|1|1'); sys.exit(%d)" % status
+        return setup_db.run_command([sys.executable, "-c", code])
+
+    def test_a_warning_on_stderr_is_not_part_of_a_successful_answer(self):
+        self.assertEqual(self.run_python(0), (0, "true|1|1"))
+
+    def test_a_failure_keeps_what_stderr_said(self):
+        code, out = self.run_python(3)
+        self.assertEqual(code, 3)
+        self.assertIn("WARNING: bad config", out)
+        self.assertIn("true|1|1", out)
 
 
 class PinTests(unittest.TestCase):

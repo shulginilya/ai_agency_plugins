@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from helpers import FakeStore, isolated_env
+from helpers import SCRIPTS, FakeStore, isolated_env
 import memconfig
 import memory
 import records
@@ -99,6 +101,29 @@ class ServiceTests(unittest.TestCase):
         text = self.mine.index()
         shown = sum(1 for line in text.splitlines() if line.startswith("- ["))
         self.assertIn("%d more left out" % (250 - shown), text)
+
+
+class CommandLineProjectTests(unittest.TestCase):
+    def run_cli(self, cwd, *args, **extra):
+        with tempfile.TemporaryDirectory() as tmp:
+            return subprocess.run([sys.executable, str(SCRIPTS / "memory.py"), *args], cwd=str(cwd),
+                                  env=isolated_env(Path(tmp), **extra), capture_output=True, text=True,
+                                  encoding="utf-8", timeout=30)
+
+    def test_run_from_inside_the_skill_without_a_project_it_refuses(self):
+        for cwd in (SCRIPTS, SCRIPTS.parent):
+            with self.subTest(cwd=cwd.name):
+                done = self.run_cli(cwd, "status")
+                self.assertEqual(done.returncode, 2, done.stderr)
+                self.assertIn("--dir", done.stderr)
+
+    def test_a_named_project_is_used_wherever_it_runs_from(self):
+        for args, extra in ((("--dir", str(SCRIPTS), "status"), {}),
+                            (("status",), {"CLAUDE_PROJECT_DIR": str(SCRIPTS)})):
+            with self.subTest(args=args):
+                done = self.run_cli(SCRIPTS.parent, *args, **extra)
+                self.assertEqual(done.returncode, 1, done.stderr)  # reaches "setup has not run"
+                self.assertIn("/memory:setup", done.stderr)
 
 
 class OpenTests(unittest.TestCase):

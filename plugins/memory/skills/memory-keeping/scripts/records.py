@@ -42,6 +42,8 @@ def _refuse_secrets(values: Iterable) -> None:
     for field, value in values:
         if isinstance(value, str):
             kind = secretscan.find(value)
+            if not kind and field != "body":  # these are stored as one line: scan that form too
+                kind = secretscan.find(clean_line(value))
             if kind:
                 raise SecretFound("the %s looks like it holds %s, so nothing was saved. "
                                   "Say where the value is kept instead of quoting it." % (field, kind))

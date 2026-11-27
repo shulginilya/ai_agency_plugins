@@ -52,4 +52,5 @@ project), or its root directory when it has no remote.
 tests run when `AI_AGENCY_MEMORY_TEST_URI` points at a **throwaway** MongoDB and
 `pymongo` is installed; each run uses a new database and drops it. The setup tests
 run against your Docker when `AI_AGENCY_MEMORY_TEST_DOCKER` is set, in a container
-of their own that they remove.
+of their own that they remove. `AI_AGENCY_MEMORY_TEST_REQUIRED` makes either
+kind fail instead of skip.

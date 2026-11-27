@@ -36,6 +36,19 @@ SECRETS = {
     "password with a bracket": "password=" + "Ab(9xQ!2",
     "password starting with a symbol": "password=" + "*Kj38dfLq",
     "percent password": "password=" + "%9fKq2mZ",
+    "unclosed angle": "password=" + "<Zx81kqPw9!",
+    "unclosed brace": "password=" + "{Zx81kqPw9",
+    "mixed-case dollar": "password=" + "$Rf9x2LqZ",
+    "unclosed substitution": "password=" + "$(Zx81kqPw9",
+    "unclosed variable": "password=" + "${Zx81kqPw9",
+    "trailing dots": "password=" + "Zx81kqPw9...",
+    "short number": "password=" + "48213",
+    "numeric connection password": "postgres://admin:" + "48213@db.internal/app",
+    "no-break spaces": "password\u00a0=\u00a0" + "Zx81kqPw9",
+    "zero-width space": "password\u200b=" + "Zx81kqPw9",
+    "closed form with more after it": "password=" + "<a>Zx81kqPw9",
+    "bracket form with more after it": "password=" + "[a]Zx81kqPw9",
+    "token with a no-break space": "token =\u00a0" + "Zx81kqPw9abc",
 }
 
 HARMLESS = [
@@ -62,6 +75,17 @@ HARMLESS = [
     "password=%DB_PASSWORD%",
     "password=********",
     "secret=[redacted]",
+    "secret=<your secret>",
+    "password={{ vault_password }}",
+    "token=${{ secrets.GITHUB_TOKEN }}",
+    "password=$(cat /run/secrets/db)",
+    "password=$password",
+    "password=$env:DB_PASSWORD",
+    "password=...",
+    "max_token=4000",
+    "postgres://app:{password}@db/app",
+    "Run it (with password=<pw>).",
+    "Use `password=<pw>`.",
 ]
 
 
@@ -130,6 +154,16 @@ class SecretTests(unittest.TestCase):
                     make(**changes)
                 self.assertNotIn(secret, str(caught.exception))
                 self.assertIn("nothing was saved", str(caught.exception))
+
+
+class CleanedTextTests(unittest.TestCase):
+    def test_a_secret_that_only_shows_once_line_breaks_are_joined_is_refused(self):
+        split = "DB_PASSWORD=\n" + "hunter2s3cret"
+        for name, changes in (("title", {"title": split}), ("tags", {"tags": [split]}),
+                              ("owner", {"owner": split[:40]}), ("source", {"source": {"agent": split}})):
+            with self.subTest(field=name):
+                with self.assertRaises(records.SecretFound):
+                    make(**changes)
 
 
 class IndexTests(unittest.TestCase):

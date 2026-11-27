@@ -43,7 +43,8 @@ INSPECT = ('{{.State.Running}}|{{range $p, $b := .HostConfig.PortBindings}}{{if 
 SETUP_USER = "memory_setup"
 # MongoDB lets the first user be created from inside the container only if it can manage users. So a
 # temporary one is made, creates the memory user (read and write on one database) and removes itself.
-# An interrupted run leaves the temporary one behind, with the same password, and the next run finishes.
+# An interrupted run can leave the temporary one behind, with the same password: the next run finishes the
+# memory user if it is missing, and REMOVE_SETUP_USER clears the temporary one.
 # The password arrives on standard input, so it is in no argument list and no shell history.
 CREATE_USER = (
     "const password = require('fs').readFileSync(0, 'utf8').trim(); "
@@ -54,6 +55,13 @@ CREATE_USER = (
     "roles: [{role: 'readWrite', db: '%(db)s'}]}) } "
     "admin.dropUser('%(setup)s')"
 ) % {"setup": SETUP_USER, "user": USER, "db": store_module.DATABASE}
+REMOVED = "memory-setup-user-removed"
+REMOVE_SETUP_USER = (
+    "const password = require('fs').readFileSync(0, 'utf8').trim(); "
+    "const admin = db.getSiblingDB('admin'); "
+    "let left = true; try { admin.auth('%(setup)s', password) } catch (e) { left = false } "
+    "if (left) { admin.dropUser('%(setup)s'); print('%(removed)s') }"
+) % {"setup": SETUP_USER, "removed": REMOVED}
 PORT_TAKEN = ("port is already allocated", "address already in use", "ports are not available")
 READY_ATTEMPTS = 60
 
@@ -75,7 +83,9 @@ def run_command(cmd: List[str], input: Optional[str] = None, timeout: int = 60) 
                               errors="replace", timeout=timeout, check=False)
     except subprocess.TimeoutExpired:
         return 124, "timed out after %d s" % timeout
-    return done.returncode, (done.stdout + done.stderr).strip()
+    # only stdout is ever parsed: the Docker CLI warns on stderr while succeeding
+    out = done.stdout if done.returncode == 0 else done.stdout + done.stderr
+    return done.returncode, out.strip()
 
 
 def port_is_free(port: int) -> bool:
@@ -255,7 +265,20 @@ class Setup:
             raise SetupError("MongoDB runs but cannot be used (%s). See `docker logs %s`"
                              % ("login refused" if state == "auth" else "no answer on port %d" % port,
                                 self.container))
+        changed = self._remove_setup_user(password) or changed
         return self._indexes(uri) or changed
+
+    def _remove_setup_user(self, password: str) -> bool:
+        """Clear the temporary user an interrupted run left; True when there was one."""
+        code, out = self._docker("exec", "-i", self.container, "mongosh", "--quiet", "--eval", REMOVE_SETUP_USER,
+                                 input=password + "\n")
+        if code != 0:
+            raise SetupError("could not check for the temporary setup user: %s"
+                             % _last(out.replace(password, "***")))
+        if REMOVED not in out:
+            return False
+        self.log("Removed the temporary setup user.")
+        return True
 
     def _create(self, port: int) -> None:
         self.log("Starting MongoDB on 127.0.0.1:%d (the first run downloads %s)." % (port, IMAGE))

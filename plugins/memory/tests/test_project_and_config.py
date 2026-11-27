@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -110,6 +112,22 @@ class ConfigTests(unittest.TestCase):
         memconfig.save({"uri": self.URI}, self.env)
         env = dict(self.env, AI_AGENCY_MEMORY_URI="mongodb://other/db")
         self.assertEqual(memconfig.uri(env), "mongodb://other/db")
+
+    def test_the_driver_setup_installed_becomes_importable_in_both_layouts(self):
+        for layout in (("lib", "python3.99", "site-packages"), ("Lib", "site-packages")):
+            with self.subTest(layout=layout[0]), tempfile.TemporaryDirectory() as tmp:
+                env = isolated_env(Path(tmp))
+                packages = memconfig.venv_dir(env).joinpath(*layout)
+                packages.mkdir(parents=True)
+                (packages / "memory_fake_driver.py").write_text("VALUE = 7\n", encoding="utf-8")
+                before = list(sys.path)
+                try:
+                    memconfig.add_driver_path(env)
+                    self.assertEqual(importlib.import_module("memory_fake_driver").VALUE, 7)
+                finally:
+                    sys.path[:] = before
+                    sys.modules.pop("memory_fake_driver", None)
+                    importlib.invalidate_caches()
 
     def test_a_corrupt_file_is_an_error_that_does_not_quote_it(self):
         path = memconfig.config_path(self.env)

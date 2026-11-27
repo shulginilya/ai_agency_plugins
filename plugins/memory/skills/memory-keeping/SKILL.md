@@ -21,14 +21,16 @@ user's call: `/memory:setup`.
 ## Tools
 
 Use the `remember`, `recall`, `get` and `forget` MCP tools. Where they are not
-available, run the same actions from this skill's directory:
+available, run the script by its path. `<skill-dir>` is this skill's directory
+and `$PWD` the project's: stay in the project and name it with `--dir`. Never
+`cd` into the skill first, or the memory is filed under the wrong project.
 
 ```bash
-python scripts/memory.py recall "deploy window"
-python scripts/memory.py get <id>
-python scripts/memory.py remember --title "..." --body "..." --type fact --tag deploy
-python scripts/memory.py forget <id>
-python scripts/memory.py status
+python <skill-dir>/scripts/memory.py --dir "$PWD" recall "deploy window"
+python <skill-dir>/scripts/memory.py --dir "$PWD" get <id>
+python <skill-dir>/scripts/memory.py --dir "$PWD" remember --title "..." --body "..." --type fact --tag deploy
+python <skill-dir>/scripts/memory.py --dir "$PWD" forget <id>
+python <skill-dir>/scripts/memory.py --dir "$PWD" status
 ```
 
 ## When to save

@@ -16,6 +16,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
@@ -118,6 +119,20 @@ class MongoTests(unittest.TestCase):
                 store.check()
         self.assertNotIn("wrong-pw-1", str(caught.exception))
 
+    def test_the_hook_gives_up_on_a_down_database_well_inside_its_timeout(self):
+        hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+        allowed = hooks["hooks"]["SessionStart"][0]["hooks"][0]["timeout"]
+        with tempfile.TemporaryDirectory() as tmp:
+            env = isolated_env(Path(tmp), AI_AGENCY_MEMORY_URI="mongodb://u:p@127.0.0.1:1/x",
+                               CLAUDE_PROJECT_DIR=tmp)
+            started = time.monotonic()
+            done = subprocess.run([sys.executable, str(PLUGIN / "scripts" / "session_index.py")], env=env, cwd=tmp,
+                                  input="{}", capture_output=True, text=True, encoding="utf-8", timeout=120)
+            took = time.monotonic() - started
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("memory is unavailable (the database does not answer)", done.stdout)
+        self.assertLess(took, allowed / 2)
+
     def test_a_database_that_is_down(self):
         with self.assertRaises(store_module.Unavailable) as caught:
             with contextlib.closing(store_module.MongoStore("mongodb://127.0.0.1:1/x")) as store:
@@ -125,14 +140,15 @@ class MongoTests(unittest.TestCase):
         self.assertIn("does not answer", str(caught.exception))
 
     def test_one_session_saves_and_the_next_one_lists_and_reads_it(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as elsewhere:
+            # the processes start in another directory: only CLAUDE_PROJECT_DIR says which project this is
             env = isolated_env(Path(tmp), AI_AGENCY_MEMORY_URI=self.uri, CLAUDE_PROJECT_DIR=tmp,
                                PYTHONPATH=os.pathsep.join(p for p in sys.path if p))
 
             def server(name, **arguments):
                 request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
                            "params": {"name": name, "arguments": arguments}}
-                done = subprocess.run([sys.executable, str(PLUGIN / "mcp" / "server.py")], env=env, cwd=tmp,
+                done = subprocess.run([sys.executable, str(PLUGIN / "mcp" / "server.py")], env=env, cwd=elsewhere,
                                       input=json.dumps(request) + "\n", capture_output=True, text=True,
                                       encoding="utf-8", timeout=60)
                 result = json.loads(done.stdout)["result"]
@@ -140,7 +156,8 @@ class MongoTests(unittest.TestCase):
                 return result["content"][0]["text"]
 
             saved = json.loads(server("remember", title="Seed is 42", body="Set SEED=42."))["saved"]["id"]
-            hook = subprocess.run([sys.executable, str(PLUGIN / "scripts" / "session_index.py")], env=env, cwd=tmp,
+            hook = subprocess.run([sys.executable, str(PLUGIN / "scripts" / "session_index.py")], env=env,
+                                  cwd=elsewhere,
                                   input="{}", capture_output=True, text=True, encoding="utf-8", timeout=60)
             self.assertEqual(hook.returncode, 0, hook.stderr)
             self.assertIn("[%s] (fact) Seed is 42" % saved, hook.stdout)

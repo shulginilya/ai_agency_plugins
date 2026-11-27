@@ -20,17 +20,27 @@ import unittest
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from helpers import SCRIPTS, isolated_env
+from helpers import PLUGIN, SCRIPTS, isolated_env
 import memconfig
 import setup_db
 
 ENABLED = bool(os.environ.get("AI_AGENCY_MEMORY_TEST_DOCKER"))
+REQUIRED = bool(os.environ.get("AI_AGENCY_MEMORY_TEST_REQUIRED"))
 
 
 def free_port() -> int:
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         return probe.getsockname()[1]
+
+
+class PreconditionTests(unittest.TestCase):
+    def test_where_required_it_runs_and_on_a_python_without_the_driver(self):
+        if REQUIRED:
+            self.assertTrue(ENABLED, "AI_AGENCY_MEMORY_TEST_DOCKER is not set")
+            # otherwise a plugin that never loads its private environment would still pass
+            probe = subprocess.run([sys.executable, "-c", "import pymongo"], capture_output=True, check=False)
+            self.assertNotEqual(probe.returncode, 0, "pymongo is importable without setup's environment")
 
 
 @unittest.skipUnless(ENABLED, "Docker setup test skipped: AI_AGENCY_MEMORY_TEST_DOCKER is not set")
@@ -89,6 +99,18 @@ class DockerSetupTests(unittest.TestCase):
         self.assertEqual(saved.returncode, 0, saved.stderr)
         self.assertIn("Nothing changed", self.ready())
 
+        hook = subprocess.run([sys.executable, str(PLUGIN / "scripts" / "session_index.py")], env=self.env,
+                              cwd=self.tmp.name, input="{}", capture_output=True, text=True, encoding="utf-8",
+                              timeout=60, check=False)
+        self.assertIn("(fact) Kept", hook.stdout, hook.stderr)
+
+        broken = Path(self.tmp.name) / "broken-docker"
+        broken.mkdir()
+        (broken / "config.json").write_text("{", encoding="utf-8")  # the CLI warns on stderr and carries on
+        self.env["DOCKER_CONFIG"] = str(broken)
+        self.assertIn("Nothing changed", self.ready())
+        del self.env["DOCKER_CONFIG"]
+
         self.docker("stop", self.name)
         down = self.script("memory.py", "status")
         self.assertEqual(down.returncode, 1)
@@ -117,6 +139,7 @@ class DockerSetupTests(unittest.TestCase):
         self.remove()
         self.docker("run", "-d", "--name", self.name, "--label", "ai-agency.memory=1",
                     "-p", "127.0.0.1:%d:27017" % config["port"], "-v", self.name + "-data:/data/db",
+                    "-v", self.name + "-config:/data/configdb",  # unnamed, it would outlive the test
                     setup_db.IMAGE, "--auth")
         script = ("const p = require('fs').readFileSync(0, 'utf8').trim(); db.getSiblingDB('admin')"
                   ".createUser({user: 'memory_setup', pwd: p, roles: ['userAdminAnyDatabase']})")
@@ -128,6 +151,27 @@ class DockerSetupTests(unittest.TestCase):
             time.sleep(1)
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertIn("Created the database user", self.ready())
+        self.assertEqual(self.users(), "false")
+
+    def test_a_temporary_user_left_beside_the_memory_user_is_removed(self):
+        self.ready("--port", str(free_port()))
+        config = memconfig.load(self.env)
+        password = urlsplit(config["uri"]).password
+        self.remove()
+        self.docker("run", "-d", "--name", self.name, "--label", "ai-agency.memory=1",
+                    "-p", "127.0.0.1:%d:27017" % config["port"], "-v", self.name + "-data:/data/db",
+                    "-v", self.name + "-config:/data/configdb", setup_db.IMAGE, "--auth")
+        both = setup_db.CREATE_USER.replace("admin.dropUser('memory_setup')", "")  # stopped before the removal
+        self.assertNotEqual(both, setup_db.CREATE_USER)
+        for _ in range(60):
+            done = subprocess.run(["docker", "exec", "-i", self.name, "mongosh", "--quiet", "--eval", both],
+                                  input=password + "\n", capture_output=True, text=True, timeout=60, check=False)
+            if done.returncode == 0:
+                break
+            time.sleep(1)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self.users(), "true")
+        self.assertIn("Removed the temporary setup user", self.ready())
         self.assertEqual(self.users(), "false")
 
     def test_a_taken_port_stops_with_the_port(self):

@@ -151,6 +151,19 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.store.inserts, 0)
 
 
+class ServerProjectTests(unittest.TestCase):
+    def opened_for(self, environment):
+        with mock.patch.dict("os.environ", environment), mock.patch.object(memory, "open_memory") as opened:
+            server.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                           "params": {"name": "recall", "arguments": {}}})
+        return opened.call_args[0][0]
+
+    def test_the_project_is_claude_project_dir_not_the_working_directory(self):
+        project = str(Path.cwd() / "somewhere-else")
+        self.assertEqual(self.opened_for({"CLAUDE_PROJECT_DIR": project}), Path(project))
+        self.assertEqual(self.opened_for({"CLAUDE_PROJECT_DIR": ""}), Path.cwd())
+
+
 class MalformedRequestTests(unittest.TestCase):
     def test_a_malformed_request_is_answered_not_fatal(self):
         for params in ([1], "x", {"name": ["remember"]}, {"name": None}):

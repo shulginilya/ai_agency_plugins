@@ -79,12 +79,14 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Install the memory plugin's driver
-        run: python -m pip install -r plugins/memory/skills/memory-keeping/scripts/requirements.txt
+      # Beside the interpreter, not in it: the setup tests below must run on a Python without the driver.
+      - name: Install the driver for the database tests
+        run: python -m pip install --target "$RUNNER_TEMP/driver" -r plugins/memory/skills/memory-keeping/scripts/requirements.txt
 
       - name: Run the database tests
         run: python plugins/memory/tests/test_mongo.py
         env:
+          PYTHONPATH: ${{ runner.temp }}/driver
           AI_AGENCY_MEMORY_TEST_URI: mongodb://ci:throwaway@127.0.0.1:27017/?authSource=admin
           AI_AGENCY_MEMORY_TEST_REQUIRED: "1"
 
@@ -93,6 +95,7 @@ jobs:
         run: python plugins/memory/tests/test_setup_docker.py
         env:
           AI_AGENCY_MEMORY_TEST_DOCKER: "1"
+          AI_AGENCY_MEMORY_TEST_REQUIRED: "1"
 
   # Generated files that many branches would each regenerate, so they conflict
   # by construction if branches commit them. Branches leave them alone (see
