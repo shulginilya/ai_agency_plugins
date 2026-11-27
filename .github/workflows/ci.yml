@@ -46,6 +46,54 @@ jobs:
           path: dist/
           retention-days: 14
 
+  # The memory plugin's database tests, against a throwaway MongoDB. The check
+  # matrix runs everything else without the driver. REQUIRED turns a skip into a
+  # failure, so this job cannot pass by testing nothing.
+  memory-db:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            python: "3.9"
+          - os: ubuntu-latest
+            python: "3.12"
+    services:
+      mongodb:
+        image: mongo:8.0.38
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+        env:
+          MONGO_INITDB_ROOT_USERNAME: ci
+          MONGO_INITDB_ROOT_PASSWORD: throwaway
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install the memory plugin's driver
+        run: python -m pip install -r plugins/memory/skills/memory-keeping/scripts/requirements.txt
+
+      - name: Run the database tests
+        run: python plugins/memory/tests/test_mongo.py
+        env:
+          AI_AGENCY_MEMORY_TEST_URI: mongodb://ci:throwaway@127.0.0.1:27017/?authSource=admin
+          AI_AGENCY_MEMORY_TEST_REQUIRED: "1"
+
+      # Setup itself, against the runner's Docker: a container of its own, removed afterwards.
+      - name: Run the setup tests against Docker
+        run: python plugins/memory/tests/test_setup_docker.py
+        env:
+          AI_AGENCY_MEMORY_TEST_DOCKER: "1"
+
   # Generated files that many branches would each regenerate, so they conflict
   # by construction if branches commit them. Branches leave them alone (see
   # generated-files below); this job regenerates them once, here, after the
@@ -58,7 +106,7 @@ jobs:
   #     team.json
   marketplace:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: check
+    needs: [check, memory-db]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -141,7 +189,7 @@ jobs:
   # commit, force-pushed: it is build output, it has no history worth keeping.
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: check
+    needs: [check, memory-db]
     runs-on: ubuntu-latest
     permissions:
       contents: write
