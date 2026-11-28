@@ -60,19 +60,35 @@ _TYPE = (r"(?:[ \t]*:[ \t]*[a-z_][\w.]{0,60}(?:\[[^\n=]{0,60}\])?"
 _CODE_ASSIGN = r"[ \t]*(?:::|\|\||\?\?|[:?+.])?=(?!=)"  # = := ::= ?= += .= ||= ??= but not ==
 _QUOTE = r"(?:[\"'`]|\*\*)?"
 _LITERAL = r"[rbuf]{0,2}[\"'`]"  # opens a string in code
-# What follows "host:" in a URL that has a port, so a later "@" in its path is not the end of a password
-_PORT = r"(?:\d{1,5}|port|\$\{[^{}\s]*\}|\$\w+|\{\w*\}|<[\w-]*>|%[sd])"
+# What follows "host:" in a URL with a port, so a later "@" in its path does not end a password. A number is
+# always a port. A placeholder is one only where that "@" opens a path segment (/@scope), since
+# "$ecret/x@host" is a password.
+_PORT = (r"(?:\d{1,5}/"
+         r"|(?:port|\$?\{\{[^{}]*\}\}|\$\{[^{}\s]*\}|\$\([\w.]*\)|\$\w+|%\w*%|%[sd]|\{\w*\}|<[\w-]*>)"
+         r"/(?:[^\s@/]{0,256}/){0,16}@)")
+_PATH = r"[ \t]*[\"']?[~.]?/"  # how the shell's PWD starts; a password after Pwd= rarely does
+# What can follow "NAME=" on the next line of text without being its value
+_NOT_A_VALUE = (r"(?!"
+                # the next entry of a template: NAME=value, or an empty name all in one case. Base64 padding is
+                # neither: mixed case, and nothing but "=" after its first "="
+                r"[a-z_][\w.-]*=(?!=)\S"
+                r"|(?-i:[A-Z_][A-Z0-9_.-]*|[a-z_][a-z0-9_.-]*)=[ \t]*(?=\r?\n|\Z)"
+                # a comment, a rule, a code fence or a closing line
+                r"|#|//|-{3}|~{3}|={3}|_{3}|```|</|<!|[})\]])")
 
 # (kind, pattern): the last group is the value, checked for being a placeholder.
 _VALUES = (
     ("a password in a connection string", r"://[^\s/:@]*:([^\s/]+)@"),
     # the same with a "/" in the password; the bounds keep the scan linear
+    # (a drive letter, as in file://C:/, is not a user name)
     ("a password in a connection string",
-     r"://[^\s/:@\[\]]*:(?!(?i:" + _PORT + r")/)([^\s@\"'/]{0,256}/[^\s@\"']{0,256})@"),
+     r"://(?![A-Za-z]:/)[^\s/:@\[\]]*:(?!(?i:" + _PORT + r"))([^\s@\"'/]{0,256}/[^\s@\"']{0,256})@"),
     # Pwd is ODBC's key. Only inside a connection string: PWD= alone is the shell's directory
-    ("a password in a connection string", r"(?i);[ \t]*pwd[ \t]*=[ \t]*" + _QUOTE + _VALUE),
-    ("a password in a connection string", r"(?i)(?<![\w$])pwd[ \t]*=[ \t]*([^\s;\"'&,]{1,256})"
-     r"(?=;[ \t]*(?:uid|user id|server|database|driver|dsn)[ \t]*=)"),
+    ("a password in a connection string",
+     r"(?i);[ \t]*pwd[ \t]*=(?!" + _PATH + r")[ \t]*" + _QUOTE + _VALUE),
+    ("a password in a connection string",
+     r"(?i)(?<![\w$])pwd[ \t]*=(?!" + _PATH + r")[ \t]*" + _QUOTE + r"([^\s;\"'][^\s;]{0,255}?)"
+     r"(?=[\"'*]{0,2};[ \t]*(?:uid|user id|server|database|driver|dsn)[ \t]*=)"),
     # as a shell, an env file, a Makefile default or Markdown writes it
     ("a password, token or secret assignment",
      r"(?i)" + _KEYS + _CLOSE + r"[ \t]*\??=(?!=)[ \t]*" + _QUOTE + _VALUE),
@@ -81,12 +97,12 @@ _VALUES = (
      r"(?i)" + _KEYS + _CODE_CLOSE + _TYPE + _CODE_ASSIGN + r"[ \t]*" + _LITERAL + _VALUE),
     # a Makefile's := takes a bare value; its names are in capitals, unlike Go's. _KEYS has no \x classes to upper()
     ("a password, token or secret assignment", _KEYS.upper() + r"[ \t]*::?=[ \t]*" + _VALUE),
-    # the value alone on the next line; not the next NAME= of an empty template, nor a closing code fence
+    # the value alone on the next line, perhaps with a ";", a "," or a comment after it
     ("a password, token or secret assignment",
-     r"(?i)" + _KEYS + _CODE_CLOSE + _CODE_ASSIGN + r"[ \t]*\r?\n[ \t]*(?![a-z_]\w*=|```)" + _QUOTE + _VALUE
-     + _QUOTE + r"[ \t]*(?=\r?\n|\Z)"),
+     r"(?i)" + _KEYS + _CODE_CLOSE + _CODE_ASSIGN + r"[ \t]*\r?\n[ \t]*" + _NOT_A_VALUE + _QUOTE + _VALUE
+     + _QUOTE + r"[ \t]*(?:[;,][ \t]*)?(?:(?:#|//)[^\n]*)?(?=\r?\n|\Z)"),
     ("a password, token or secret value",
-     r"(?i)[\"'][\w-]*" + _KEYS + r"[\"'][ \t]*:[ \t]*[\"']([^\"'\s]+)[\"']"),
+     r"(?i)[\"'][\w.-]*" + _KEYS + r"[\"'][ \t]*:[ \t]*[\"']([^\"'\s][^\"'\n]*)[\"']"),
 )
 
 
