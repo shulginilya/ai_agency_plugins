@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "memory": {
+      "type": "local",
+      "command": [
+        "sh",
+        "-c",
+        "exec \"$(command -v python3 || command -v python)\" \"$@\"",
+        "sh",
+        "/home/runner/work/ai_agency_plugins/ai_agency_plugins/plugins/memory/mcp/server.py"
+      ],
+      "enabled": true
+    }
+  }
+}

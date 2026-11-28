@@ -1,0 +1,25 @@
+---
+description: Resolve a PR's merge conflicts by rebasing it onto its base branch, then re-run the checks and push with --force-with-lease.
+model: claude-opus-5-5
+---
+
+Resolve the merge conflicts of PR $ARGUMENTS.
+
+Running this command is the user's permission for this PR only. Follow the
+`merge-conflict-resolution` skill:
+
+1. **Read the PR.** It must be open, not from a fork, and conflicting. The working
+   tree must be clean, and the local branch must match the remote one. Record the
+   head commit and make a local `backup/<branch>`.
+2. **Rebase onto the base branch.** Never merge it in. During the rebase, `--ours`
+   is the base and `--theirs` is the PR commit being replayed. For each conflicted
+   file:
+   - generated: take the base's copy;
+   - text clash: keep both sides' intent;
+   - decision (the sides disagree on behaviour): `git rebase --abort`, propose a
+     resolution and stop.
+3. **Check.** Run the repo's checks. `git range-diff` must show only your resolutions.
+4. **Push** with `git push --force-with-lease=<branch>:<old head> origin HEAD:<branch>`.
+   Never `--force`, and never push to the base branch. Confirm the PR is mergeable.
+5. Report in the skill's format: each file and how it was resolved, the checks, and
+   whether QA has to verify again.

@@ -1,0 +1,20 @@
+{
+  "name": "devops",
+  "displayName": "DevOps Engineer",
+  "version": "0.3.1",
+  "description": "CI/CD for the crew: sets up GitHub Actions that run a repo's own checks and triages failing runs to a cause and an owner. PR review links (previews) are paused for now. Never handles secret values. Use when asked to set up CI or CI/CD, fix a workflow, or find why CI is red.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "license": "MIT",
+  "keywords": [
+    "devops",
+    "ci",
+    "cd",
+    "github-actions",
+    "preview",
+    "deploy"
+  ]
+}

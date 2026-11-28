@@ -1,0 +1,45 @@
+---
+description: Ship a finished change for review — ticket on a board, branch, commit, push, PR, card moved to In review.
+argument-hint: "[optional: #N to ship for an existing ticket, board name or number, ticket title, or what to leave out]"
+model: claude-opus-5-5
+effort: medium
+allowed-tools: Bash(git:*) Bash(gh:*) Bash(python:*) Read Grep Glob Write
+---
+
+Ship the current change for review. Notes: $ARGUMENTS
+
+Follow the `ship-change` skill:
+
+1. **Check it is shippable.** Its checks pass and the diff is self-reviewed.
+   List the files that belong to the change. Make sure there are no secrets.
+   If something is missing, say what and stop.
+2. **Ask which board** unless the notes, an earlier answer in this conversation
+   or a delivery contract name one. For an existing ticket (step 3), use the
+   board it is already on (`board.py where --issue N`); ask only when it is on
+   none, or on several and the notes don't say which. Offer
+   `python ${CLAUDE_PLUGIN_ROOT}/skills/ticket-management/scripts/board.py boards` and
+   recommend the most used.
+3. **Reuse or file the ticket.** When the notes or the conversation name the
+   ticket this work is for (`#N`, or a branch named `N-...`), reuse it: check it
+   is open (`gh issue view N`). If it is on no board, put it on the chosen one
+   with `python ${CLAUDE_PLUGIN_ROOT}/skills/ticket-management/scripts/board.py add --project B --issue N`.
+   Never file a second ticket for it. Otherwise
+   file one (Problem, Proposal, Acceptance criteria) and put it on the board in
+   one step:
+   `python ${CLAUDE_PLUGIN_ROOT}/skills/ticket-management/scripts/tickets.py create --title ... --body-file ... --project B`.
+4. **Branch** with the name from `board.py branch` and check it out, always from an up-to-date
+   default branch, never from another ticket's unmerged branch. Then run
+   `python ${CLAUDE_PLUGIN_ROOT}/skills/ship-change/scripts/ship_check.py --expected-branch <that name>`:
+   when it exits 1 (wrong branch name, or based on an unmerged feature branch), open no PR, say why
+   in its words and stop. **Commit**
+   only the change's files, ending the message with `Closes #<issue>`.
+   **Push** with `-u`. Never force-push and never push to the default branch.
+   If the PR conflicts with its base, report it and offer `/resolve-conflicts`;
+   don't resolve it unasked.
+5. **Open the PR** with `--base` the default branch, read from `gh repo view --json defaultBranchRef`, never a feature branch: `Closes #<issue>`, then What
+   changed / Why / Checks, with `--assignee @me`. The user is the only
+   assignee unless they explicitly asked for someone else on this PR.
+6. **Then** run `board.py move` to put the card in In review. It must run after
+   the PR exists, because the board's PR-linked automation moves the card to
+   In progress.
+7. Report in the skill's format, with the PR link on its own line.

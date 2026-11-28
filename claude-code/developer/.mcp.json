@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "developer": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "exec \"$(command -v python3 || command -v python)\" \"$@\"",
+        "sh",
+        "${CLAUDE_PLUGIN_ROOT}/mcp/server.py"
+      ],
+      "env": {}
+    }
+  }
+}

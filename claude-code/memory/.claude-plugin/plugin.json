@@ -1,0 +1,22 @@
+{
+  "name": "memory",
+  "displayName": "Memory",
+  "version": "0.1.0",
+  "description": "Memory that survives across sessions, kept in a local MongoDB in Docker. Save a project fact when asked, see the list at the start of every session, search it, read it and delete it. Likely secrets are refused. Use when the user asks to remember or forget something, what was saved earlier, or to set up persistent memory.",
+  "author": {
+    "name": "Ilya Shulgin",
+    "email": "ishulgin8@gmail.com"
+  },
+  "homepage": "https://github.com/shulginilya/ai_agency_plugins",
+  "repository": "https://github.com/shulginilya/ai_agency_plugins",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "mongodb",
+    "mcp",
+    "persistence",
+    "context"
+  ],
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
+}

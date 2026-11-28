@@ -1,0 +1,19 @@
+# /plan
+
+Turn a ticket's acceptance criteria into a test plan, and flag criteria that can't be tested as written.
+
+Plan the tests for: $ARGUMENTS
+
+If that is empty, ask which ticket to plan.
+
+Follow the `test-planning` skill:
+
+1. Run `python /home/runner/work/ai_agency_plugins/ai_agency_plugins/plugins/qa/skills/test-planning/scripts/criteria.py --issue <n>` (or
+   `--file`). If there are no criteria, say so and stop: there's nothing to test against.
+2. For each criterion flagged as untestable, propose a testable rewording.
+3. Write the cases per criterion (happy, edge and boundary, negative, regression,
+   and accessibility for UI), each with steps, data and an observable expected result,
+   using `references/case-design.md`.
+4. Hand over the plan in the skill's format. Proposed criterion rewrites go to developer
+   or scrum-master. QA may append the plan to the ticket under `## Test plan` with the
+   `ticket-management` skill's `edit`, but doesn't change the criteria.
